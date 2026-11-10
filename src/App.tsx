@@ -160,11 +160,11 @@ export function App() {
         </main>
       ) : (
         <main className="page">
-          <TayCalculator defaultMinHuTay={settings.minHuTay} />
+          <TayCalculator defaultMinHuTay={settings.minHuTay} overlapPolicy={settings.overlapPolicy} />
         </main>
       )}
 
-      {outcome && resultOpen && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)} onNewGame={newGame} />}
+      {outcome && resultOpen && !modal && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)} onNewGame={newGame} />}
       {modal === 'settings' && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setModal(null)} />}
       {modal === 'history' && (
         <HistoryModal
@@ -182,7 +182,7 @@ export function App() {
       )}
       {modal === 'rulebook' && (
         <Modal title="Rulebook & Kalkulator 44 Tay" variant="drawer" onClose={() => setModal(null)}>
-          <TayCalculator defaultMinHuTay={settings.minHuTay} />
+          <TayCalculator defaultMinHuTay={settings.minHuTay} overlapPolicy={settings.overlapPolicy} />
         </Modal>
       )}
     </div>

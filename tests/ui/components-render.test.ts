@@ -9,7 +9,7 @@ import App from '@/App';
 import { keyToTile } from '@/core/tiles';
 import { MemoryStorage, getPreset, saveGameRecord, loadGameHistory, type GameSettings } from '@/storage';
 import { ActionHud, CenterArea, HumanArea, OpponentPanel, seatPositions } from '@/ui/components/GameTable';
-import { HistoryModal } from '@/ui/components/HistoryModal';
+import { HistoryDetail, HistoryModal } from '@/ui/components/HistoryModal';
 import { HuResultModal } from '@/ui/components/HuResultModal';
 import { SettingsModal, withPreset } from '@/ui/components/SettingsModal';
 import { TayCalculator } from '@/ui/components/TayCalculator';
@@ -88,7 +88,8 @@ describe('UI render smoke tests', () => {
     const html = renderToString(createElement(TayCalculator, { defaultMinHuTay: 5 }));
     expect((html.match(/aria-label="Pilih /g) ?? []).length).toBe(44);
     expect(html).toContain('Hand memiliki / menggunakan Kim');
-    expect(html).toContain('Belum memenuhi syarat Hu');
+    expect(html).toContain('Di bawah ambang Tay');
+    expect(html).toContain('Bukan vonis Hu');
     expect(html).toContain('Salin hasil');
   });
 
@@ -116,5 +117,34 @@ describe('UI render smoke tests', () => {
     expect(html).toContain('Bot Barat Hu');
     expect(html).toContain('Seri');
     expect(html).toContain('30 Tay');
+  });
+
+  it('history detail shows grouped melds and bonus tiles without repeating meld tiles', () => {
+    const hand = keyToTile('1T');
+    const meldTile = keyToTile('5T', 1);
+    const html = renderToString(
+      createElement(HistoryDetail, {
+        record: {
+          id: 'g',
+          timestamp: 1,
+          winner: 'dong',
+          winningHand: [hand, meldTile],
+          winningTile: hand,
+          scoringBreakdown: [{ id: 4, name: '4 Tiles Bunga', tay: 10 }],
+          totalTay: 10,
+          isWithKim: false,
+          winMethod: 'tsumo',
+          durationSeconds: 12,
+          flowers: [keyToTile('F2')],
+          melds: [{ type: 'pung', tiles: [meldTile, keyToTile('5T', 2), keyToTile('5T', 3)], claimedFrom: 'nan' }],
+        },
+        onDelete: noop,
+      }),
+    );
+    expect(html).toContain('Pung');
+    expect(html).toContain('Bunga/Musim');
+    expect(html).toContain('Bunga 2');
+    expect(html.match(/aria-label="5 Tong"/g) ?? []).toHaveLength(3);
+    expect(html.match(/aria-label="1 Tong"/g) ?? []).toHaveLength(2);
   });
 });

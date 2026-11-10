@@ -54,7 +54,7 @@ interface VitestFileResult {
   assertionResults: VitestAssertion[];
 }
 
-interface VitestJson {
+export interface VitestJson {
   success: boolean;
   numTotalTests: number;
   testResults: VitestFileResult[];
@@ -96,11 +96,10 @@ export function summarize(report: VitestJson): TierSummary[] {
     const path = toRepoPath(file.name);
     const tier = tiers.get(TIERS.find((t) => t.match(path))!.id)!;
     tier.files++;
-    if (file.assertionResults.length === 0 && file.status === 'failed') {
-      tier.brokenFiles.push(path);
+    if (file.status === 'failed' && !file.assertionResults.some((a) => a.status === 'failed')) {
+      if (file.assertionResults.length === 0) tier.brokenFiles.push(path);
       tier.failed++;
-      tier.failures.push({ file: path, test: '(file failed to load)', message: (file.message ?? '').split('\n')[0] ?? '' });
-      continue;
+      tier.failures.push({ file: path, test: file.assertionResults.length === 0 ? '(file failed to load)' : '(file or hook failed)', message: (file.message ?? '').split('\n')[0] ?? '' });
     }
     for (const a of file.assertionResults) {
       if (a.status === 'passed') tier.passed++;
@@ -132,14 +131,16 @@ export function formatReport(tiers: TierSummary[]): string {
     lines.push(`${t.title.padEnd(50)}${String(t.files).padStart(6)}${String(t.passed).padStart(7)}${String(t.failed).padStart(6)}${String(t.skipped).padStart(6)}${pct(t.passRate).padStart(8)}`);
   }
   const all = tiers.reduce((a, t) => ({ p: a.p + t.passed, f: a.f + t.failed }), { p: 0, f: 0 });
-  const gate = tiers.filter((t) => GATE_TIERS.has(t.id)).reduce((a, t) => ({ p: a.p + t.passed, f: a.f + t.failed, files: a.files + t.files }), { p: 0, f: 0, files: 0 });
+  const gateTiers = tiers.filter((t) => GATE_TIERS.has(t.id));
+  const gate = gateTiers.reduce((a, t) => ({ p: a.p + t.passed, f: a.f + t.failed, s: a.s + t.skipped }), { p: 0, f: 0, s: 0 });
+  const missing = [...GATE_TIERS].filter((id) => !gateTiers.some((t) => t.id === id && t.files > 0));
+  const incomplete = missing.length > 0 || gate.s > 0 || gateTiers.some((t) => t.passed + t.failed === 0);
   lines.push('─'.repeat(78));
   lines.push(`Overall: ${all.p}/${all.p + all.f} passed (${pct(all.p + all.f ? all.p / (all.p + all.f) : null).trim()})`);
   lines.push(
-    `Tiers 1-4 gate (F32): ${gate.files === 0 ? 'no tier 1-4 files found' : `${gate.p}/${gate.p + gate.f} passed${gate.f === 0 ? ' — 100% ✓' : ' — NOT at 100% ✗'}`}`
+    `Tiers 1-4 gate (F32): ${gate.p}/${gate.p + gate.f} passed, ${gate.s} skipped — ${incomplete ? 'INCOMPLETE' : gate.f === 0 ? '100% ✓' : 'FAILED ✗'}`
   );
-  const missing = tiers.filter((t) => GATE_TIERS.has(t.id) && t.files === 0).map((t) => t.title);
-  if (missing.length) lines.push(`Missing tier directories: ${missing.join('; ')}`);
+  if (missing.length) lines.push(`Missing tiers in this run: ${missing.join('; ')}`);
   const failures = tiers.flatMap((t) => t.failures);
   if (failures.length) {
     lines.push('');
@@ -148,6 +149,14 @@ export function formatReport(tiers: TierSummary[]): string {
     if (failures.length > 50) lines.push(`  … and ${failures.length - 50} more`);
   }
   return lines.join('\n');
+}
+
+/** Evaluate the child and raw assertions; skips alone do not constitute executed tests. */
+export function evaluateOutcome(childExit: number, report: VitestJson): number {
+  const files = report.testResults;
+  const executed = files.some((file) => file.assertionResults.some((a) => a.status === 'passed' || a.status === 'failed'));
+  const failed = files.some((file) => file.status === 'failed' || file.assertionResults.some((a) => a.status === 'failed'));
+  return childExit === 0 && report.success && executed && !failed ? 0 : 1;
 }
 
 function main(argv: string[]): number {
@@ -169,8 +178,7 @@ function main(argv: string[]): number {
     const tiers = summarize(report);
     console.log(formatReport(tiers));
     if (jsonOut) writeFileSync(resolve(jsonOut), JSON.stringify({ generatedAt: new Date().toISOString(), filters, tiers }, null, 2));
-    const failed = tiers.reduce((n, t) => n + t.failed, 0);
-    return failed === 0 && report.testResults.length > 0 ? 0 : 1;
+    return evaluateOutcome(exit, report);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

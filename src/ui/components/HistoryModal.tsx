@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { computeHistoryStats, type MatchHistoryRecord } from '../../storage';
+import { computeHistoryStats, concealedHistoryTiles, type MatchHistoryRecord } from '../../storage';
 import { PLAYER_NAME, SEAT_SHORT, WIN_METHOD_LABEL } from '../labels';
 import { modeLabel } from '../tay-calculator';
 import { Modal } from './Modal';
-import { TileRow, TileView } from './TileView';
+import { MeldView, TileRow, TileView } from './TileView';
 
 interface HistoryModalProps {
   history: MatchHistoryRecord[];
@@ -15,6 +15,45 @@ interface HistoryModalProps {
 
 export function formatDate(ts: number): string {
   return new Date(ts).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+export function HistoryDetail({ record, onDelete }: { record: MatchHistoryRecord; onDelete: (id: string) => void }) {
+  const concealed = concealedHistoryTiles(record);
+  return (
+    <div className="history-detail">
+      {record.winningTile && (
+        <p>
+          Tile menang: <TileView tile={record.winningTile} size="sm" highlight />
+        </p>
+      )}
+      {concealed.length > 0 && <TileRow tiles={concealed} size="sm" highlightId={record.winningTile?.id} />}
+      {record.melds.map((meld, index) => (
+        <MeldView key={`${meld.type}-${index}`} meld={meld} size="sm" />
+      ))}
+      {record.flowers.length > 0 && (
+        <p>
+          Bunga/Musim: <TileRow tiles={record.flowers} size="sm" />
+        </p>
+      )}
+      {record.scoringBreakdown.length > 0 && (
+        <table className="tay-table">
+          <tbody>
+            {record.scoringBreakdown.map((b) => (
+              <tr key={b.id}>
+                <td>#{b.id}</td>
+                <td>{b.name}</td>
+                <td className="num">{b.tay}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="muted small">Durasi: {record.durationSeconds} detik</p>
+      <button type="button" className="btn btn-danger" onClick={() => onDelete(record.id)}>
+        <Trash2 size={14} /> Hapus
+      </button>
+    </div>
+  );
 }
 
 export function HistoryModal({ history, onDelete, onClear, onClose }: HistoryModalProps) {
@@ -66,33 +105,7 @@ export function HistoryModal({ history, onDelete, onClear, onClose }: HistoryMod
                 {r.winner && <span className="badge badge-kim">{modeLabel(r.isWithKim ? 'K' : 'NK')}</span>}
                 <span className="num">{`${r.totalTay} Tay`}</span>
               </button>
-              {open && (
-                <div className="history-detail">
-                  {r.winningTile && (
-                    <p>
-                      Tile menang: <TileView tile={r.winningTile} size="sm" highlight />
-                    </p>
-                  )}
-                  {r.winningHand.length > 0 && <TileRow tiles={r.winningHand} size="sm" highlightId={r.winningTile?.id} />}
-                  {r.scoringBreakdown.length > 0 && (
-                    <table className="tay-table">
-                      <tbody>
-                        {r.scoringBreakdown.map((b) => (
-                          <tr key={b.id}>
-                            <td>#{b.id}</td>
-                            <td>{b.name}</td>
-                            <td className="num">{b.tay}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                  <p className="muted small">Durasi: {r.durationSeconds} detik</p>
-                  <button type="button" className="btn btn-danger" onClick={() => onDelete(r.id)}>
-                    <Trash2 size={14} /> Hapus
-                  </button>
-                </div>
-              )}
+              {open && <HistoryDetail record={r} onDelete={onDelete} />}
             </li>
           );
         })}

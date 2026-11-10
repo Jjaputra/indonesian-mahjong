@@ -100,7 +100,9 @@ function detectKim({ features, mode, context }: ScoringInput): DetectedPattern[]
 
 function detectFirstTurn({ mode, context }: ScoringInput): DetectedPattern[] {
   const out: (DetectedPattern | null)[] = [];
-  const isThienFu = context.isInitialDeal && context.isSelfDraw && context.seatWind === 'dong';
+  // Rulebook #11: "Hand pembagian pertama langsung Hu (hanya untuk posisi Dong)"
+  const isDealtHand = context.isInitialDealtHand ?? context.isInitialDeal;
+  const isThienFu = isDealtHand && context.isSelfDraw && context.seatWind === 'dong';
   if (context.isPaoChin) out.push(award(10, mode, 'Pao Chin dideklarasikan pada pembagian pertama'));
   if (isThienFu) out.push(award(11, mode, 'Dong langsung Hu dari pembagian pertama'));
   if (context.isInitialDeal && context.isPaoChin && !isThienFu) {

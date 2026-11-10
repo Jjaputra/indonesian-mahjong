@@ -26,6 +26,7 @@ import {
   Wind,
 } from './types';
 import { Wall } from './wall';
+import { isKimAllowedInClaim } from '../kim/kim-validator';
 
 export const DEFAULT_RULES: GameRules = {
   kimEnabled: true,
@@ -44,6 +45,13 @@ export interface GameEngineState {
   discardPending: DiscardPendingState | null;
   pendingClaims: Partial<Record<Seat, ClaimDeclaration>>;
   consecutiveKongs: number;
+  /**
+   * Seat whose last hand tile is a fresh wall tile (dealer's 14th tile, turn draw or Kong
+   * replacement) and may therefore declare Ce Mo. Null after a discard or a Pung/Jia claim.
+   */
+  selfDrawSeat: Seat | null;
+  /** Seats that have discarded this game, claimed or not (closes their Pao Chin window). */
+  hasDiscarded: Record<Seat, boolean>;
   turnCount: number;
   winnerSeat?: Seat;
   winningTile?: Tile;
@@ -352,6 +360,8 @@ export class GameEngine {
       discardPending: null,
       pendingClaims: {},
       consecutiveKongs: 0,
+      selfDrawSeat: null,
+      hasDiscarded: { dong: false, nan: false, xi: false, bei: false },
       turnCount: 0,
       rules: mergedRules,
     };
@@ -409,6 +419,8 @@ export class GameEngine {
     this.state.discardPending = null;
     this.state.pendingClaims = {};
     this.state.consecutiveKongs = 0;
+    this.state.selfDrawSeat = null;
+    this.state.hasDiscarded = { dong: false, nan: false, xi: false, bei: false };
     this.state.turnCount = 1;
     this.state.currentTurn = this.state.dealerSeat;
 
@@ -493,6 +505,8 @@ export class GameEngine {
       if (!hasDiscards && this.state.turnCount === 1) {
         this.state.phase = 'ACTION_DECISION';
         this.state.currentTurn = this.state.dealerSeat;
+        // The dealer's 14th dealt tile counts as a draw (Thien Fu).
+        this.state.selfDrawSeat = this.state.dealerSeat;
       }
     }
 
@@ -552,6 +566,7 @@ export class GameEngine {
 
     player.hand.push(currentTile);
     this.state.currentTurn = seat;
+    this.state.selfDrawSeat = seat;
     this.state.phase = 'ACTION_DECISION';
     this.state.discardPending = null;
     this.state.pendingClaims = {};
@@ -591,6 +606,8 @@ export class GameEngine {
 
     player.hand.splice(tileIndex, 1);
     this.state.consecutiveKongs = 0;
+    this.state.selfDrawSeat = null;
+    this.state.hasDiscarded[seat] = true;
     this.state.discardPending = {
       discarder: seat,
       tile,
@@ -660,6 +677,7 @@ export class GameEngine {
 
     if (rep) {
       player.hand.push(rep);
+      this.state.selfDrawSeat = seat;
     }
 
     this.state.phase = 'ACTION_DECISION';
@@ -694,6 +712,7 @@ export class GameEngine {
 
     // Remove tile from hand and expose into Chiong Kong window
     player.hand.splice(tileIdx, 1);
+    this.state.selfDrawSeat = null;
     this.state.discardPending = {
       discarder: seat,
       tile,
@@ -721,6 +740,9 @@ export class GameEngine {
     const player = this.state.players[seat];
     if (player.hand.length === 0) {
       throw new Error('Player hand is empty');
+    }
+    if (this.state.selfDrawSeat !== seat) {
+      throw new Error('Cannot declare self-draw Hu without a fresh draw (Pung/Jia claims must discard)');
     }
 
     const lastDrawn = player.hand[player.hand.length - 1]!;
@@ -750,10 +772,10 @@ export class GameEngine {
     if (this.state.phase !== 'ACTION_DECISION' || this.state.currentTurn !== seat) {
       return false;
     }
-    const player = this.state.players[seat];
-    if (player.discards.length > 0) {
+    if (!this.canDeclarePaoChin(seat)) {
       return false;
     }
+    const player = this.state.players[seat];
     player.isPaoChin = true;
     player.isCin = true;
     return true;
@@ -790,6 +812,14 @@ export class GameEngine {
           throw new Error('Using Kim in Jia/Pung/Kong claims is prohibited (triggers Lew Fit)');
         }
       }
+    }
+    // Casual: the per-type Kim toggles (Jia / Pung + Tris) also bind direct claims
+    if (
+      declaration.meldTiles?.some(isKim) &&
+      (declaration.action === 'jia' || declaration.action === 'pung' || declaration.action === 'kong') &&
+      !this.kimClaimsAllowed(declaration.action)
+    ) {
+      throw new Error(`Using Kim in a ${declaration.action} claim is disabled by the Kim rules`);
     }
 
     const claimant = this.state.players[declaration.seat];
@@ -1056,6 +1086,7 @@ export class GameEngine {
 
       if (rep) {
         discarderPlayer.hand.push(rep);
+        this.state.selfDrawSeat = discarder;
       }
 
       this.state.phase = 'ACTION_DECISION';
@@ -1138,6 +1169,7 @@ export class GameEngine {
 
       if (rep) {
         claimant.hand.push(rep);
+        this.state.selfDrawSeat = kongClaim.seat;
       }
 
       this.state.currentTurn = kongClaim.seat;
@@ -1197,6 +1229,7 @@ export class GameEngine {
       });
 
       this.state.currentTurn = pungClaim.seat;
+      this.state.selfDrawSeat = null;
       this.state.turnCount++;
       this.state.phase = 'ACTION_DECISION';
       this.state.discardPending = null;
@@ -1261,6 +1294,7 @@ export class GameEngine {
       });
 
       this.state.currentTurn = jiaClaim.seat;
+      this.state.selfDrawSeat = null;
       this.state.turnCount++;
       this.state.phase = 'ACTION_DECISION';
       this.state.discardPending = null;
@@ -1302,21 +1336,35 @@ export class GameEngine {
     };
   }
 
-  /** True when Casual rules let a Kim from hand stand in for a missing tile in a Jia/Pung/Kong claim. */
-  private kimClaimsAllowed(): boolean {
-    return this.state.rules.kimEnabled && this.state.rules.allowKimInMeldClaim;
+  /**
+   * Pao Chin (rulebook #10: "Hand langsung Cin pada pembagian tile pertama, harus dideclare") is
+   * declared on the seat's first turn: before it has ever discarded (a claimed discard never reaches
+   * the river, so this is tracked separately) and before it has melded.
+   */
+  private canDeclarePaoChin(seat: Seat): boolean {
+    const player = this.state.players[seat];
+    return !player.isPaoChin && !this.state.hasDiscarded[seat] && player.discards.length === 0 && player.melds.length === 0;
+  }
+
+  /**
+   * True when the rules let a Kim from hand stand in for a missing tile in this claim type:
+   * master allowKimInMeldClaim plus allowKimInJia (Jia) or allowKimInPung + allowKimInTriplet
+   * (Pung/Kong). Rules objects without the per-type flags keep them enabled.
+   */
+  private kimClaimsAllowed(action: 'jia' | 'pung' | 'kong'): boolean {
+    return isKimAllowedInClaim(action, this.state.rules);
   }
 
   /** May `t` from hand fill a Pung/Kong slot for the discarded `tile`? */
   private isClaimMatch(t: Tile, tile: Tile): boolean {
-    if (isKim(t)) return this.kimClaimsAllowed();
+    if (isKim(t)) return this.kimClaimsAllowed('pung');
     return isSameKind(t, tile);
   }
 
   /** `need` hand tiles for a Pung (2) or Kong (3) on `tile`: natural copies first, Kims fill the rest. */
   private claimKindTiles(hand: readonly Tile[], tile: Tile, need: number): Tile[] | null {
     const natural = hand.filter((t) => !isKim(t) && isSameKind(t, tile));
-    const kims = this.kimClaimsAllowed() ? hand.filter(isKim) : [];
+    const kims = this.kimClaimsAllowed('pung') ? hand.filter(isKim) : [];
     const picked = [...natural, ...kims].slice(0, need);
     return picked.length === need ? picked : null;
   }
@@ -1330,7 +1378,7 @@ export class GameEngine {
     if (v >= 2 && v <= 8) patterns.push([v - 1, v + 1]);
     if (v <= 7) patterns.push([v + 1, v + 2]);
     const find = (value: number) => hand.find((t) => !isKim(t) && t.type === tile.type && t.value === value);
-    const kim = this.kimClaimsAllowed() ? hand.find(isKim) : undefined;
+    const kim = this.kimClaimsAllowed('jia') ? hand.find(isKim) : undefined;
     const natural: Tile[][] = [];
     const assisted: Tile[][] = [];
     for (const [a, b] of patterns) {
@@ -1347,7 +1395,7 @@ export class GameEngine {
     if (meldTiles.length !== 2 || !isSuited(tile)) return false;
     const naturals = meldTiles.filter((t) => !isKim(t));
     const kimCount = meldTiles.length - naturals.length;
-    if (kimCount > 0 && !this.kimClaimsAllowed()) return false;
+    if (kimCount > 0 && !this.kimClaimsAllowed('jia')) return false;
     if (naturals.some((t) => !isSuited(t) || t.type !== tile.type)) return false;
     const vals = [...naturals.map((t) => t.value), tile.value].sort((a, b) => a - b);
     if (new Set(vals).size !== vals.length) return false;
@@ -1421,8 +1469,8 @@ export class GameEngine {
         }
       });
 
-      // Self-draw Hu
-      if (player.hand.length > 0) {
+      // Self-draw Hu: only with a fresh wall tile, never straight after a Pung/Jia claim
+      if (player.hand.length > 0 && this.state.selfDrawSeat === seat) {
         const lastTile = player.hand[player.hand.length - 1]!;
         const remaining = player.hand.slice(0, player.hand.length - 1);
         if (this.huValidator(remaining, player.melds, lastTile, true)) {
@@ -1430,10 +1478,7 @@ export class GameEngine {
         }
       }
 
-      // Pao Chin: First turn, 0 discards
-      if (player.discards.length === 0 && !player.isPaoChin) {
-        result.canPaoChin = true;
-      }
+      result.canPaoChin = this.canDeclarePaoChin(seat);
     } else if (this.state.phase === 'CLAIM_WINDOW' && this.state.discardPending) {
       const { discarder, tile, isPromotedKong } = this.state.discardPending;
 

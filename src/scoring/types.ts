@@ -24,6 +24,11 @@ export interface WinContext {
   isDoubleKongReplacement: boolean;
   seatWind: Seat;
   roundWind: Wind;
+  /**
+   * Ce Mo on the untouched hand from the first deal (no draw, discard or meld has happened yet).
+   * Thien Fu needs this AND posisi Dong; when omitted, `isInitialDeal` is used instead.
+   */
+  isInitialDealtHand?: boolean;
   discarderSeat?: Seat;
   /** Declared immediate Hu without a completed hand (#6, #9, #34 at 10 Tay) */
   isInstantHu?: boolean;

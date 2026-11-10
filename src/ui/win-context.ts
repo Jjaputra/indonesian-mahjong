@@ -42,6 +42,15 @@ export function isFirstGoAround(state: Readonly<GameEngineState>): boolean {
   return committed < SEAT_ORDER.length;
 }
 
+/**
+ * True while `seat` (the dealer) still holds the hand exactly as dealt: no draw, discard or meld has
+ * happened at the table yet. A Ce Mo now is Hu "dari pembagian pertama" (Thien Fu when posisi Dong).
+ */
+export function isInitialDealtHand(state: Readonly<GameEngineState>, seat: Seat): boolean {
+  if (seat !== state.dealerSeat || state.turnCount !== 1) return false;
+  return SEAT_ORDER.every((s) => state.players[s].discards.length === 0 && state.players[s].melds.length === 0);
+}
+
 /** Table facts (all public) that determine the special-win Tay patterns. */
 export interface WinFlags {
   isSelfDraw: boolean;
@@ -53,6 +62,8 @@ export interface WinFlags {
   isFirstGoAround: boolean;
   isPaoChin: boolean;
   discarderSeat?: Seat;
+  /** Self-draw Hu on the dealer's untouched opening hand (see isInitialDealtHand); omitted = isFirstGoAround */
+  isInitialDealtHand?: boolean;
 }
 
 export function buildWinContext(seat: Seat, roundWind: Wind, winningTile: Tile, flags: WinFlags): WinContext {
@@ -69,6 +80,7 @@ export function buildWinContext(seat: Seat, roundWind: Wind, winningTile: Tile, 
     isDoubleKongReplacement: kongDraw >= 2,
     seatWind: seat,
     roundWind,
+    isInitialDealtHand: flags.isInitialDealtHand === undefined ? undefined : flags.isSelfDraw && flags.isInitialDealtHand,
     discarderSeat: flags.discarderSeat,
   };
 }

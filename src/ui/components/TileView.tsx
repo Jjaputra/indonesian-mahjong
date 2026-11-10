@@ -1,5 +1,5 @@
 import type { Meld, Tile } from '../../core/types';
-import { MELD_LABEL, getTileFace } from '../labels';
+import { MELD_LABEL, getTileFace, type TileFace, type TileTone } from '../labels';
 
 export type TileSize = 'sm' | 'md' | 'lg';
 
@@ -15,8 +15,19 @@ interface TileViewProps {
   onDoubleClick?: () => void;
 }
 
+const SUIT_MARK: Partial<Record<TileTone, string>> = { tong: '筒', sok: '索', ban: '萬' };
+
+/** Suit tiles keep the Indonesian name under the number, and a glyph that stays visible when the caption is hidden. */
+function suitCaption(face: TileFace): { mark?: string; caption: string } {
+  const mark = SUIT_MARK[face.tone];
+  if (!mark) return { caption: face.sub };
+  const name = face.sub.split(' ').pop();
+  return { mark, caption: name && name.length > 0 ? name : face.sub };
+}
+
 export function TileView({ tile, size = 'md', selected, highlight, disabled, drawn, onClick, onDoubleClick }: TileViewProps) {
   const face = getTileFace(tile);
+  const { mark, caption } = suitCaption(face);
   const cls = [
     'tile',
     `tile-${size}`,
@@ -31,8 +42,13 @@ export function TileView({ tile, size = 'md', selected, highlight, disabled, dra
     .join(' ');
   const content = (
     <>
+      {mark && (
+        <span className="tile-mark" aria-hidden="true">
+          {mark}
+        </span>
+      )}
       <span className="tile-main">{face.main}</span>
-      <span className="tile-sub">{face.sub}</span>
+      <span className="tile-sub">{caption}</span>
       {face.tone === 'kim' && <span className="kim-badge">KIM</span>}
     </>
   );

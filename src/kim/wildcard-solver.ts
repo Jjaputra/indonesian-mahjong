@@ -716,8 +716,9 @@ export function solveStandardHand(
       returnTiles(firstKind, taken);
     }
 
-    // M1b: 2 natural + 1 Kim (requires r.allowKimInPung or r.allowKimInTriplet)
-    if (count >= 2 && availableKims.length >= 1 && r.kimEnabled && (r.allowKimInPung || r.allowKimInTriplet)) {
+    // M1b: 2 natural + 1 Kim. A concealed triplet is a Tris, not a claimed Pung, so only
+    // allowKimInTriplet governs it (claimed Pungs are checked by isKimAllowedInClaim).
+    if (count >= 2 && availableKims.length >= 1 && r.kimEnabled && r.allowKimInTriplet) {
       const taken = takeTiles(firstKind, 2);
       const kim = availableKims[availableKims.length - 1]!;
       const rep = createRepresentedTile(kim, firstType as TileType, firstVal);
@@ -734,8 +735,8 @@ export function solveStandardHand(
       returnTiles(firstKind, taken);
     }
 
-    // M1c: 1 natural + 2 Kims
-    if (count >= 1 && availableKims.length >= 2 && r.kimEnabled && (r.allowKimInPung || r.allowKimInTriplet)) {
+    // M1c: 1 natural + 2 Kims (allowKimInTriplet, as M1b)
+    if (count >= 1 && availableKims.length >= 2 && r.kimEnabled && r.allowKimInTriplet) {
       const taken = takeTiles(firstKind, 1);
       const k1 = availableKims[availableKims.length - 2]!;
       const k2 = availableKims[availableKims.length - 1]!;

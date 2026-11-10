@@ -3,7 +3,8 @@
  * Pattern values come from the canonical rulebook table in src/scoring/patterns.ts.
  */
 import type { KimMode } from '../kim/types';
-import { PATTERNS, type PatternDefinition, type ScoringResult } from '../scoring';
+import { PATTERNS, SUPERSEDES, type PatternDefinition, type ScoringResult } from '../scoring';
+import type { OverlapPolicy } from '../storage';
 import type { HuOutcome } from './game-controller';
 import { PLAYER_NAME, SEAT_LABEL, WIN_METHOD_LABEL, tileText } from './labels';
 
@@ -48,41 +49,121 @@ export interface CalculatorResult {
   lines: CalculatorLine[];
   total: number;
   minHuTay: number;
+  /** The summed patterns reach minHuTay. This is not a legal-Hu verdict. */
   meetsMinimum: boolean;
   /** Selected patterns that do not exist in the active mode ("—") and are ignored */
   ignoredIds: number[];
+  /** Patterns removed because a higher pattern in SUPERSEDES is also selected. */
+  removedIds: number[];
+  instant: boolean;
+  overlapPolicy: OverlapPolicy;
   statusText: string;
 }
 
-/** Pattern selectable in a mode (the "—" column cannot be chosen). */
-export function isSelectable(id: number, withKim: boolean): boolean {
-  const def = PATTERNS.get(id);
-  return !!def && (withKim ? def.K : def.NK) !== null;
+/**
+ * Optional exact-total inputs. Omitted fields keep the rulebook column value.
+ * Flower #1 scores only seat matches (0 Tay per tile). Season #2 scores 1 Tay per tile plus seat matches.
+ */
+export interface CalculatorBonus {
+  flowers?: number;
+  seasons?: number;
+  flowerSeatMatches?: number;
+  seasonSeatMatches?: number;
 }
 
-export function calculateTay(selectedIds: Iterable<number>, withKim: boolean, minHuTay: number): CalculatorResult {
+export interface CalculatorOptions {
+  /** Default `rulebook_exclusive` (canonical SUPERSEDES). `cumulative` keeps every selected line. */
+  overlapPolicy?: OverlapPolicy;
+  /** Instant Hu uses each pattern's `instantHu` value. Patterns without one are ignored. */
+  instant?: boolean;
+  bonus?: CalculatorBonus;
+}
+
+const MAX_BONUS_TILES = 4;
+
+function clampCount(value: number | undefined, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  return Math.min(max, Math.max(0, Math.floor(value)));
+}
+
+function bonusTay(id: number, base: number, bonus: CalculatorBonus | undefined): number {
+  if (!bonus) return base;
+  if (id === 1 && bonus.flowers !== undefined) {
+    const flowers = clampCount(bonus.flowers, MAX_BONUS_TILES);
+    return clampCount(bonus.flowerSeatMatches ?? 0, flowers);
+  }
+  if (id === 2 && bonus.seasons !== undefined) {
+    const seasons = clampCount(bonus.seasons, MAX_BONUS_TILES);
+    return seasons + clampCount(bonus.seasonSeatMatches ?? 0, seasons);
+  }
+  return base;
+}
+
+/** Pattern selectable in a mode (the "—" column cannot be chosen). Instant mode only allows instant-Hu patterns. */
+export function isSelectable(id: number, withKim: boolean, instant = false): boolean {
+  const def = PATTERNS.get(id);
+  if (!def || (withKim ? def.K : def.NK) === null) return false;
+  return !instant || def.instantHu != null;
+}
+
+function applySupersedes(lines: CalculatorLine[], policy: OverlapPolicy): { lines: CalculatorLine[]; removedIds: number[] } {
+  if (policy !== 'rulebook_exclusive') return { lines, removedIds: [] };
+  const present = new Set(lines.map((line) => line.id));
+  const removed = new Set<number>();
+  for (const [higher, lower] of SUPERSEDES) {
+    if (!present.has(higher)) continue;
+    for (const id of lower) if (present.has(id)) removed.add(id);
+  }
+  return {
+    lines: lines.filter((line) => !removed.has(line.id)),
+    removedIds: [...removed].sort((a, b) => a - b),
+  };
+}
+
+function thresholdStatus(meets: boolean, total: number, min: number, removedIds: readonly number[]): string {
+  const gate = meets ? `Cukup Tay · ${total} ≥ ${min}` : `Di bawah ambang Tay · ${total} / ${min}`;
+  const replaced = removedIds.length ? ` Pola digantikan: ${removedIds.map((id) => `#${id}`).join(', ')}.` : '';
+  return `${gate}.${replaced} Bukan vonis Hu — susunan kartu dan aturan meja tetap menentukan.`;
+}
+
+export function calculateTay(
+  selectedIds: Iterable<number>,
+  withKim: boolean,
+  minHuTay: number,
+  options: CalculatorOptions = {},
+): CalculatorResult {
   const mode: KimMode = withKim ? 'K' : 'NK';
+  const instant = options.instant === true;
+  const overlapPolicy = options.overlapPolicy ?? 'rulebook_exclusive';
   const lines: CalculatorLine[] = [];
   const ignoredIds: number[] = [];
   const unique = [...new Set(selectedIds)].sort((a, b) => a - b);
   for (const id of unique) {
     const def = PATTERNS.get(id);
     if (!def) continue;
-    const tay = def[mode];
-    if (tay === null) ignoredIds.push(id);
-    else lines.push({ id, name: def.name, tay });
+    const base = def[mode];
+    if (base === null || (instant && def.instantHu == null)) {
+      ignoredIds.push(id);
+      continue;
+    }
+    const tay = instant ? def.instantHu! : bonusTay(id, base, options.bonus);
+    lines.push({ id, name: def.name, tay });
   }
-  const total = lines.reduce((s, l) => s + l.tay, 0);
-  const min = Math.max(0, Math.floor(minHuTay));
+  const applied = applySupersedes(lines, overlapPolicy);
+  const total = applied.lines.reduce((sum, line) => sum + line.tay, 0);
+  const min = Math.max(0, Math.floor(Number.isFinite(minHuTay) ? minHuTay : 0));
   const meetsMinimum = total >= min;
   return {
     mode,
-    lines,
+    lines: applied.lines,
     total,
     minHuTay: min,
     meetsMinimum,
     ignoredIds,
-    statusText: meetsMinimum ? `MEMENUHI SYARAT HU · ${total} ≥ ${min} Tay` : `Belum memenuhi syarat Hu · ${total} / ${min} Tay`,
+    removedIds: applied.removedIds,
+    instant,
+    overlapPolicy,
+    statusText: thresholdStatus(meetsMinimum, total, min, applied.removedIds),
   };
 }
 

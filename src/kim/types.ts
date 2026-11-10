@@ -13,11 +13,11 @@ export interface KimRules {
   readonly allowKimInMeldClaim: boolean;
   /** Allow Kim to complete the winning pair (eye/kaki) (default: true) */
   readonly allowKimInPair: boolean;
-  /** Allow Kim to complete Pung melds (default: true) */
+  /** Allow Kim in a claimed Pung/Kong; also needs allowKimInMeldClaim and allowKimInTriplet (default: true) */
   readonly allowKimInPung: boolean;
-  /** Allow Kim to complete Jia sequences (default: true) */
+  /** Allow Kim to complete Jia sequences, claimed (with allowKimInMeldClaim) or concealed (default: true) */
   readonly allowKimInJia: boolean;
-  /** Allow Kim to complete triplets / Tris (default: true) */
+  /** Allow Kim in any triplet / Tris, concealed or claimed (default: true) */
   readonly allowKimInTriplet: boolean;
 }
 

@@ -18,6 +18,7 @@ import {
   loadGameHistory,
   loadSettings,
   resetSettings,
+  concealedHistoryTiles,
   sanitizeGameRecord,
   sanitizeSettings,
   saveGameRecord,
@@ -387,6 +388,47 @@ describe('Storage: match history', () => {
     expect(rec.winMethod).toBe('ron');
     expect(rec.durationSeconds).toBe(0);
     expect(rec.isWithKim).toBe(false);
+    expect(rec.flowers).toEqual([]);
+    expect(rec.melds).toEqual([]);
+  });
+
+  it('keeps legacy v1 records that have no flowers or melds', () => {
+    const rec = sanitizeGameRecord({
+      id: 'legacy',
+      timestamp: 4,
+      winner: 'dong',
+      winningHand: [tong(1), tong(1, 2)],
+      winningTile: tong(1),
+      totalTay: 3,
+      winMethod: 'ron',
+    })!;
+    expect(rec.flowers).toEqual([]);
+    expect(rec.melds).toEqual([]);
+    expect(concealedHistoryTiles(rec)).toEqual(rec.winningHand);
+  });
+
+  it('validates flowers and melds and hides flattened meld tiles once structure exists', () => {
+    const flower = { id: 'flower-2-1', type: 'flower', value: 2 };
+    const pung = [tong(5, 1), tong(5, 2), tong(5, 3)];
+    const rec = sanitizeGameRecord({
+      id: 'structured',
+      timestamp: 8,
+      winner: 'nan',
+      winningHand: [tong(1), pung[0], { id: 9 }, { id: 'bad', type: 'nope', value: 1 }],
+      winningTile: tong(1),
+      totalTay: 8,
+      flowers: [flower, { id: 'flower-2-1', type: 'flower', value: 2 }, { id: 3 }, { id: 'x', type: 'season', value: 'no' }],
+      melds: [
+        { type: 'pung', tiles: [...pung, pung[0]], claimedFrom: 'bei' },
+        { type: 'chi', tiles: [tong(2)] },
+        { type: 'jia', tiles: 'nope' },
+        null,
+        { type: 'kong', tiles: [], claimedFrom: 'center' },
+      ],
+    })!;
+    expect(rec.flowers).toEqual([flower]);
+    expect(rec.melds).toEqual([{ type: 'pung', tiles: pung, claimedFrom: 'bei' }]);
+    expect(concealedHistoryTiles(rec).map((tile) => tile.id)).toEqual(['tong-1-1']);
   });
 
   it('rejects invalid input records instead of persisting them', () => {

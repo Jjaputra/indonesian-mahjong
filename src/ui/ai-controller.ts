@@ -12,7 +12,7 @@ import type { ClaimDeclaration, LegalActions, Meld, Seat, Suit, Tile, Wind } fro
 import { isKim } from '../kim/wildcard-solver';
 import type { OverlapPolicy as ScoringOverlapPolicy, ScoringResult } from '../scoring';
 import type { AIDifficulty } from '../storage';
-import { isFirstGoAround, scoreHu, type FullRules, type WinFlags } from './win-context';
+import { isFirstGoAround, isInitialDealtHand, scoreHu, type FullRules, type WinFlags } from './win-context';
 
 export interface PublicSeatInfo {
   seat: Seat;
@@ -39,6 +39,8 @@ export interface AIObservation {
   wallRemaining: number;
   consecutiveKongs: number;
   isFirstGoAround: boolean;
+  /** Own hand is still exactly as dealt to the dealer (Thien Fu window); omitted = isFirstGoAround */
+  isInitialDealtHand?: boolean;
   pendingDiscard: { discarder: Seat; tile: Tile; isPromotedKong: boolean } | null;
   legal: LegalActions;
 }
@@ -89,6 +91,7 @@ export function buildObservation(
     wallRemaining: state.wall.remainingCount,
     consecutiveKongs: state.consecutiveKongs,
     isFirstGoAround: isFirstGoAround(state),
+    isInitialDealtHand: isInitialDealtHand(state, seat),
     pendingDiscard: pending ? { discarder: pending.discarder, tile: { ...pending.tile }, isPromotedKong: !!pending.isPromotedKong } : null,
     legal,
   };
@@ -106,6 +109,7 @@ function winFlags(obs: AIObservation, isSelfDraw: boolean): WinFlags {
     isFirstGoAround: obs.isFirstGoAround,
     isPaoChin: obs.isPaoChin,
     discarderSeat: isSelfDraw ? undefined : obs.pendingDiscard?.discarder,
+    isInitialDealtHand: obs.isInitialDealtHand,
   };
 }
 

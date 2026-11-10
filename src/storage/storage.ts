@@ -9,7 +9,7 @@
 //   `localStorage` is used if usable, otherwise an in-memory fallback store.
 // ============================================================================
 
-import type { GameRules, Seat, Tile, TileType, Wind } from '../core/types';
+import type { GameRules, Meld, MeldType, Seat, Tile, TileType, Wind } from '../core/types';
 import type { KimRules } from '../kim/types';
 import { CASUAL_KIM_RULES, TOURNAMENT_KIM_RULES } from '../kim/types';
 
@@ -90,11 +90,24 @@ export interface MatchHistoryRecord {
   isWithKim: boolean;
   winMethod: WinMethod;
   durationSeconds: number;
+  /**
+   * Flower and season tiles from the finished hand.
+   * Legacy v1 records omit this; loads normalize it to an empty list.
+   */
+  flowers: Tile[];
+  /**
+   * Meld structure from the finished hand.
+   * Legacy v1 records stored meld tiles only inside `winningHand` and omit this.
+   */
+  melds: Meld[];
 }
 
-/** Input to `saveGameRecord`: `id` and `timestamp` are generated when omitted. */
-export type NewMatchHistoryRecord = Omit<MatchHistoryRecord, 'id' | 'timestamp'> &
-  Partial<Pick<MatchHistoryRecord, 'id' | 'timestamp'>>;
+/**
+ * Input to `saveGameRecord`. `id` and `timestamp` are generated when omitted.
+ * `flowers` and `melds` are optional so legacy callers keep compiling; loads always fill them.
+ */
+export type NewMatchHistoryRecord = Omit<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds'> &
+  Partial<Pick<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds'>>;
 
 /** Minimal subset of the Web Storage API used by this module. */
 export interface StorageLike {
@@ -123,6 +136,10 @@ const FLOWER_MODES: readonly FlowerReplacementMode[] = ['auto', 'manual'];
 const OVERLAP_POLICIES: readonly OverlapPolicy[] = ['rulebook_exclusive', 'cumulative'];
 const ANIMATION_SPEEDS: readonly AnimationSpeed[] = ['off', 'slow', 'normal', 'fast'];
 const WIN_METHODS: readonly WinMethod[] = ['tsumo', 'ron', 'chiong_kong', 'draw'];
+const MELD_TYPES: readonly MeldType[] = ['jia', 'pung', 'kong', 'ankong'];
+const MAX_STORED_FLOWERS = 8;
+const MAX_STORED_MELDS = 8;
+const MAX_TILES_PER_MELD = 4;
 const TILE_TYPES: readonly TileType[] = [
   'tong',
   'sok',
@@ -453,6 +470,60 @@ function sanitizeBreakdownItem(raw: unknown): ScoringBreakdownItem | null {
   return { id: raw.id, name: raw.name, tay: raw.tay };
 }
 
+function dedupeTiles(tiles: Tile[], limit: number): Tile[] {
+  const seen = new Set<string>();
+  const out: Tile[] = [];
+  for (const tile of tiles) {
+    if (seen.has(tile.id)) continue;
+    seen.add(tile.id);
+    out.push(tile);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function sanitizeTileList(raw: unknown, limit: number): Tile[] {
+  if (!Array.isArray(raw)) return [];
+  return dedupeTiles(
+    raw.map(sanitizeTile).filter((tile): tile is Tile => tile !== null),
+    limit,
+  );
+}
+
+function sanitizeMeld(raw: unknown): Meld | null {
+  if (!isRecord(raw)) return null;
+  if (typeof raw.type !== 'string' || !(MELD_TYPES as readonly string[]).includes(raw.type)) return null;
+  const tiles = sanitizeTileList(raw.tiles, MAX_TILES_PER_MELD);
+  if (tiles.length === 0) return null;
+  const meld: Meld = { type: raw.type as MeldType, tiles };
+  if ((SEATS as readonly unknown[]).includes(raw.claimedFrom)) {
+    return { ...meld, claimedFrom: raw.claimedFrom as Seat };
+  }
+  return meld;
+}
+
+function sanitizeMelds(raw: unknown): Meld[] {
+  if (!Array.isArray(raw)) return [];
+  const melds: Meld[] = [];
+  for (const item of raw) {
+    const meld = sanitizeMeld(item);
+    if (!meld) continue;
+    melds.push(meld);
+    if (melds.length >= MAX_STORED_MELDS) break;
+  }
+  return melds;
+}
+
+/**
+ * Tiles to show as the concealed hand. Legacy v1 rows flatten meld tiles into `winningHand`
+ * and have no `melds`, so they stay intact. When melds are stored, those tile ids are not drawn twice.
+ */
+export function concealedHistoryTiles(record: Pick<MatchHistoryRecord, 'winningHand' | 'melds'>): Tile[] {
+  const meldIds = new Set(record.melds.flatMap((meld) => meld.tiles.map((tile) => tile.id)));
+  if (meldIds.size === 0) return record.winningHand;
+  return record.winningHand.filter((tile) => !meldIds.has(tile.id));
+}
+
 /** Validate a single stored history record. Returns null if unrecoverable. */
 export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
   if (!isRecord(raw)) return null;
@@ -470,6 +541,8 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
   const winningHand = Array.isArray(raw.winningHand)
     ? raw.winningHand.map(sanitizeTile).filter((t): t is Tile => t !== null)
     : [];
+  const flowers = sanitizeTileList(raw.flowers, MAX_STORED_FLOWERS);
+  const melds = sanitizeMelds(raw.melds);
   const scoringBreakdown = Array.isArray(raw.scoringBreakdown)
     ? raw.scoringBreakdown
         .map(sanitizeBreakdownItem)
@@ -490,6 +563,8 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
     winMethod: pickEnum(raw.winMethod, WIN_METHODS, winner === null ? 'draw' : 'ron'),
     durationSeconds:
       isFiniteNumber(raw.durationSeconds) && raw.durationSeconds >= 0 ? raw.durationSeconds : 0,
+    flowers,
+    melds,
   };
 }
 

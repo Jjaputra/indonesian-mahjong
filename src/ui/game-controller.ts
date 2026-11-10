@@ -12,7 +12,7 @@ import type { ScoringResult } from '../scoring';
 import { saveGameRecord, type GameSettings, type StorageLike, type WinMethod } from '../storage';
 import { buildObservation, builtInStrategy, chooseDiscard, isFirstGoAround, type AIStrategy } from './ai-controller';
 import { MELD_LABEL, PLAYER_NAME, SEAT_SHORT, tileText } from './labels';
-import { scoreHu, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
+import { isInitialDealtHand, scoreHu, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
 
 export type GameEventType = 'draw' | 'discard' | 'jia' | 'pung' | 'kong' | 'flower' | 'hu' | 'lewFit' | 'seri';
 
@@ -280,7 +280,18 @@ export class GameController {
     const o = this.outcome;
     if (o.kind === 'seri') {
       saveGameRecord(
-        { winner: null, winningHand: [], winningTile: null, scoringBreakdown: [], totalTay: 0, isWithKim: false, winMethod: 'draw', durationSeconds: o.durationSeconds },
+        {
+          winner: null,
+          winningHand: [],
+          winningTile: null,
+          scoringBreakdown: [],
+          totalTay: 0,
+          isWithKim: false,
+          winMethod: 'draw',
+          durationSeconds: o.durationSeconds,
+          flowers: [],
+          melds: [],
+        },
         this.storage
       );
       return;
@@ -288,7 +299,13 @@ export class GameController {
     saveGameRecord(
       {
         winner: o.winner,
-        winningHand: [...o.hand, ...o.melds.flatMap((m) => m.tiles)],
+        winningHand: o.hand.map((t) => ({ ...t })),
+        melds: o.melds.map((m) => ({
+          type: m.type,
+          tiles: m.tiles.map((t) => ({ ...t })),
+          ...(m.claimedFrom ? { claimedFrom: m.claimedFrom } : {}),
+        })),
+        flowers: o.flowers.map((t) => ({ ...t })),
         winningTile: o.winningTile,
         scoringBreakdown: o.scoring.patterns.map((p) => ({ id: p.id, name: p.name, tay: p.tay })),
         totalTay: o.scoring.totalTay,
@@ -313,6 +330,7 @@ export class GameController {
       isFirstGoAround: isFirstGoAround(s),
       isPaoChin: s.players[seat].isPaoChin,
       discarderSeat: isSelfDraw ? undefined : s.discardPending?.discarder,
+      isInitialDealtHand: isSelfDraw && isInitialDealtHand(s, seat),
     };
   }
 
@@ -594,13 +612,13 @@ export class GameController {
     const action = this.strategy.decideTurnAction(this.aiObservation(seat), this.rng);
     switch (action.type) {
       case 'hu': {
-        const scoring = this.scoreSelfDraw(seat);
+        const scoring = this.legal(seat).canSelfDrawHu ? this.scoreSelfDraw(seat) : null;
         if (scoring?.isValidHu) {
           this.engine.declareSelfDrawHu(seat);
           this.finishHu(seat, scoring, 'tsumo');
           return;
         }
-        // A strategy asked for an invalid Hu: never commit a Lew Fit, discard instead.
+        // A strategy asked for an invalid Hu (or one without a fresh draw): never commit a Lew Fit, discard instead.
         const tileId = chooseDiscard(this.aiObservation(seat), this.rng);
         if (tileId) this.discardFor(seat, tileId);
         return;

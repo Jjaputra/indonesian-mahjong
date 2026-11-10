@@ -57,14 +57,57 @@ describe('calculateTay', () => {
     const nk = calculateTay([14, 8, 43], false, 5);
     expect(nk.total).toBe(7);
     expect(nk.meetsMinimum).toBe(true);
-    expect(nk.statusText).toBe('MEMENUHI SYARAT HU · 7 ≥ 5 Tay');
+    expect(nk.statusText).toBe('Cukup Tay · 7 ≥ 5. Bukan vonis Hu — susunan kartu dan aturan meja tetap menentukan.');
+    expect(nk.statusText).not.toContain('MEMENUHI SYARAT HU');
 
     const k = calculateTay([14, 8, 43], true, 5);
     expect(k.mode).toBe('K');
     expect(k.ignoredIds).toEqual([8]);
     expect(k.total).toBe(4);
     expect(k.meetsMinimum).toBe(false);
-    expect(k.statusText).toBe('Belum memenuhi syarat Hu · 4 / 5 Tay');
+    expect(k.statusText).toBe('Di bawah ambang Tay · 4 / 5. Bukan vonis Hu — susunan kartu dan aturan meja tetap menentukan.');
+  });
+
+  it('drops superseded patterns under the rulebook policy and keeps them when cumulative', () => {
+    const exclusive = calculateTay([12, 10], false, 5);
+    expect(exclusive.total).toBe(60);
+    expect(exclusive.removedIds).toEqual([10]);
+    expect(exclusive.lines.map((line) => line.id)).toEqual([12]);
+    expect(exclusive.statusText).toContain('Pola digantikan: #10');
+    expect(exclusive.statusText).toContain('Bukan vonis Hu');
+
+    const cumulative = calculateTay([12, 10], false, 5, { overlapPolicy: 'cumulative' });
+    expect(cumulative.total).toBe(90);
+    expect(cumulative.removedIds).toEqual([]);
+  });
+
+  it('uses the instant value for pattern 6 and the completed value otherwise', () => {
+    const instant = calculateTay([6], false, 15, { instant: true });
+    expect(instant.total).toBe(10);
+    expect(instant.meetsMinimum).toBe(false);
+    expect(instant.instant).toBe(true);
+
+    const completed = calculateTay([6], false, 15);
+    expect(completed.total).toBe(30);
+    expect(completed.meetsMinimum).toBe(true);
+
+    const mixed = calculateTay([6, 14], false, 5, { instant: true });
+    expect(mixed.total).toBe(10);
+    expect(mixed.ignoredIds).toEqual([14]);
+  });
+
+  it('scores explicit flower and season counts with seat matches', () => {
+    const exact = calculateTay([1, 2], false, 5, {
+      bonus: { flowers: 2, flowerSeatMatches: 1, seasons: 3, seasonSeatMatches: 1 },
+    });
+    expect(exact.lines).toEqual([
+      { id: 1, name: 'Tile Bunga', tay: 1 },
+      { id: 2, name: 'Tile Musim', tay: 4 },
+    ]);
+    expect(exact.total).toBe(5);
+
+    expect(calculateTay([2], false, 5).lines[0]?.tay).toBe(1);
+    expect(calculateTay([1], false, 0, { bonus: { flowers: 4, flowerSeatMatches: 9 } }).lines[0]?.tay).toBe(4);
   });
 
   it('ignores duplicates and unknown ids', () => {

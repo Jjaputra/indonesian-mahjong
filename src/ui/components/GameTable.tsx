@@ -101,7 +101,7 @@ export function CenterArea({ controller }: { controller: GameController }) {
           <TileView tile={pending.tile} size="lg" highlight />
         </div>
       )}
-      <div className="discard-pool" aria-label="Riwayat buangan">
+      <div className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
         {trail.length === 0 && !pending && <span className="muted">Belum ada buangan.</span>}
         {trail.map((d, i) => (
           <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}`} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>

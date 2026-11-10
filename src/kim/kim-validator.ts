@@ -10,29 +10,58 @@ import {
 import { isKim } from './wildcard-solver';
 
 /**
- * Validates whether exposed/claimed melds comply with tournament rules.
+ * May a Kim from hand fill a slot when claiming a discard as `action`?
+ *
+ * Toggle semantics (rulebook terms: "Pung" = claiming a discard into a triplet, "Tris" = any triplet):
+ * - allowKimInMeldClaim: master gate for Kim in any claim (BMC06 tournament: false -> Lew Fit).
+ * - allowKimInJia: Kim may stand in a sequence (claimed Jia or concealed run).
+ * - allowKimInPung: Kim may stand in a claimed Pung/Kong.
+ * - allowKimInTriplet: Kim may stand in any triplet (Tris), claimed or concealed.
+ * So a claimed Jia needs master + Jia; a claimed Pung/Kong needs master + Pung + Tris.
+ * Per-type flags omitted by core callers resolve to their defaults (true).
+ */
+export function isKimAllowedInClaim(
+  action: 'jia' | 'pung' | 'kong',
+  rules?: Partial<KimRules> | GameRules
+): boolean {
+  const r = resolveKimRules(rules);
+  if (!r.kimEnabled || !r.allowKimInMeldClaim) return false;
+  return action === 'jia' ? r.allowKimInJia : r.allowKimInPung && r.allowKimInTriplet;
+}
+
+/**
+ * Validates whether exposed/claimed melds comply with the Kim rules.
  * Under BMC06 tournament rules, allowKimInMeldClaim=false: claiming a discard using
- * a Kim from hand triggers Lew Fit.
+ * a Kim from hand triggers Lew Fit. Under Casual rules the per-type toggles still apply
+ * (see isKimAllowedInClaim); a claimed meld breaking them is likewise Lew Fit.
  */
 export function validateKimMeldLegality(
   melds: readonly Meld[],
   rules?: Partial<KimRules> | GameRules
 ): KimLegalityReport {
   const r = resolveKimRules(rules);
-  if (r.allowKimInMeldClaim) {
-    return { isLegal: true, isLewFit: false };
-  }
 
   for (const m of melds) {
     // Concealed Ankong is an internal declaration, not an open discard claim
     if (m.type === 'ankong') continue;
 
-    const hasKim = m.tiles.some(isKim);
-    if (hasKim) {
+    if (!m.tiles.some(isKim)) continue;
+    if (!r.allowKimInMeldClaim) {
       return {
         isLegal: false,
         isLewFit: true,
         rejectionReason: 'Tournament rule violation: Using Kim in Jia/Pung/Kong claims is prohibited (triggers Lew Fit).',
+      };
+    }
+    const action = m.type === 'jia' ? 'jia' : 'pung';
+    if (!isKimAllowedInClaim(action, r)) {
+      return {
+        isLegal: false,
+        isLewFit: true,
+        rejectionReason:
+          action === 'jia'
+            ? 'Rule violation: Kim in a claimed Jia is disabled (allowKimInJia=false).'
+            : 'Rule violation: Kim in a claimed Pung/Kong is disabled (allowKimInPung/allowKimInTriplet=false).',
       };
     }
   }

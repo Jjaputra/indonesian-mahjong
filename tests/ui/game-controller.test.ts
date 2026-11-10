@@ -104,6 +104,32 @@ describe('GameController full-game loop', () => {
     }
   });
 
+  it('persists flowers and melds separately from the concealed hand', () => {
+    const storage = new MemoryStorage();
+    let found = false;
+    for (let seed = 1; seed <= 12 && !found; seed++) {
+      const c = new GameController({ settings: settings(), seed, storage });
+      playToEnd(c);
+      const outcome = c.outcome;
+      const saved = loadGameHistory(storage)[0]!;
+      if (outcome?.kind !== 'hu') {
+        expect(saved.winner).toBeNull();
+        expect(saved.flowers).toEqual([]);
+        expect(saved.melds).toEqual([]);
+        continue;
+      }
+      expect(saved.winningHand.map((t) => t.id)).toEqual(outcome.hand.map((t) => t.id));
+      expect(saved.flowers.map((t) => t.id)).toEqual(outcome.flowers.map((t) => t.id));
+      expect(saved.melds.map((m) => ({ type: m.type, ids: m.tiles.map((t) => t.id) }))).toEqual(
+        outcome.melds.map((m) => ({ type: m.type, ids: m.tiles.map((t) => t.id) })),
+      );
+      const meldIds = new Set(saved.melds.flatMap((m) => m.tiles.map((t) => t.id)));
+      expect(saved.winningHand.some((t) => meldIds.has(t.id))).toBe(false);
+      if (saved.flowers.length > 0 || saved.melds.length > 0) found = true;
+    }
+    expect(found).toBe(true);
+  });
+
   it('ignores illegal human actions', () => {
     const c = new GameController({ settings: settings({ startingSeatWind: 'nan' }), seed: 5, saveHistory: false });
     const before = c.version;
