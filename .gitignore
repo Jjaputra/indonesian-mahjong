@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment & IDE
+.env
+.env.local
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Agent internal scratch & logs
+.agents/

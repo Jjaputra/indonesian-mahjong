@@ -1,0 +1,30 @@
+{
+  "name": "cabezon-indonesian-mahjong",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Indonesian Traditional Mahjong (ITM / YDSP) Browser Game based on Bandung Mahjong Cup Rulebook ver06",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-react": "^1.70.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.5"
+  }
+}
