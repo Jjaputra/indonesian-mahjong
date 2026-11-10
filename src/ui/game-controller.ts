@@ -77,6 +77,8 @@ export interface HumanActions {
 
 export interface GameControllerOptions {
   settings: GameSettings;
+  /** Leave the engine undealt until newGame is explicitly requested. */
+  autoStart?: boolean;
   /** Base seed for deterministic walls and AI choices (game n uses seed + n) */
   seed?: number;
   humanSeat?: Seat;
@@ -153,7 +155,8 @@ export class GameController {
     this.saveHistory = options.saveHistory ?? true;
     this.now = options.now ?? Date.now;
     this.baseSeed = options.seed;
-    this.newGame();
+    if (options.autoStart === false) this.engine = new GameEngine(this.rules);
+    else this.newGame();
   }
 
   // --------------------------------------------------------------------------

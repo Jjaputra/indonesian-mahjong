@@ -699,13 +699,24 @@ describe('Pinned scoring bugs', () => {
     lacks(result, 10);
     expect(result.isValidHu).toBe(true);
 
-    // With Pao Chin, non-dealer scores Thi Fu
+    // With Pao Chin, non-dealer self-draw keeps Pao Chin and does not score Thi Fu
     const withPaoChin = score(PING, '5S', {
       ctx: { ...SELF, isInitialDeal: true, isPaoChin: true, seatWind: 'nan' },
     });
-    has(withPaoChin, 12, 60);
     has(withPaoChin, 10, 30);
+    lacks(withPaoChin, 12);
+    lacks(withPaoChin, 11);
+    expect(withPaoChin.totalTay).toBe(44);
     expect(withPaoChin.isValidHu).toBe(true);
+
+    // On discard win, non-dealer scores Thi Fu
+    const discardWin = score(PING, '5S', {
+      ctx: { isInitialDeal: true, isPaoChin: true, isDiscardWin: true, isSelfDraw: false, seatWind: 'nan' },
+    });
+    has(discardWin, 12, 60);
+    has(discardWin, 10, 30);
+    expect(discardWin.totalTay).toBe(100);
+    expect(discardWin.isValidHu).toBe(true);
   });
 
   it('instant Hu still has to clear rules.minHuTay', () => {

@@ -5,6 +5,8 @@ import type { Seat, Tile } from '../../core/types';
 import { isKim } from '../../kim/wildcard-solver';
 import type { GameController, HumanActions } from '../game-controller';
 import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIND_GLYPH, tileText } from '../labels';
+import { practiceCoachLine, type CoachEmphasis } from '../practice-coach';
+import { handReadingLine } from '../hand-reading';
 import { MeldView, TileBack, TileRow, TileView } from './TileView';
 
 /** Screen position of each seat relative to the human at the bottom (turn order runs counter-clockwise). */
@@ -104,7 +106,7 @@ export function CenterArea({ controller }: { controller: GameController }) {
       <div className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
         {trail.length === 0 && !pending && <span className="muted">Belum ada buangan.</span>}
         {trail.map((d, i) => (
-          <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}`} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
+          <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d === lastCommitted ? ' is-fresh' : ''}`} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
             <TileView tile={d.tile} size="sm" highlight={!pending && d === lastCommitted} />
           </span>
         ))}
@@ -174,15 +176,14 @@ export function HumanArea({ controller, actions, selectedId, onSelect }: HumanAr
         {drawn && <span className="drawn-gap" />}
         {drawn && tileButton(drawn, true)}
       </div>
-      {actions.canDiscard && (
-        <p className="hint">Klik tile untuk memilih, klik lagi (atau dobel klik) untuk Buang. Tile KIM tidak dapat dibuang bila aturan melarang.</p>
-      )}
+
     </section>
   );
 }
 
 interface HudButtonProps {
   label: string;
+  coached?: boolean;
   enabled: boolean;
   onClick: () => void;
   tone?: 'primary' | 'gold' | 'danger' | 'plain';
@@ -190,9 +191,9 @@ interface HudButtonProps {
   title?: string;
 }
 
-function HudButton({ label, enabled, onClick, tone = 'plain', icon, title }: HudButtonProps) {
+function HudButton({ label, enabled, onClick, tone = 'plain', icon, title, coached }: HudButtonProps) {
   return (
-    <button type="button" className={`hud-btn hud-${tone}`} disabled={!enabled} onClick={onClick} title={title}>
+    <button type="button" className={`hud-btn hud-${tone}${coached ? ' is-coached' : ''}`} disabled={!enabled} onClick={onClick} title={title}>
       {icon}
       {label}
     </button>
@@ -211,6 +212,14 @@ export function ActionHud({
   onSelect: (id: string | null) => void;
 }) {
   const claim = actions.claim;
+  const state = controller.getState();
+  const player = state.players[controller.humanSeat];
+  const selected = player.hand.find(t => t.id === selectedId);
+  const coach = practiceCoachLine({ ...actions, selectedTileId: selectedId, selectedTileLabel: selected ? tileText(selected) : null, outcome: controller.outcome });
+  const coached = (action: CoachEmphasis) => coach.emphasis === action;
+  const reading = selected ? handReadingLine({ hand: player.hand.filter(t => t.id !== selected.id), winningTile: selected,
+    melds: player.melds, flowers: player.flowers, seat: controller.humanSeat, roundWind: state.roundWind,
+    flags: { isSelfDraw: !claim }, minHuTay: controller.getSettings().minHuTay }) : null;
   const huScore = claim ? claim.huScore : actions.selfHuScore;
   const canHu = claim ? claim.canHu : actions.canSelfDrawHu;
   const huTitle = huScore
@@ -221,6 +230,7 @@ export function ActionHud({
   const selectedOk = !!selectedId && actions.discardableTileIds.includes(selectedId);
 
   return (
+    <>
     <div className="action-hud" role="toolbar" aria-label="Aksi">
       {claim && (
         <div className="claim-banner">
@@ -228,10 +238,10 @@ export function ActionHud({
         </div>
       )}
       {actions.canReplaceFlowers && (
-        <HudButton label="Ganti Bunga" tone="gold" enabled onClick={() => controller.humanReplaceFlowers()} icon={<Flower2 size={14} />} />
+        <HudButton coached={coached('flowers')} label="Ganti Bunga" tone="gold" enabled onClick={() => controller.humanReplaceFlowers()} icon={<Flower2 size={14} />} />
       )}
-      <HudButton label="Tarik" enabled={actions.canDraw} onClick={() => controller.humanDraw()} icon={<ArrowDownToLine size={14} />} title="Tarik tile dari tembok (otomatis setelah semua Lew)" />
-      <HudButton
+      {actions.canDraw && <HudButton coached={coached('tarik')} label="Tarik" enabled={actions.canDraw} onClick={() => controller.humanDraw()} icon={<ArrowDownToLine size={14} />} title="Tarik tile dari tembok (otomatis setelah semua Lew)" />}
+      {actions.canDiscard && <HudButton coached={coached('buang')}
         label="Buang"
         tone="primary"
         enabled={actions.canDiscard && selectedOk}
@@ -240,44 +250,47 @@ export function ActionHud({
           onSelect(null);
         }}
         icon={<Trash2 size={14} />}
-      />
+      />}
       {claim?.jiaOptions.length
         ? claim.jiaOptions.map((opt, i) => (
             <HudButton
               key={i}
-              label={`Jia ${sortTiles([...opt, claim.tile]).map((t) => t.value).join('-')}`}
+              coached={coached('jia')} label={`Jia ${sortTiles([...opt, claim.tile]).map((t) => t.value).join('-')}`}
               enabled
               onClick={() => controller.humanClaim('jia', i)}
             />
           ))
-        : <HudButton label="Jia" enabled={false} onClick={() => undefined} />}
-      <HudButton label="Pung" enabled={!!claim?.canPung} onClick={() => controller.humanClaim('pung')} />
+        : null}
+      {claim?.canPung && <HudButton coached={coached('pung')} label="Pung" enabled onClick={() => controller.humanClaim('pung')} />}
       {claim ? (
-        <HudButton label="Kong" enabled={claim.canKong} onClick={() => controller.humanClaim('kong')} />
+        claim.canKong && <HudButton coached={coached('kong')} label="Kong" enabled onClick={() => controller.humanClaim('kong')} />
       ) : (
         <>
           {actions.ankongOptions.length > 0 ? (
             actions.ankongOptions.map((g, i) => (
-              <HudButton key={`a${i}`} label={`Ankong ${tileText(g[0]!)}`} enabled onClick={() => controller.humanAnkong(i)} />
+              <HudButton key={`a${i}`} coached={coached('ankong')} label={`Ankong ${tileText(g[0]!)}`} enabled onClick={() => controller.humanAnkong(i)} />
             ))
           ) : (
-            <HudButton label="Kong" enabled={false} onClick={() => undefined} />
+            null
           )}
           {actions.kakanOptions.map((o, i) => (
-            <HudButton key={`k${i}`} label={`Kakan ${tileText(o.tile)}`} enabled onClick={() => controller.humanKakan(i)} />
+            <HudButton key={`k${i}`} coached={coached('kakan')} label={`Kakan ${tileText(o.tile)}`} enabled onClick={() => controller.humanKakan(i)} />
           ))}
         </>
       )}
-      <HudButton label="Pao Chin" enabled={actions.canPaoChin} onClick={() => controller.humanPaoChin()} icon={<Hand size={14} />} title="Hand langsung Cin pada pembagian pertama" />
-      <HudButton
+      {actions.canPaoChin && <HudButton coached={coached('pao-chin')} label="Pao Chin" enabled={actions.canPaoChin} onClick={() => controller.humanPaoChin()} icon={<Hand size={14} />} title="Hand langsung Cin pada pembagian pertama" />}
+      {canHu && <HudButton coached={coached('hu')}
         label={huScore ? `Hu (${huScore.totalTay} Tay)` : 'Hu'}
         tone="gold"
         enabled={canHu}
         title={huTitle}
         onClick={() => (claim ? controller.humanClaim('hu') : controller.humanSelfDrawHu())}
         icon={<Trophy size={14} />}
-      />
-      <HudButton label="Lew" tone="danger" enabled={!!claim} onClick={() => controller.humanClaim('pass')} icon={<Undo2 size={14} />} title="Lewati klaim" />
+      />}
+      {claim && <HudButton coached={coached('lew')} label="Lew" tone="danger" enabled={!!claim} onClick={() => controller.humanClaim('pass')} icon={<Undo2 size={14} />} title="Lewati klaim" />}
     </div>
+    <p className="practice-coach" role="status">{coach.text}</p>
+    {reading && <p className="hand-reading">{reading}</p>}
+    </>
   );
 }

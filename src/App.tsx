@@ -15,10 +15,14 @@ import { HuResultModal } from './ui/components/HuResultModal';
 import { Modal } from './ui/components/Modal';
 import { SettingsModal } from './ui/components/SettingsModal';
 import { TayCalculator } from './ui/components/TayCalculator';
+import { MainMenu } from './ui/components/MainMenu';
+import { AbandonMatchDialog } from './ui/components/AbandonMatchDialog';
+import { CallToast, type CallEvent } from './ui/components/CallToast';
+import { tileText } from './ui/labels';
 import { GameController, type GameEventType } from './ui/game-controller';
 import { ANIMATION_DELAY_MS, DIFFICULTY_LABEL } from './ui/labels';
 
-type View = 'table' | 'calculator';
+type View = 'menu' | 'table' | 'calculator';
 type ModalName = 'settings' | 'history' | 'rulebook' | null;
 
 const EVENT_SOUND: Partial<Record<GameEventType, SoundEffectName>> = {
@@ -33,7 +37,7 @@ const EVENT_SOUND: Partial<Record<GameEventType, SoundEffectName>> = {
 
 function useGameController(initial: GameSettings): GameController {
   const ref = useRef<GameController | null>(null);
-  if (!ref.current) ref.current = new GameController({ settings: initial });
+  if (!ref.current) ref.current = new GameController({ settings: initial, autoStart: false });
   return ref.current;
 }
 
@@ -45,10 +49,14 @@ export function App() {
     () => controller.version,
     () => controller.version
   );
-  const [view, setView] = useState<View>('table');
+  const [view, setView] = useState<View>('menu');
+  const [matchStarted, setMatchStarted] = useState(false);
   const [modal, setModal] = useState<ModalName>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
+  const [abandonOpen, setAbandonOpen] = useState(false);
+  const [callEvent, setCallEvent] = useState<(CallEvent & { id: number }) | null>(null);
+  const callId = useRef(0);
   const [history, setHistory] = useState(() => loadGameHistory());
 
   // Sound effects follow the live "Suara" setting.
@@ -57,6 +65,8 @@ export function App() {
   useEffect(
     () =>
       controller.onEvent((e) => {
+        const tile = controller.getState().discardPending?.tile ?? controller.discardTrail.at(-1)?.tile;
+        setCallEvent({ ...e, id: ++callId.current, tileLabel: e.type === 'discard' && tile ? tileText(tile) : undefined });
         const name = e.type === 'draw' ? (e.seat === controller.humanSeat ? 'draw' : undefined) : EVENT_SOUND[e.type];
         if (name) playSound(name, { soundEnabled: soundRef.current });
       }),
@@ -65,10 +75,10 @@ export function App() {
 
   // Drive AI seats one step at a time, paced by the animation speed.
   useEffect(() => {
-    if (controller.outcome || controller.isWaitingForHuman()) return;
+    if (view !== 'table' || !matchStarted || controller.outcome || controller.isWaitingForHuman()) return;
     const t = window.setTimeout(() => controller.step(), ANIMATION_DELAY_MS[settings.animationSpeed]);
     return () => window.clearTimeout(t);
-  }, [controller, version, settings.animationSpeed]);
+  }, [controller, version, settings.animationSpeed, view, matchStarted]);
 
   const outcome = controller.outcome;
   useEffect(() => {
@@ -83,9 +93,19 @@ export function App() {
   }, [actions.discardableTileIds, selectedId]);
 
   const newGame = () => {
+    setAbandonOpen(false);
+    setCallEvent(null);
+    setView('menu');
+    setMatchStarted(false);
+    setResultOpen(false);
+    setSelectedId(null);
+  };
+  const startPractice = () => {
     setResultOpen(false);
     setSelectedId(null);
     controller.newGame();
+    setMatchStarted(true);
+    setView('table');
   };
 
   const saveSettings = (draft: GameSettings) => {
@@ -115,14 +135,14 @@ export function App() {
             </p>
           </div>
         </div>
-        <nav className="tabs" aria-label="Tampilan">
-          <button type="button" className={view === 'table' ? 'is-on' : ''} onClick={() => setView('table')}>
-            <LayoutGrid size={15} /> Meja
+        {view !== 'menu' && <nav className="tabs" aria-label="Tampilan">
+          <button type="button" className={view === 'table' ? 'is-on' : ''} onClick={() => setView(matchStarted ? 'table' : 'menu')}>
+            <LayoutGrid size={15} /> {matchStarted ? 'Meja' : 'Menu Utama'}
           </button>
           <button type="button" className={view === 'calculator' ? 'is-on' : ''} onClick={() => setView('calculator')}>
             <Calculator size={15} /> Kalkulator Tay
           </button>
-        </nav>
+        </nav>}
         <div className="header-actions">
           <button type="button" className="icon-btn" onClick={() => setModal('rulebook')} title="Rulebook & Kalkulator 44 Tay">
             <BookOpen size={18} />
@@ -136,17 +156,22 @@ export function App() {
           <button type="button" className="icon-btn" onClick={() => setModal('settings')} title="Pengaturan">
             <Settings size={18} />
           </button>
-          <button type="button" className="btn btn-primary" onClick={newGame}>
+          {matchStarted && <button type="button" className="btn btn-primary" onClick={() => matchStarted && !outcome ? setAbandonOpen(true) : newGame()}>
             <RotateCcw size={14} /> Permainan Baru
-          </button>
+          </button>}
         </div>
       </header>
 
-      {view === 'table' ? (
+      {view === 'menu' ? (
+        <MainMenu difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
+          onCalculator={() => setView('calculator')}
+          lastResult={history[0] ? history[0].winner === null ? 'Seri' : `${history[0].totalTay} Tay` : null} />
+      ) : view === 'table' ? (
         <main className="table-felt">
           <OpponentPanel seat={pos.top} position="top" controller={controller} />
           <OpponentPanel seat={pos.left} position="left" controller={controller} />
           <CenterArea controller={controller} />
+          {callEvent && <CallToast key={callEvent.id} event={callEvent} />}
           <OpponentPanel seat={pos.right} position="right" controller={controller} />
           <div className="seat-bottom">
             <ActionHud controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId} />
@@ -164,7 +189,8 @@ export function App() {
         </main>
       )}
 
-      {outcome && resultOpen && !modal && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)} onNewGame={newGame} />}
+      {view === 'table' && outcome && resultOpen && !modal && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)} onNewGame={newGame} />}
+      {abandonOpen && <AbandonMatchDialog onStay={() => setAbandonOpen(false)} onLeave={newGame} />}
       {modal === 'settings' && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setModal(null)} />}
       {modal === 'history' && (
         <HistoryModal

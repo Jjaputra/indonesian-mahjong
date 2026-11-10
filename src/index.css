@@ -1,3 +1,4 @@
+@import './ui/table-motion.css';
 /* Indonesian Traditional Mahjong — table UI (dark green felt, ivory tiles, gold accents) */
 :root {
   --felt: #17432b;
@@ -1217,3 +1218,16 @@ select {
     transition: none !important;
   }
 }
+
+/* Main menu and guided practice */
+.main-menu { flex: 1; display: grid; place-items: center; padding: 32px 16px; }
+.menu-card { width: min(100%, 680px); padding: clamp(20px, 5vw, 48px); border: 1px solid var(--gold-dark); border-radius: 16px; background: linear-gradient(145deg, var(--felt-light), var(--panel)); box-shadow: 0 20px 60px #0005; }
+.menu-card h2 { color: var(--tile-ivory); font-size: clamp(24px, 5vw, 34px); }
+.menu-card > p { line-height: 1.7; }
+.menu-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 16px; margin: 28px 0 20px; }
+.menu-choice { flex-direction: column; padding: 24px 12px; min-height: 150px; text-align: center; }
+.menu-choice strong { font-size: 20px; }
+.menu-choice span { font-size: 13px; }
+.practice-coach { margin: 4px 0 10px; padding: 10px 14px; border-left: 3px solid var(--gold); background: var(--panel); color: var(--tile-ivory); line-height: 1.6; }
+
+.hud-btn.is-coached { outline: 2px solid #e3a52a; outline-offset: 2px; }

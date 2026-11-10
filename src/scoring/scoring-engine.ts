@@ -105,7 +105,7 @@ function detectFirstTurn({ mode, context }: ScoringInput): DetectedPattern[] {
   const isThienFu = isDealtHand && context.isSelfDraw && context.seatWind === 'dong';
   if (context.isPaoChin) out.push(award(10, mode, 'Pao Chin dideklarasikan pada pembagian pertama'));
   if (isThienFu) out.push(award(11, mode, 'Dong langsung Hu dari pembagian pertama'));
-  if (context.isInitialDeal && context.isPaoChin && !isThienFu) {
+  if (context.isInitialDeal && context.isPaoChin && context.isDiscardWin && !isThienFu) {
     out.push(award(12, mode, 'Hu dari lew/discard pertama setelah declare Pao Chin'));
   }
   return out.filter((p): p is DetectedPattern => p !== null);

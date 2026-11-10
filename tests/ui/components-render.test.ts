@@ -36,12 +36,23 @@ function finishedGame(): GameController {
 }
 
 describe('UI render smoke tests', () => {
-  it('App renders the table with Indonesian labels', () => {
+  it('App first renders the main menu without dealing', () => {
     const html = renderToString(createElement(App));
     expect(html).toContain('Mahjong Tradisional Indonesia');
     expect(html).toContain('Kalkulator Tay');
-    for (const label of ['Tarik', 'Buang', 'Jia', 'Pung', 'Kong', 'Pao Chin', 'Hu', 'Lew']) expect(html).toContain(label);
-    expect(html).toContain('Tembok');
+    expect(html).toContain('Latihan');
+    expect(html).toContain('Bandung Mahjong Cup ver06');
+    expect(html).toContain('Timur');
+    expect(html).not.toContain('Tembok');
+    expect(html).not.toContain('Permainan Baru');
+  });
+
+  it('deferred controller stays undealt until practice starts', () => {
+    const c = new GameController({ settings: settings(), autoStart: false, saveHistory: false });
+    expect(c.getState().phase).toBe('INIT');
+    expect(c.getState().players.dong.hand).toHaveLength(0);
+    c.newGame();
+    expect(c.getState().players.dong.hand.length).toBeGreaterThan(0);
   });
 
   it('table parts render seat winds, wall counter, Kim indicator and hand tiles', () => {
@@ -57,6 +68,10 @@ describe('UI render smoke tests', () => {
         createElement(ActionHud, { key: 4, controller: c, actions, selectedId: null, onSelect: noop }),
       ])
     );
+    expect(html).toContain('Buang');
+    expect(html).toContain('practice-coach');
+    expect(html).toContain('is-coached');
+    expect(html).toContain('Tembok');
     expect(html).toContain('Selatan');
     expect(html).toContain('Timur');
     expect(html).toContain(`<b>${c.getState().wall.remainingCount}</b>`);

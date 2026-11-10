@@ -1,0 +1,49 @@
+/* Table motion: call toast and freshly discarded pool tiles. */
+
+.call-toast {
+  display: inline-block;
+  margin: 0;
+  padding: 6px 14px;
+  border: 1px solid #e3a52a;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fdfbf3;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  animation: call-toast-in 200ms ease-out both;
+}
+
+.call-toast::first-letter {
+  color: #e3a52a;
+}
+
+@keyframes call-toast-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pool-tile.is-fresh {
+  animation: pool-tile-settle 250ms ease-out both;
+}
+
+@keyframes pool-tile-settle {
+  from {
+    transform: translateY(-6px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-toast,
+  .pool-tile.is-fresh {
+    animation: none;
+  }
+}
