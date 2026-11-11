@@ -8,6 +8,8 @@ A browser game of Indonesian Traditional Mahjong (ITM / YDSP), scored from the B
 
 - Start a game from a 148-tile wall. The dealer gets 14 tiles. Everyone else gets 13. There is no dead wall.
 - Flowers and seasons leave the hand and are replaced from the back of the wall.
+- Tell them apart by the ink of the number and glyph, as on the supplied tile sheet: **Musim** (season, "bunga biru") has a blue number and 春 夏 秋 冬; **Bunga** (flower, "bunga merah") has a red number and 梅 蘭 竹 菊 (plum, orchid, bamboo, chrysanthemum). Each family has one tile per number 1–4.
+- **Bonus posisi +1:** a Bunga or Musim whose number equals your seat (1 Timur, 2 Selatan, 3 Barat, 4 Utara) earns +1 Tay on top of that tile's base (0 in the practice house rule). See RULES.md §3.
 - On your turn: **Tarik** (draw), choose a tile, **Buang** (discard). Click a tile once to lift it, then again to discard.
 - On someone else's discard: **Hu**, **Kong**, **Pung**, or **Jia**. Hu wins over Kong and Pung. Jia is only for the player on the discarder's left.
 - **Lew** passes a claim. **Pao Chin** declares an instant-ready opening hand.

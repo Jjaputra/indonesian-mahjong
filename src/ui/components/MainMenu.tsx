@@ -1,6 +1,7 @@
 import { Calculator, LayoutGrid } from 'lucide-react';
 import { keyToTile } from '../../core/tiles';
 import type { BonusTileRule, ScoringBasis } from '../../core/types';
+import { BONUS_INK_CUE } from '../labels';
 import { TileView } from './TileView';
 
 export interface MainMenuProps {
@@ -35,8 +36,8 @@ const LEGEND: readonly { title: string; keys: readonly string[]; text: string }[
   { title: 'Naga', keys: ['DZ', 'DF', 'DP'], text: '中 Zhong merah, 發 Fat hijau, Pat = bingkai kosong (naga putih).' },
   {
     title: 'Bunga & Musim',
-    keys: ['F1', 'F2', 'M3', 'M4'],
-    text: 'Angka 1–4 = posisi duduk (1 Timur, 2 Selatan, 3 Barat, 4 Utara). Angka biru tua = Bunga (bunga hitam/biru); angka merah = Musim (kembang merah). Masing-masing ada satu tile per angka.',
+    keys: ['M1', 'M2', 'F3', 'F4'],
+    text: `${BONUS_INK_CUE.season} (1 春 Semi, 2 夏 Panas, 3 秋 Gugur, 4 冬 Dingin). ${BONUS_INK_CUE.flower} (1 梅 Plum, 2 蘭 Anggrek, 3 竹 Bambu, 4 菊 Krisan). Angka 1–4 = posisi duduk (1 Timur, 2 Selatan, 3 Barat, 4 Utara): tile yang angkanya sama dengan posisi duduk dapat bonus posisi +1 Tay. Masing-masing ada satu tile per angka.`,
   },
 ];
 

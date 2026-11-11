@@ -53,7 +53,7 @@ export const PREV_SEAT: Record<Seat, Seat> = {
  * Composition:
  * - 108 Suited tiles (36 Tong, 36 Sok, 36 Ban: ranks 1-9, 4 copies each)
  * - 28 Honor tiles (16 Winds: Dong, Nan, Xi, Bei x4; 12 Dragons: Zhong, Fat, Pat x4)
- * - 8 Bonus tiles (4 Black Flowers: 1-4; 4 Red Seasons: 1-4)
+ * - 8 Bonus tiles (4 Flowers/Bunga 1-4, red numerals; 4 Seasons/Musim 1-4, blue numerals — tiles.pdf p. 2)
  * - 4 Kim Jokers
  */
 export function createCompleteTileSet(): Tile[] {
@@ -99,7 +99,7 @@ export function createCompleteTileSet(): Tile[] {
     }
   }
 
-  // 4. Flowers (Black): 4 tiles (1 copy each)
+  // 4. Flowers (Bunga): 4 tiles (1 copy each)
   for (let value = 1; value <= 4; value++) {
     tiles.push({
       id: `flower-${value}-1`,
@@ -243,9 +243,9 @@ export function getTileIndonesianLabel(tile: Tile): string {
   if (tile.type === 'flower') {
     const map: Record<number, string> = {
       1: 'Bunga 1 (Plum / 梅)',
-      2: 'Bunga 2 (Orchid / 兰)',
-      3: 'Bunga 3 (Chrysanthemum / 菊)',
-      4: 'Bunga 4 (Bamboo / 竹)',
+      2: 'Bunga 2 (Anggrek / 蘭)',
+      3: 'Bunga 3 (Bambu / 竹)',
+      4: 'Bunga 4 (Krisan / 菊)',
     };
     return map[tile.value] ?? `Bunga ${tile.value}`;
   }
@@ -286,15 +286,13 @@ export function getTileUnicode(tile: Tile): string {
     // 🀙 1 Tong .. 🀡 9 Tong
     return String.fromCodePoint(0x1f019 + tile.value - 1);
   }
-  if (tile.type === 'season') {
-    // 🀢 Spring, 🀣 Summer, 🀤 Autumn, 🀥 Winter
+  if (tile.type === 'flower') {
+    // 🀢 Plum, 🀣 Orchid, 🀤 Bamboo, 🀥 Chrysanthemum (same 1-4 order as the printed Bunga)
     return String.fromCodePoint(0x1f022 + tile.value - 1);
   }
-  if (tile.type === 'flower') {
-    // 🀦 Plum, 🀧 Orchid, 🀨 Bamboo, 🀩 Chrysanthemum
-    // Note Unicode order: 1=Plum, 2=Orchid, 3=Bamboo(1F028), 4=Chrysanthemum(1F029)
-    const flowerCodeMap: Record<number, number> = { 1: 0x1f026, 2: 0x1f027, 3: 0x1f029, 4: 0x1f028 };
-    return String.fromCodePoint(flowerCodeMap[tile.value] ?? 0x1f026);
+  if (tile.type === 'season') {
+    // 🀦 Spring, 🀧 Summer, 🀨 Autumn, 🀩 Winter
+    return String.fromCodePoint(0x1f026 + tile.value - 1);
   }
   return '🀫';
 }

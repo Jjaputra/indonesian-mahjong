@@ -68,12 +68,12 @@ describe('original SVG tile art', () => {
     expect(white).not.toContain('<text');
   });
 
-  it('Bunga numbers are dark blue and Musim numbers are red; artwork differs per family', () => {
+  it('Bunga numbers are red and Musim numbers are blue (tiles.pdf p. 2); artwork differs per family', () => {
     for (let v = 1; v <= 4; v++) {
       const flower = art(`F${v}`);
       const season = art(`M${v}`);
-      expect(flower).toMatch(new RegExp(`class="art-bonus-number"[^>]*fill="#1b2f5c"[^>]*>${v}</text>`));
-      expect(season).toMatch(new RegExp(`class="art-bonus-number"[^>]*fill="#c0392b"[^>]*>${v}</text>`));
+      expect(flower).toMatch(new RegExp(`class="art-bonus-number"[^>]*fill="#c0392b"[^>]*>${v}</text>`));
+      expect(season).toMatch(new RegExp(`class="art-bonus-number"[^>]*fill="#1f4e9c"[^>]*>${v}</text>`));
       expect(flower).toContain('art-blossom');
       expect(season).toContain('art-season');
       expect(flower).not.toContain('art-season');
@@ -103,8 +103,8 @@ describe('TileView with tile art', () => {
 
   it('keeps canonical names for scoring/logs and adds learner cues to the accessible label', () => {
     expect(render('5T', 'md')).toContain('aria-label="5 Tong"');
-    expect(render('F2', 'sm')).toContain('aria-label="Bunga 2, bunga hitam/biru, angka biru tua"');
-    expect(render('M3', 'sm')).toContain('aria-label="Musim 3, musim/kembang merah, angka merah"');
+    expect(render('F2', 'sm')).toContain('aria-label="Bunga 2, bunga merah 蘭 Anggrek, angka &amp; huruf merah"');
+    expect(render('M3', 'sm')).toContain('aria-label="Musim 3, bunga biru 秋 Gugur, angka &amp; huruf biru"');
     expect(render('WN', 'md')).toContain('aria-label="Angin Nan, Selatan"');
     expect(render('DP', 'md')).toContain('Naga Pat, naga putih, bingkai kosong');
     expect(tileAccessibleLabel(getTileFace(keyToTile('KIM')))).toContain('KIM (Joker)');

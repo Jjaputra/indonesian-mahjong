@@ -12,14 +12,13 @@ const INK = {
   blue: '#1f4e9c',
   green: '#1d7a47',
   red: '#c0392b',
-  bonusBlue: '#1b2f5c',
   kim: '#5b3a8c',
   ivory: '#fffdf6',
 } as const;
 
 const CN_NUMERAL = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
-const FLOWER_GLYPH = ['', '梅', '蘭', '菊', '竹'];
-const SEASON_GLYPH = ['', '春', '夏', '秋', '冬'];
+/** Bonus ink per family, as on the supplied tile sheet (tiles.pdf p. 2): Musim blue, Bunga red. */
+export const BONUS_INK = { season: INK.blue, flower: INK.red } as const;
 
 type Pt = readonly [number, number];
 type Ink = keyof typeof INK;
@@ -222,38 +221,144 @@ function DragonFace({ value }: { value: number }) {
   );
 }
 
-function Blossom() {
-  const petals = [0, 72, 144, 216, 288];
+// Original sprigs, one per bonus tile, so the four Bunga and four Musim are told apart by picture as well
+// as by number. Only the numeral and glyph carry the family ink; petals are free decoration.
+
+const LEAF = INK.green;
+const STEM = '#7a4b24';
+
+function Petals({ cx, cy, r, n, fill, len = 1.7 }: { cx: number; cy: number; r: number; n: number; fill: string; len?: number }) {
   return (
-    <g className="art-blossom">
-      <path d="M30 76 C30 66 33 60 36 54" stroke={INK.green} strokeWidth={2.2} fill="none" strokeLinecap="round" />
-      <ellipse cx={25} cy={68} rx={6} ry={2.6} transform="rotate(-30 25 68)" fill={INK.green} />
-      {petals.map((deg) => (
-        <ellipse key={deg} cx={36} cy={37} rx={5.6} ry={8.6} transform={`rotate(${deg} 36 46)`} fill="#4a73b5" />
+    <>
+      {Array.from({ length: n }, (_, i) => (
+        <ellipse key={i} cx={cx} cy={cy - r * len * 0.55} rx={r * 0.55} ry={r * len * 0.55} transform={`rotate(${(360 / n) * i} ${cx} ${cy})`} fill={fill} />
       ))}
-      <circle cx={36} cy={46} r={4.6} fill={INK.bonusBlue} />
-      <circle cx={36} cy={46} r={1.8} fill="#f2c94c" />
-    </g>
+    </>
   );
 }
 
-function SeasonSprig() {
-  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
+/** Bunga 1 梅 plum: blossoms on a dark branch. */
+function PlumSprig() {
   return (
-    <g className="art-season">
-      {rays.map((deg) => (
-        <line key={deg} x1={36} y1={30} x2={36} y2={26} transform={`rotate(${deg} 36 42)`} stroke={INK.red} strokeWidth={2.4} strokeLinecap="round" />
+    <>
+      <path d="M14 76 L26 58 L36 48 M26 58 L42 62 M36 48 L44 36" stroke="#3b2a4a" strokeWidth={2.4} fill="none" strokeLinecap="round" />
+      {([[34, 40, 4.4], [44, 52, 4], [22, 54, 3.8], [40, 66, 3.4]] as const).map(([x, y, r]) => (
+        <g key={`${x}-${y}`}>
+          <Petals cx={x} cy={y} r={r} n={5} fill="#d2453a" len={1.2} />
+          <circle cx={x} cy={y} r={r * 0.4} fill="#f2c94c" />
+        </g>
       ))}
-      <circle cx={36} cy={42} r={8.5} fill={INK.red} />
-      <circle cx={36} cy={42} r={4} fill={INK.ivory} />
-      <path d="M18 74 Q30 64 44 66" stroke="#7a4b24" strokeWidth={2.2} fill="none" strokeLinecap="round" />
-      <ellipse cx={27} cy={64} rx={6} ry={2.6} transform="rotate(-35 27 64)" fill={INK.green} />
-      <ellipse cx={39} cy={62} rx={5} ry={2.3} transform="rotate(25 39 62)" fill={INK.green} />
-    </g>
+    </>
   );
 }
 
-/** Bonus number: big, haloed and top-left so it survives the 24 px tile. Ink, not background, names the family. */
+/** Bunga 2 蘭 orchid: arching leaves and small magenta blooms. */
+function OrchidSprig() {
+  return (
+    <>
+      <path d="M30 78 Q20 56 10 50 M30 78 Q34 54 48 44 M30 78 Q30 60 26 40" stroke={LEAF} strokeWidth={1.8} fill="none" strokeLinecap="round" />
+      {([[16, 46], [26, 36], [44, 40], [38, 54]] as const).map(([x, y]) => (
+        <g key={`${x}-${y}`}>
+          <Petals cx={x} cy={y} r={3.4} n={5} fill="#b03a7a" len={1.3} />
+          <circle cx={x} cy={y} r={1.3} fill={INK.ivory} />
+        </g>
+      ))}
+    </>
+  );
+}
+
+/** Bunga 3 竹 bamboo: two jointed stalks with leaves. */
+function BambooSprig() {
+  return (
+    <>
+      {([[24, 34], [36, 42]] as const).map(([x, top]) => (
+        <g key={x}>
+          <rect x={x - 2.6} y={top} width={5.2} height={78 - top} rx={2} fill={LEAF} />
+          {[top + 12, top + 24].map((y) => (
+            <line key={y} x1={x - 3} x2={x + 3} y1={y} y2={y} stroke={INK.ivory} strokeWidth={1.2} />
+          ))}
+        </g>
+      ))}
+      {([[16, 42, -35], [32, 36, 30], [44, 50, 25], [14, 58, -25], [46, 62, 20]] as const).map(([x, y, deg]) => (
+        <ellipse key={`${x}-${y}`} cx={x} cy={y} rx={7} ry={1.9} transform={`rotate(${deg} ${x} ${y})`} fill="#2f8f57" />
+      ))}
+    </>
+  );
+}
+
+/** Bunga 4 菊 chrysanthemum: a dense orange head over leaves. */
+function ChrysanthemumSprig() {
+  return (
+    <>
+      <path d="M30 78 Q28 64 32 52" stroke={LEAF} strokeWidth={2} fill="none" strokeLinecap="round" />
+      <ellipse cx={22} cy={66} rx={6.5} ry={2.8} transform="rotate(-30 22 66)" fill={LEAF} />
+      <ellipse cx={39} cy={70} rx={6} ry={2.6} transform="rotate(28 39 70)" fill={LEAF} />
+      <Petals cx={32} cy={44} r={4.2} n={14} fill="#e0892b" len={2.2} />
+      <circle cx={32} cy={44} r={3.6} fill="#c8621c" />
+    </>
+  );
+}
+
+/** Musim 1 春 spring: tulip buds. */
+function SpringSprig() {
+  return (
+    <>
+      <path d="M30 78 Q24 60 18 46 M30 78 Q30 58 32 40 M30 78 Q38 62 44 52" stroke={LEAF} strokeWidth={1.8} fill="none" strokeLinecap="round" />
+      <ellipse cx={20} cy={70} rx={8} ry={2.4} transform="rotate(-40 20 70)" fill={LEAF} />
+      <ellipse cx={40} cy={70} rx={8} ry={2.4} transform="rotate(40 40 70)" fill={LEAF} />
+      {([[18, 42, '#e0892b'], [32, 36, '#d2453a'], [45, 48, '#3d6fb8']] as const).map(([x, y, fill]) => (
+        <path key={x} d={`M${x - 4.5} ${y + 3} Q${x - 5} ${y - 6} ${x - 2} ${y - 5} L${x} ${y - 1} L${x + 2} ${y - 5} Q${x + 5} ${y - 6} ${x + 4.5} ${y + 3} Z`} fill={fill} />
+      ))}
+    </>
+  );
+}
+
+/** Musim 2 夏 summer: red poppies. */
+function SummerSprig() {
+  return (
+    <>
+      <path d="M30 78 Q20 62 18 46 M30 78 Q32 60 40 44 M30 78 Q30 66 30 58" stroke={LEAF} strokeWidth={1.6} fill="none" strokeLinecap="round" />
+      {([[18, 44, 6.5], [40, 42, 6], [30, 56, 5]] as const).map(([x, y, r]) => (
+        <g key={x}>
+          <circle cx={x} cy={y} r={r} fill="#d2453a" />
+          <circle cx={x} cy={y} r={r * 0.35} fill="#2b2b2b" />
+        </g>
+      ))}
+    </>
+  );
+}
+
+/** Musim 3 秋 autumn: a sunflower. */
+function AutumnSprig() {
+  return (
+    <>
+      <path d="M30 78 Q30 66 30 54" stroke={LEAF} strokeWidth={2} fill="none" strokeLinecap="round" />
+      <ellipse cx={22} cy={68} rx={7} ry={3.4} transform="rotate(-25 22 68)" fill={LEAF} />
+      <ellipse cx={38} cy={70} rx={7} ry={3.4} transform="rotate(25 38 70)" fill={LEAF} />
+      <Petals cx={30} cy={44} r={3.6} n={12} fill="#e8a33a" len={2.4} />
+      <circle cx={30} cy={44} r={4.8} fill="#a4521c" />
+    </>
+  );
+}
+
+/** Musim 4 冬 winter: a lily spray on a brown stem. */
+function WinterSprig() {
+  return (
+    <>
+      <path d="M30 78 Q28 62 34 44 M31 64 L20 54" stroke={STEM} strokeWidth={1.8} fill="none" strokeLinecap="round" />
+      <ellipse cx={24} cy={72} rx={7} ry={2.4} transform="rotate(-35 24 72)" fill={LEAF} />
+      <ellipse cx={38} cy={66} rx={6} ry={2.2} transform="rotate(30 38 66)" fill={LEAF} />
+      <Petals cx={34} cy={40} r={3.6} n={6} fill="#c43a3a" len={2} />
+      <circle cx={34} cy={40} r={1.8} fill="#f2c94c" />
+      <Petals cx={19} cy={52} r={2.8} n={6} fill="#c43a3a" len={1.8} />
+    </>
+  );
+}
+
+const FLOWER_ART: Record<number, () => ReactNode> = { 1: PlumSprig, 2: OrchidSprig, 3: BambooSprig, 4: ChrysanthemumSprig };
+const SEASON_ART: Record<number, () => ReactNode> = { 1: SpringSprig, 2: SummerSprig, 3: AutumnSprig, 4: WinterSprig };
+
+/** Bonus number: big, haloed and top-left so it survives the 24 px tile. Ink, not background or petals, names the family. */
 function BonusNumber({ value, fill }: { value: number; fill: string }) {
   return (
     <text className="art-bonus-number" x={4} y={2} fontSize={26} fill={fill} dominantBaseline="hanging" stroke={INK.ivory} strokeWidth={3} paintOrder="stroke">
@@ -262,26 +367,20 @@ function BonusNumber({ value, fill }: { value: number; fill: string }) {
   );
 }
 
-function FlowerFace({ value }: { value: number }) {
+/** Bunga (red numeral and glyph) or Musim (blue numeral and glyph), following tiles.pdf p. 2. */
+function BonusFace({ face, value }: { face: TileFace; value: number }) {
+  const family = face.tone === 'season' ? 'season' : 'flower';
+  const Art = (family === 'season' ? SEASON_ART : FLOWER_ART)[value];
+  const ink = BONUS_INK[family];
   return (
     <>
-      <Blossom />
-      <Glyph className="art-detail" x={50} y={10} size={11} fill={INK.bonusBlue}>
-        {FLOWER_GLYPH[value]}
+      <g className={family === 'season' ? 'art-season' : 'art-blossom'} data-art={`${family}-${value}`}>
+        {Art ? <Art /> : null}
+      </g>
+      <Glyph className="art-detail art-bonus-glyph" x={47} y={13} size={15} fill={ink}>
+        {face.main}
       </Glyph>
-      <BonusNumber value={value} fill={INK.bonusBlue} />
-    </>
-  );
-}
-
-function SeasonFace({ value }: { value: number }) {
-  return (
-    <>
-      <SeasonSprig />
-      <Glyph className="art-detail" x={50} y={10} size={11} fill={INK.red}>
-        {SEASON_GLYPH[value]}
-      </Glyph>
-      <BonusNumber value={value} fill={INK.red} />
+      <BonusNumber value={value} fill={ink} />
     </>
   );
 }
@@ -317,9 +416,8 @@ function FaceArt({ tile, face }: { tile: Tile; face: TileFace }) {
     case 'white':
       return <DragonFace value={tile.value} />;
     case 'flower':
-      return <FlowerFace value={tile.value} />;
     case 'season':
-      return <SeasonFace value={tile.value} />;
+      return <BonusFace face={face} value={tile.value} />;
     case 'kim':
       return <KimFace />;
   }

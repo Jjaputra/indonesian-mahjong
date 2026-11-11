@@ -58,8 +58,28 @@ const WIND_FACE: Record<number, { glyph: string; name: string }> = {
   3: { glyph: '西', name: 'Xi' },
   4: { glyph: '北', name: 'Bei' },
 };
-const FLOWER_GLYPH: Record<number, string> = { 1: '梅', 2: '蘭', 3: '菊', 4: '竹' };
-const SEASON_GLYPH: Record<number, string> = { 1: '春', 2: '夏', 3: '秋', 4: '冬' };
+/** Bunga 1–4 in printed order (tiles.pdf p. 2): 梅 plum, 蘭 orchid, 竹 bamboo, 菊 chrysanthemum. */
+export const FLOWER_FACE: Record<number, { glyph: string; name: string }> = {
+  1: { glyph: '梅', name: 'Plum' },
+  2: { glyph: '蘭', name: 'Anggrek' },
+  3: { glyph: '竹', name: 'Bambu' },
+  4: { glyph: '菊', name: 'Krisan' },
+};
+/** Musim 1–4: 春 semi, 夏 panas, 秋 gugur, 冬 dingin. */
+export const SEASON_FACE: Record<number, { glyph: string; name: string }> = {
+  1: { glyph: '春', name: 'Semi' },
+  2: { glyph: '夏', name: 'Panas' },
+  3: { glyph: '秋', name: 'Gugur' },
+  4: { glyph: '冬', name: 'Dingin' },
+};
+/**
+ * How to tell the two bonus families apart, per the supplied tile sheet (tiles.pdf p. 2) and the user's
+ * clarification "Bunga biru = Musim": read the ink of the number and glyph, not the petals.
+ */
+export const BONUS_INK_CUE = {
+  season: 'Musim = bunga biru: angka & huruf biru',
+  flower: 'Bunga = bunga merah: angka & huruf merah',
+} as const;
 const SUIT_GLYPH: Record<string, string> = { tong: '筒', sok: '索', ban: '萬' };
 
 export type TileTone = 'tong' | 'sok' | 'ban' | 'wind' | 'red' | 'green' | 'white' | 'flower' | 'season' | 'kim';
@@ -111,10 +131,16 @@ export function getTileFace(tile: Tile): TileFace {
       const hint = tone === 'red' ? 'naga merah' : tone === 'green' ? 'naga hijau' : 'naga putih, bingkai kosong';
       return { main: f.glyph, sub: f.name, tone, title: `Naga ${f.name}`, hint };
     }
-    case 'flower':
-      return { main: FLOWER_GLYPH[tile.value] ?? '花', sub: `Bunga ${tile.value}`, tone: 'flower', title: `Bunga ${tile.value}`, hint: 'bunga hitam/biru, angka biru tua' };
-    case 'season':
-      return { main: SEASON_GLYPH[tile.value] ?? '季', sub: `Musim ${tile.value}`, tone: 'season', title: `Musim ${tile.value}`, hint: 'musim/kembang merah, angka merah' };
+    case 'flower': {
+      const f = FLOWER_FACE[tile.value];
+      const hint = f ? `bunga merah ${f.glyph} ${f.name}, angka & huruf merah` : 'bunga merah, angka & huruf merah';
+      return { main: f?.glyph ?? '花', sub: `Bunga ${tile.value}`, tone: 'flower', title: `Bunga ${tile.value}`, hint };
+    }
+    case 'season': {
+      const f = SEASON_FACE[tile.value];
+      const hint = f ? `bunga biru ${f.glyph} ${f.name}, angka & huruf biru` : 'bunga biru, angka & huruf biru';
+      return { main: f?.glyph ?? '季', sub: `Musim ${tile.value}`, tone: 'season', title: `Musim ${tile.value}`, hint };
+    }
     default:
       return { main: '?', sub: '', tone: 'white', title: 'Tile' };
   }

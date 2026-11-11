@@ -17,6 +17,7 @@ import {
   searchPatterns,
   type CalculatorBonus,
 } from '../tay-calculator';
+import { BONUS_INK_CUE } from '../labels';
 import { copyText } from './HuResultModal';
 
 interface TayCalculatorProps {
@@ -301,6 +302,7 @@ export function TayCalculator({
                         <strong>{p.name}</strong>
                         <div className="muted small">
                           {p.keterangan}
+                          {p.id === 1 ? ` (istilah rulebook; di tile: ${BONUS_INK_CUE.flower})` : p.id === 2 ? ` (istilah rulebook; di tile: ${BONUS_INK_CUE.season})` : ''}
                           {p.seatMatchBonus
                             ? bonusTileRule === 'own_seat_only'
                               ? ' · aturan rumah: hanya tile posisi sendiri +1, tile lain 0'

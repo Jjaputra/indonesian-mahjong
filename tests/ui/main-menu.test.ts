@@ -69,8 +69,8 @@ describe('MainMenu', () => {
     for (const text of ['Tong (bulatan)', 'Sok (bambu)', 'Ban (karakter)', 'Angin', 'Naga', 'Bunga &amp; Musim', '1 Timur, 2 Selatan, 3 Barat, 4 Utara', 'Kim']) {
       expect(html).toContain(text);
     }
-    expect(html).toContain('aria-label="Bunga 1, bunga hitam/biru, angka biru tua"');
-    expect(html).toContain('aria-label="Musim 4, musim/kembang merah, angka merah"');
+    expect(html).toContain('aria-label="Musim 1, bunga biru 春 Semi, angka &amp; huruf biru"');
+    expect(html).toContain('aria-label="Bunga 4, bunga merah 菊 Krisan, angka &amp; huruf merah"');
     expect(html).toContain('class="tile-art art-white"');
   });
 });

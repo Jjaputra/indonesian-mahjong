@@ -110,6 +110,14 @@ The **Kim aktif** setting still decides whether Kim tiles exist in the wall at a
 - `rulebook_per_tile` (PDF reference, and the default for callers that do not pass the option): each Bunga is 0 Tay, each Musim is 1 Tay, and a tile whose number matches the seat (Dong = 1, Nan = 2, Xi = 3, Bei = 4) adds +1.
 - `own_seat_only` (**user house rule**, the practice default): only an individual Bunga or Musim whose number matches the seat earns +1; every off-seat tile earns 0. The off-seat tiles are still listed on the receipt with 0.
 
+**Bonus posisi +1** means exactly one extra Tay for each individual Bunga or Musim whose number equals the seat, added to that tile's base. So an own-seat Musim is 1 + 1 = 2 under `rulebook_per_tile` and 0 + 1 = 1 under `own_seat_only`; an own-seat Bunga is 0 + 1 = 1 under both. No second +1 is ever added.
+
+**Reading the bonus tiles (visual override).** The rulebook row text calls the two families "Kembang hitam" (#1 Bunga) and "Kembang merah" (#2 Musim). That colour wording is quoted unchanged in the calculator, but it does not match the physical set the user plays with. The supplied tile sheet (`tiles.pdf`, p. 2) and the user's direct clarification ("Bunga biru = Musim, point +1 jika angka pada tile sama dengan posisi tempat duduk") override it for the tile art and every hint:
+- **Musim** (`season`, "bunga biru"): blue number and glyph. 1 春 Spring/Semi, 2 夏 Summer/Panas, 3 秋 Autumn/Gugur, 4 冬 Winter/Dingin.
+- **Bunga** (`flower`, "bunga merah"): red number and glyph. 1 梅 Plum, 2 蘭 Orchid/Anggrek, 3 竹 Bamboo/Bambu, 4 菊 Chrysanthemum/Krisan.
+
+The family is read from the ink of the number and glyph, not from the petal or background colours. The internal types, tile IDs, the 1–4 seat numbering, the four-of-each inventory, stored histories and every Tay value are unchanged; only the colours, the F3/F4 flower order (earlier builds had 菊 and 竹 swapped) and the wording were corrected. The SVG faces are original drawings, not copies of the sheet. The calculator shows the rulebook term next to the tile-sheet cue so the source conflict stays visible.
+
 Collection awards are the same under both rules: #4 four Bunga 10, #5 four Musim 20, #6 seven bonus tiles 30. The user did not say how collections combine with the house rule, so the documented awards are kept as they are; only the individual #1/#2 lines change. The calculator, live scoring, hand preview, result and receipt all use the same rule. Assumptions that remain: that the PDF base applies per tile, and that number N maps to the Nth seat.
 
 **Overlap policy.** The PDF supports one exclusion: Thi Fu replaces Pao Chin (row #10 text). The other entries in `SUPERSEDES` have **no PDF support**: #6 replaces #4/#5, #21/#22 replace #27–#29, #23/#24 replace #25/#26, #34 replaces #33, #38 replaces #37. They only apply when the "Eksklusif" policy is selected. The settings label now says that only Thi Fu → Pao Chin is written in the rulebook.

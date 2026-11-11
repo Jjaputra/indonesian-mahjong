@@ -5,7 +5,7 @@ import { sortTiles } from '../../core/tiles';
 import type { Seat, Tile } from '../../core/types';
 import { isKim } from '../../kim/wildcard-solver';
 import type { GameController, HumanActions } from '../game-controller';
-import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIND_GLYPH, tileText } from '../labels';
+import { BONUS_INK_CUE, PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIND_GLYPH, tileText } from '../labels';
 import { practiceCoachLine, type CoachEmphasis } from '../practice-coach';
 import { handReadingLine } from '../hand-reading';
 import { isFirstGoAround, isInitialDealtHand, toFullRules, toScoringOverlap } from '../win-context';
@@ -41,8 +41,9 @@ function WindBadges({ seat, controller }: { seat: Seat; controller: GameControll
 }
 
 function FlowerRack({ tiles, seat }: { tiles: readonly Tile[]; seat: Seat }) {
-  if (!tiles.length) return <span className="rack-empty">Belum ada Bunga / Musim (kembang merah)</span>;
-  return <span className="bonus-rack"><TileRow tiles={tiles} size="sm" /><small>Bunga: angka biru · Musim / kembang merah: angka merah{tiles.some(t => t.value === ['dong', 'nan', 'xi', 'bei'].indexOf(seat) + 1) ? ' · Ada nomor sesuai posisi duduk' : ''}</small></span>;
+  if (!tiles.length) return <span className="rack-empty">Belum ada Bunga / Musim</span>;
+  const cues = [tiles.some(t => t.type === 'season') && BONUS_INK_CUE.season, tiles.some(t => t.type === 'flower') && BONUS_INK_CUE.flower].filter(Boolean).join(' · ');
+  return <span className="bonus-rack"><TileRow tiles={tiles} size="sm" /><small>{cues}{tiles.some(t => t.value === ['dong', 'nan', 'xi', 'bei'].indexOf(seat) + 1) ? ' · Ada nomor sesuai posisi duduk (bonus posisi +1)' : ''}</small></span>;
 }
 
 export function OpponentPanel({ seat, position, controller }: { seat: Seat; position: string; controller: GameController }) {

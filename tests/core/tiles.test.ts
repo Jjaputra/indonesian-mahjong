@@ -68,7 +68,7 @@ describe('Tile Domain Model (148-Tile Set)', () => {
     }
   });
 
-  it('contains exactly 8 bonus tiles (4 black flowers, 4 red seasons)', () => {
+  it('contains exactly 8 bonus tiles (4 Bunga, 4 Musim)', () => {
     const tiles = createCompleteTileSet();
     const flowers = tiles.filter((t) => t.type === 'flower');
     const seasons = tiles.filter((t) => t.type === 'season');
@@ -149,8 +149,8 @@ describe('Tile Domain Model (148-Tile Set)', () => {
     expect(getTileUnicode(keyToTile('1B'))).toBe('🀇');
     expect(getTileUnicode(keyToTile('1S'))).toBe('🀐');
     expect(getTileUnicode(keyToTile('1T'))).toBe('🀙');
-    expect(getTileUnicode(keyToTile('M1'))).toBe('🀢');
-    expect(getTileUnicode(keyToTile('F1'))).toBe('🀦');
+    expect(getTileUnicode(keyToTile('M1'))).toBe('🀦');
+    expect(getTileUnicode(keyToTile('F1'))).toBe('🀢');
     expect(getTileUnicode(keyToTile('KIM'))).toBe('🀫');
   });
 
