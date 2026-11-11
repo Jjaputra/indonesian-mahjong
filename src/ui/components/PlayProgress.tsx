@@ -26,10 +26,10 @@ export function PlayProgress({ controller, paused, blocked, pace, onPaceChange, 
       <button type="button" className="btn" aria-pressed={paused} onClick={onPause} disabled={finished}>
         {paused ? 'Lanjutkan bot' : 'Jeda bot'}
       </button>
-      <button type="button" className="btn" onClick={onStep} disabled={!paused || blocked || waiting || finished}>
+      <button type="button" className="btn" onClick={onStep} disabled={!paused || blocked || controller.isPresenting || waiting || finished}>
         Satu langkah bot
       </button>
-      <span role="status">{finished ? 'Permainan selesai' : blocked ? 'Bot dijeda selama dialog terbuka' : waiting
+      <span role="status">{finished ? 'Permainan selesai' : controller.isPresenting ? 'Transisi meja · aksi berikutnya setelah tile selesai' : blocked ? 'Bot dijeda selama dialog terbuka' : waiting
         ? `Menunggu pilihan Anda${paused ? ' · bot dijeda' : ''}` : paused ? 'Bot dijeda · gunakan satu langkah atau lanjutkan' : 'Bot berjalan otomatis'}</span>
     </div>
     <p className="turn-order" aria-label="Urutan giliran berlawanan arah jarum jam">

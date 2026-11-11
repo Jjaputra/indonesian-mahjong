@@ -39,7 +39,7 @@ export function TileView({ tile, size = 'md', selected, highlight, disabled, dra
   );
   if (!onClick) {
     return (
-      <span className={cls} role="img" title={label} aria-label={label}>
+      <span className={cls} role="img" title={label} aria-label={label} data-tile-id={tile.id}>
         {content}
       </span>
     );
@@ -48,6 +48,7 @@ export function TileView({ tile, size = 'md', selected, highlight, disabled, dra
     <button
       type="button"
       className={cls}
+      data-tile-id={tile.id}
       title={disabled ? `${label} (tidak bisa dibuang)` : label}
       aria-label={label}
       aria-pressed={selected}

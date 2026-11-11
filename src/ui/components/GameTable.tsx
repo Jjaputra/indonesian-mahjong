@@ -1,3 +1,4 @@
+import { TableMotion } from './TableMotion';
 import { Hand, Layers, Sparkles, Trophy, Undo2, Flower2, ArrowDownToLine, Trash2, Crown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { sortTiles } from '../../core/tiles';
@@ -39,9 +40,9 @@ function WindBadges({ seat, controller }: { seat: Seat; controller: GameControll
   );
 }
 
-function FlowerRack({ tiles }: { tiles: readonly Tile[] }) {
-  if (!tiles.length) return <span className="rack-empty">Belum ada Bunga/Musim</span>;
-  return <TileRow tiles={tiles} size="sm" />;
+function FlowerRack({ tiles, seat }: { tiles: readonly Tile[]; seat: Seat }) {
+  if (!tiles.length) return <span className="rack-empty">Belum ada Bunga / Musim (kembang merah)</span>;
+  return <span className="bonus-rack"><TileRow tiles={tiles} size="sm" /><small>Bunga: angka biru · Musim / kembang merah: angka merah{tiles.some(t => t.value === ['dong', 'nan', 'xi', 'bei'].indexOf(seat) + 1) ? ' · Ada nomor sesuai posisi duduk' : ''}</small></span>;
 }
 
 export function OpponentPanel({ seat, position, controller }: { seat: Seat; position: string; controller: GameController }) {
@@ -56,19 +57,19 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
         <WindBadges seat={seat} controller={controller} />
         {kimInMelds > 0 && <span className="badge badge-kim">KIM ×{kimInMelds}</span>}
       </div>
-      <div className="concealed" title={`${p.hand.length} tile tertutup`}>
+      <div data-hand-anchor={seat} className="concealed" title={`${p.hand.length} tile tertutup`}>
         {p.hand.map((t) => (
           <TileBack key={t.id} size="sm" />
         ))}
         <span className="count">{p.hand.length}</span>
       </div>
-      <div className="melds">
+      <div data-meld-anchor={seat} className="melds">
         {p.melds.map((m, i) => (
           <MeldView key={i} meld={m} />
         ))}
       </div>
       <div className="rack">
-        <Flower2 size={12} /> <FlowerRack tiles={p.flowers} />
+        <Flower2 size={12} /> <FlowerRack tiles={p.flowers} seat={seat} />
       </div>
     </section>
   );
@@ -83,9 +84,10 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
   const freshId = controller.lastDiscard?.tile.id;
   return (
     <section className="center-area" aria-label="Area buangan">
+      <TableMotion controller={controller} />
       {progress}
       <div className="center-stats">
-        <span className="stat" title="Sisa tile di tembok">
+        <span data-wall-anchor className="stat" title="Sisa tile di tembok">
           <Layers size={14} /> Tembok: <b>{s.wall.remainingCount}</b>
         </span>
         <span className="stat" title="Angin putaran">
@@ -99,7 +101,7 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
         </span>
       </div>
       {pending && (
-        <div key={pending.tile.id} className={`pending-discard${!pending.isPromotedKong && freshId === pending.tile.id ? ' discard-flight' : ''}`} data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${PLAYER_NAME[pending.discarder]} ke area buangan tengah`}>
+        <div key={pending.tile.id} className="pending-discard" data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${PLAYER_NAME[pending.discarder]} ke area buangan tengah`}>
           <span>
             {pending.isPromotedKong ? 'Kakan oleh' : 'Buangan'} {PLAYER_NAME[pending.discarder]}:
           </span>
@@ -162,20 +164,20 @@ export function HumanArea({ controller, actions, selectedId, onSelect }: HumanAr
   };
 
   return (
-    <section className={`human-area${active ? ' is-active' : ''}`} aria-label="Tangan Anda">
+    <section className={`human-area${active ? ' is-active' : ''}`} data-seat-panel={seat} aria-label="Tangan Anda">
       <div className="seat-head">
         <strong>{PLAYER_NAME[seat]}</strong>
         <WindBadges seat={seat} controller={controller} />
         <span className="rack">
-          <Flower2 size={12} /> <FlowerRack tiles={p.flowers} />
+          <Flower2 size={12} /> <FlowerRack tiles={p.flowers} seat={seat} />
         </span>
       </div>
-      <div className="melds">
+      <div data-meld-anchor={seat} className="melds">
         {p.melds.map((m, i) => (
           <MeldView key={i} meld={m} size="md" />
         ))}
       </div>
-      <div className="hand-row" role="group" aria-label="Tile di tangan">
+      <div data-hand-anchor={seat} className="hand-row" role="group" aria-label="Tile di tangan">
         {rest.map((t) => tileButton(t, false))}
         {drawn && <span className="drawn-gap" />}
         {drawn && tileButton(drawn, true)}

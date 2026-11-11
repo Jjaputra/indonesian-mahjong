@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Check, ChevronDown, ChevronRight, Copy, RotateCcw } from 'lucide-react';
-import { PATTERNS } from '../../scoring';
+import { PATTERNS, tableTay } from '../../scoring';
 import type { GameOutcome } from '../game-controller';
 import { PLAYER_NAME, SEAT_LABEL, WIN_METHOD_LABEL, tileText } from '../labels';
-import { buildHuReceipt, classifyHand, formatTay, modeLabel } from '../tay-calculator';
+import { BONUS_TILE_RULE_LABEL, buildHuReceipt, classifyHand, formatTay, modeLabel, scoringColumnSummary } from '../tay-calculator';
 import { Modal } from './Modal';
 import { MeldView, TileRow, TileView } from './TileView';
 
@@ -75,10 +75,13 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
           </dd>
           <dt>Klasifikasi</dt>
           <dd>{classifyHand(r)}</dd>
-          <dt>Mode</dt>
+          <dt>Tabel</dt>
           <dd>
-            <span className={`badge ${r.isWithKim ? 'badge-kim' : 'badge-seat'}`}>{modeLabel(r.mode)}</span>
+            <span className={`badge ${r.mode === 'K' ? 'badge-kim' : 'badge-seat'}`}>{modeLabel(r.mode)}</span>{' '}
+            <span className="muted small">{scoringColumnSummary(r)}</span>
           </dd>
+          <dt>Bunga/Musim</dt>
+          <dd className="muted small">{BONUS_TILE_RULE_LABEL[r.bonusTileRule]}</dd>
         </dl>
 
         <div className="receipt-hand">
@@ -113,8 +116,8 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
                     <strong>{p.name}</strong>
                     <div className="muted small">{p.description}</div>
                   </td>
-                  <td className={r.mode === 'K' ? 'col-active' : ''}>{formatTay(def?.K ?? null)}</td>
-                  <td className={r.mode === 'NK' ? 'col-active' : ''}>{formatTay(def?.NK ?? null)}</td>
+                  <td className={r.mode === 'K' ? 'col-active' : ''}>{formatTay(def ? tableTay(p.id, 'K', r.scoringBasis) : null)}</td>
+                  <td className={r.mode === 'NK' ? 'col-active' : ''}>{formatTay(def ? tableTay(p.id, 'NK', r.scoringBasis) : null)}</td>
                   <td className="num">{p.tay}</td>
                 </tr>
               );
@@ -128,6 +131,11 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
           </tfoot>
         </table>
 
+        {r.notes.map((note) => (
+          <p key={note} className="muted small">
+            {note}
+          </p>
+        ))}
         <p className={`status-line ${valid ? 'ok' : 'bad'}`}>
           {valid ? `✓ Memenuhi minimum Hu: ${r.totalTay} ≥ ${r.minHuTay} Tay` : `✗ ${r.rejectionReason ?? `Kurang dari ${r.minHuTay} Tay`}`}
         </p>

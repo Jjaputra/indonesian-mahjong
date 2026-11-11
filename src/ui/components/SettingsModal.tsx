@@ -8,7 +8,9 @@ import {
   getPreset,
   type AIDifficulty,
   type AnimationSpeed,
+  type BonusTileRule,
   type GameSettings,
+  type ScoringBasis,
   type SettingsPresetName,
 } from '../../storage';
 import { ANIMATION_LABEL, DIFFICULTY_LABEL, SEAT_LABEL } from '../labels';
@@ -21,6 +23,12 @@ interface SettingsModalProps {
 }
 
 const SEATS: Seat[] = ['dong', 'nan', 'xi', 'bei'];
+
+const PRESET_LABEL: Record<SettingsPresetName, string> = {
+  tournament: 'Referensi PDF Turnamen (BMC ver06)',
+  house: 'Aturan rumah (catatan Anda)',
+  casual: 'Kasual',
+};
 
 /** Applies a preset's rules while keeping presentation preferences (same as storage.applyPreset). */
 export function withPreset(current: GameSettings, name: SettingsPresetName): GameSettings {
@@ -81,7 +89,7 @@ export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps)
         <section>
           <h3>Preset Aturan</h3>
           <div className="segmented" role="radiogroup" aria-label="Preset">
-            {(['tournament', 'casual'] as SettingsPresetName[]).map((name) => (
+            {(['house', 'tournament', 'casual'] as SettingsPresetName[]).map((name) => (
               <button
                 key={name}
                 type="button"
@@ -90,11 +98,35 @@ export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps)
                 className={preset === name ? 'is-on' : ''}
                 onClick={() => setDraft((d) => withPreset(d, name))}
               >
-                {name === 'tournament' ? 'Turnamen (BMC ver06)' : 'Kasual'}
+                {PRESET_LABEL[name]}
               </button>
             ))}
             <span className={`segmented-note${preset === 'custom' ? ' is-on' : ''}`}>{preset === 'custom' ? 'Kustom' : ''}</span>
           </div>
+          <p className="muted small">
+            Referensi PDF memakai nilai tabel seperti tercetak dan pembacaan kolom lama. Aturan rumah berisi pilihan Anda yang tidak
+            tertulis di PDF: tabel mengikuti pilihan Kim pertandingan, dan hanya Bunga/Musim posisi sendiri yang bernilai.
+          </p>
+        </section>
+
+        <section>
+          <h3>Penilaian Tay</h3>
+          <Field label="Kolom tabel (Ada Kim / Tanpa Kim)">
+            <select value={draft.scoringBasis} onChange={(e) => set('scoringBasis', e.target.value as ScoringBasis)}>
+              <option value="match_table">Ikut pilihan pertandingan: Ada Kim → tabel Ada Kim, Tanpa Kim → tabel Tanpa Kim</option>
+              <option value="hand_kim_usage">Ikut Kim di tangan pemenang (pembacaan lama)</option>
+            </select>
+          </Field>
+          <Field label="Bunga/Musim individual">
+            <select value={draft.bonusTileRule} onChange={(e) => set('bonusTileRule', e.target.value as BonusTileRule)}>
+              <option value="own_seat_only">Hanya posisi sendiri +1, posisi lain 0 (aturan rumah)</option>
+              <option value="rulebook_per_tile">Per tile sesuai PDF: Bunga 0, Musim 1, posisi sendiri +1</option>
+            </select>
+          </Field>
+          <p className="muted small">
+            Jumlah Kim yang benar-benar dipegang tetap menentukan pola Kim (#7 Tile KIM, #8 Bo KIM, #30, #32, #40); kolom hanya
+            menentukan nilainya. Hadiah koleksi #4, #5 dan #6 tetap sama pada kedua aturan Bunga/Musim.
+          </p>
         </section>
 
         <section>

@@ -2,9 +2,10 @@
  * Manual 44-Tay calculator (the v0.1 "Kalkulator Tay" brief) and receipt builders.
  * Pattern values come from the canonical rulebook table in src/scoring/patterns.ts.
  */
+import type { BonusTileRule, ScoringBasis } from '../core/types';
 import type { KimMode } from '../kim/types';
-import { PATTERNS, SUPERSEDES, type PatternDefinition, type ScoringResult } from '../scoring';
-import type { OverlapPolicy } from '../storage';
+import { PATTERNS, SUPERSEDES, tableTay, type PatternDefinition, type ScoringResult } from '../scoring';
+import type { GameSettings, MatchHistoryRecord, OverlapPolicy } from '../storage';
 import type { HuOutcome } from './game-controller';
 import { PLAYER_NAME, SEAT_LABEL, WIN_METHOD_LABEL, tileText } from './labels';
 
@@ -27,6 +28,69 @@ export function modeLabel(mode: KimMode): string {
 
 export function formatTay(value: number | null): string {
   return value === null ? '—' : String(value);
+}
+
+/**
+ * Column the calculator should show for a match, or null when nothing decides it from outside
+ * (no match given, or the hand-usage basis where the column depends on the hand).
+ */
+export function matchColumnWithKim(matchKimEnabled: boolean | undefined, basis: ScoringBasis): boolean | null {
+  return matchKimEnabled === undefined || basis !== 'match_table' ? null : matchKimEnabled;
+}
+
+/**
+ * Calculator props for the rules of the match in play. Pass the controller's active settings
+ * during a hand (edits wait for the next game) and the pregame settings on the menu.
+ */
+export function calculatorMatchProps(active: Pick<GameSettings, 'minHuTay' | 'overlapPolicy' | 'scoringBasis' | 'bonusTileRule' | 'kimEnabled'>) {
+  return {
+    defaultMinHuTay: active.minHuTay,
+    overlapPolicy: active.overlapPolicy,
+    scoringBasis: active.scoringBasis,
+    bonusTileRule: active.bonusTileRule,
+    matchKimEnabled: active.kimEnabled,
+  };
+}
+
+export const SCORING_BASIS_LABEL: Record<ScoringBasis, string> = {
+  match_table: 'Tabel mengikuti pilihan pertandingan (aturan rumah)',
+  hand_kim_usage: 'Kolom mengikuti Kim di tangan (pembacaan lama)',
+};
+
+export const BONUS_TILE_RULE_LABEL: Record<BonusTileRule, string> = {
+  own_seat_only: 'Bunga/Musim: hanya posisi sendiri +1, posisi lain 0 (aturan rumah)',
+  rulebook_per_tile: 'Bunga/Musim: per tile sesuai PDF (Bunga 0, Musim 1, posisi sendiri +1)',
+};
+
+/** One-line summary of the rules a match is scored with, for the pregame and table headers. */
+export function activeRulesSummary(rules: { kimEnabled: boolean; scoringBasis: ScoringBasis; bonusTileRule: BonusTileRule }): string {
+  const table =
+    rules.scoringBasis === 'match_table'
+      ? `Tabel ${modeLabel(rules.kimEnabled ? 'K' : 'NK')} untuk semua Hu`
+      : 'Kolom menurut Kim di tangan';
+  const bonus = rules.bonusTileRule === 'own_seat_only' ? 'Bunga/Musim hanya posisi sendiri' : 'Bunga/Musim per tile (PDF)';
+  return `${table} · ${bonus}`;
+}
+
+type ColumnFacts = Pick<ScoringResult, 'mode' | 'scoringBasis' | 'handKimCount'>;
+
+/** Explains which table column was read and how many Kim the hand actually held. */
+export function scoringColumnSummary(r: ColumnFacts): string {
+  const why = r.scoringBasis === 'match_table' ? 'pilihan pertandingan' : 'Kim di tangan';
+  return `Kolom tabel ${modeLabel(r.mode)} (${why}) · Kim di tangan: ${r.handKimCount}`;
+}
+
+/**
+ * History badge. Rows saved with the scoring fields show the column (and Kim count when stored);
+ * older rows keep their original label, which was the hand's Kim usage.
+ */
+export function historyColumnLabel(
+  record: Pick<MatchHistoryRecord, 'isWithKim' | 'tableColumn' | 'scoringBasis' | 'handKimCount'>
+): string {
+  if (!record.tableColumn) return modeLabel(record.isWithKim ? 'K' : 'NK');
+  const count = record.handKimCount === undefined ? '' : ` · ${record.handKimCount} Kim di tangan`;
+  const basis = record.scoringBasis === 'match_table' ? 'Tabel' : 'Kolom';
+  return `${basis} ${modeLabel(record.tableColumn)}${count}`;
 }
 
 /** Case-insensitive search over number, name and Keterangan. */
@@ -57,12 +121,15 @@ export interface CalculatorResult {
   removedIds: number[];
   instant: boolean;
   overlapPolicy: OverlapPolicy;
+  scoringBasis: ScoringBasis;
+  bonusTileRule: BonusTileRule;
   statusText: string;
 }
 
 /**
  * Optional exact-total inputs. Omitted fields keep the rulebook column value.
- * Flower #1 scores only seat matches (0 Tay per tile). Season #2 scores 1 Tay per tile plus seat matches.
+ * Flower #1 scores only seat matches (0 Tay per tile). Season #2 scores 1 Tay per tile plus seat matches,
+ * or only seat matches under `own_seat_only`.
  */
 export interface CalculatorBonus {
   flowers?: number;
@@ -72,11 +139,18 @@ export interface CalculatorBonus {
 }
 
 export interface CalculatorOptions {
-  /** Default `rulebook_exclusive` (canonical SUPERSEDES). `cumulative` keeps every selected line. */
+  /**
+   * Default `rulebook_exclusive` (SUPERSEDES). Only Thi Fu → Pao Chin is written in the PDF; the
+   * other pairs are unconfirmed assumptions (RULES.md §3). `cumulative` keeps every selected line.
+   */
   overlapPolicy?: OverlapPolicy;
   /** Instant Hu uses each pattern's `instantHu` value. Patterns without one are ignored. */
   instant?: boolean;
   bonus?: CalculatorBonus;
+  /** Default `hand_kim_usage`. `match_table` reads #39 from its printed cell. */
+  scoringBasis?: ScoringBasis;
+  /** Default `rulebook_per_tile`. */
+  bonusTileRule?: BonusTileRule;
 }
 
 const MAX_BONUS_TILES = 4;
@@ -86,23 +160,25 @@ function clampCount(value: number | undefined, max: number): number {
   return Math.min(max, Math.max(0, Math.floor(value)));
 }
 
-function bonusTay(id: number, base: number, bonus: CalculatorBonus | undefined): number {
-  if (!bonus) return base;
-  if (id === 1 && bonus.flowers !== undefined) {
+function bonusTay(id: number, base: number, bonus: CalculatorBonus | undefined, rule: BonusTileRule): number {
+  const seatOnly = rule === 'own_seat_only';
+  if (id === 1 && bonus?.flowers !== undefined) {
     const flowers = clampCount(bonus.flowers, MAX_BONUS_TILES);
     return clampCount(bonus.flowerSeatMatches ?? 0, flowers);
   }
-  if (id === 2 && bonus.seasons !== undefined) {
+  if (id === 2 && bonus?.seasons !== undefined) {
     const seasons = clampCount(bonus.seasons, MAX_BONUS_TILES);
-    return seasons + clampCount(bonus.seasonSeatMatches ?? 0, seasons);
+    return (seatOnly ? 0 : seasons) + clampCount(bonus.seasonSeatMatches ?? 0, seasons);
   }
+  // Without counts, own-seat-only cannot know of any seat match, so the individual line is 0.
+  if (seatOnly && (id === 1 || id === 2)) return 0;
   return base;
 }
 
 /** Pattern selectable in a mode (the "—" column cannot be chosen). Instant mode only allows instant-Hu patterns. */
-export function isSelectable(id: number, withKim: boolean, instant = false): boolean {
+export function isSelectable(id: number, withKim: boolean, instant = false, basis: ScoringBasis = 'hand_kim_usage'): boolean {
   const def = PATTERNS.get(id);
-  if (!def || (withKim ? def.K : def.NK) === null) return false;
+  if (!def || tableTay(id, withKim ? 'K' : 'NK', basis) === null) return false;
   return !instant || def.instantHu != null;
 }
 
@@ -135,18 +211,20 @@ export function calculateTay(
   const mode: KimMode = withKim ? 'K' : 'NK';
   const instant = options.instant === true;
   const overlapPolicy = options.overlapPolicy ?? 'rulebook_exclusive';
+  const scoringBasis = options.scoringBasis ?? 'hand_kim_usage';
+  const bonusTileRule = options.bonusTileRule ?? 'rulebook_per_tile';
   const lines: CalculatorLine[] = [];
   const ignoredIds: number[] = [];
   const unique = [...new Set(selectedIds)].sort((a, b) => a - b);
   for (const id of unique) {
     const def = PATTERNS.get(id);
     if (!def) continue;
-    const base = def[mode];
+    const base = tableTay(id, mode, scoringBasis);
     if (base === null || (instant && def.instantHu == null)) {
       ignoredIds.push(id);
       continue;
     }
-    const tay = instant ? def.instantHu! : bonusTay(id, base, options.bonus);
+    const tay = instant ? def.instantHu! : bonusTay(id, base, options.bonus, bonusTileRule);
     lines.push({ id, name: def.name, tay });
   }
   const applied = applySupersedes(lines, overlapPolicy);
@@ -163,6 +241,8 @@ export function calculateTay(
     removedIds: applied.removedIds,
     instant,
     overlapPolicy,
+    scoringBasis,
+    bonusTileRule,
     statusText: thresholdStatus(meetsMinimum, total, min, applied.removedIds),
   };
 }
@@ -171,6 +251,8 @@ export function buildCalculatorReceipt(result: CalculatorResult): string {
   const rows = result.lines.map((l) => `#${l.id} ${l.name}: ${l.tay} Tay`);
   return [
     `Kalkulator Tay ITM (${modeLabel(result.mode)})`,
+    SCORING_BASIS_LABEL[result.scoringBasis],
+    BONUS_TILE_RULE_LABEL[result.bonusTileRule],
     ...(rows.length ? rows : ['(belum ada pola dipilih)']),
     `Total: ${result.total} Tay`,
     result.statusText,
@@ -185,15 +267,17 @@ export function buildHuReceipt(outcome: HuOutcome): string {
     `Pemenang      : ${PLAYER_NAME[outcome.winner]} — ${SEAT_LABEL[outcome.winner]}`,
     `Tile menang   : ${tileText(outcome.winningTile)}`,
     `Cara menang   : ${WIN_METHOD_LABEL[outcome.winMethod]}${outcome.discarder ? ` (dari ${PLAYER_NAME[outcome.discarder]})` : ''}`,
-    `Mode          : ${modeLabel(r.mode)}`,
+    `Tabel         : ${scoringColumnSummary(r)}`,
+    `Bunga/Musim   : ${BONUS_TILE_RULE_LABEL[r.bonusTileRule]}`,
     `Hand          : ${outcome.hand.map(tileText).join(', ')}`,
   ];
   if (outcome.melds.length) {
     lines.push(`Meld terbuka  : ${outcome.melds.map((m) => `${m.type.toUpperCase()}[${m.tiles.map(tileText).join(' ')}]`).join(' ')}`);
   }
-  if (outcome.flowers.length) lines.push(`Bunga/Musim   : ${outcome.flowers.map(tileText).join(', ')}`);
+  if (outcome.flowers.length) lines.push(`Tile bonus    : ${outcome.flowers.map(tileText).join(', ')}`);
   lines.push('--- Rincian Tay ---');
   for (const p of r.patterns) lines.push(`#${p.id} ${p.name}: ${p.tay} Tay`);
+  for (const note of r.notes) lines.push(`Catatan: ${note}`);
   lines.push(`TOTAL         : ${r.totalTay} Tay (minimum ${r.minHuTay})`);
   lines.push(r.isValidHu ? `HU SAH ✓ (${r.totalTay} ≥ ${r.minHuTay} Tay)` : `LEW FIT ✗ ${r.rejectionReason ?? ''}`.trim());
   lines.push(`Durasi        : ${outcome.durationSeconds} detik`);

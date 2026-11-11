@@ -6,6 +6,7 @@ import {
   deleteGameRecord,
   loadGameHistory,
   updateSettings,
+  withPracticeScoringDefaults,
   type GameSettings,
 } from './storage';
 import { ActionHud, CenterArea, HumanArea, OpponentPanel, seatPositions } from './ui/components/GameTable';
@@ -20,6 +21,7 @@ import { GameController, type GameEventType } from './ui/game-controller';
 import { PlayProgress } from './ui/components/PlayProgress';
 import { loadPracticePace, loadPracticeSettings, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
 import { DIFFICULTY_LABEL } from './ui/labels';
+import { activeRulesSummary, calculatorMatchProps } from './ui/tay-calculator';
 
 type View = 'menu' | 'table' | 'calculator';
 type ModalName = 'settings' | 'history' | 'rulebook' | null;
@@ -34,6 +36,19 @@ const EVENT_SOUND: Partial<Record<GameEventType, SoundEffectName>> = {
   lewFit: 'lewFit',
 };
 
+const RULE_KEYS = ['kimEnabled', 'minHuTay', 'overlapPolicy', 'scoringBasis', 'bonusTileRule'] as const;
+
+/**
+ * Persist a settings patch without pinning the practice scoring defaults: an unchanged scoring
+ * choice is left out, so only a real change (or one already stored) is written as explicit.
+ */
+function persistSettings(current: GameSettings, patch: Partial<GameSettings>): GameSettings {
+  const next: Partial<GameSettings> = { ...current, ...patch };
+  if (next.scoringBasis === current.scoringBasis && patch.scoringBasis === undefined) delete next.scoringBasis;
+  if (next.bonusTileRule === current.bonusTileRule && patch.bonusTileRule === undefined) delete next.bonusTileRule;
+  return withPracticeScoringDefaults(updateSettings(next));
+}
+
 function useGameController(initial: GameSettings): GameController {
   const ref = useRef<GameController | null>(null);
   if (!ref.current) ref.current = new GameController({ settings: initial, autoStart: false });
@@ -41,7 +56,7 @@ function useGameController(initial: GameSettings): GameController {
 }
 
 export function App() {
-  const [settings, setSettings] = useState<GameSettings>(() => loadPracticeSettings());
+  const [settings, setSettings] = useState<GameSettings>(() => withPracticeScoringDefaults(loadPracticeSettings()));
   const controller = useGameController(settings);
   const version = useSyncExternalStore(
     useCallback((cb: () => void) => controller.subscribe(cb), [controller]),
@@ -108,7 +123,10 @@ export function App() {
 
   const saveSettings = (draft: GameSettings) => {
     if (draft.animationSpeed !== settings.animationSpeed) setPace(draft.animationSpeed);
-    const stored = updateSettings(draft);
+    const changed: Partial<GameSettings> = { ...draft };
+    if (draft.scoringBasis === settings.scoringBasis) delete changed.scoringBasis;
+    if (draft.bonusTileRule === settings.bonusTileRule) delete changed.bonusTileRule;
+    const stored = persistSettings(settings, changed);
     setSettings(stored);
     controller.setSettings(stored);
     setModal(null);
@@ -118,19 +136,22 @@ export function App() {
     setPace(choice);
     savePracticePace(choice);
     if (choice !== 'learn') {
-      const stored = updateSettings({ ...settings, animationSpeed: choice });
+      const stored = persistSettings(settings, { animationSpeed: choice });
       setSettings(stored);
       controller.setSettings(stored);
     }
   };
 
   const toggleSound = () => {
-    const stored = updateSettings({ soundEnabled: !settings.soundEnabled });
+    const stored = persistSettings(settings, { soundEnabled: !settings.soundEnabled });
     setSettings(stored);
     controller.setSettings(stored);
   };
 
   const pos = seatPositions(controller.humanSeat);
+  // The table shows the frozen rules of the hand in play; edits apply from the next game.
+  const active = matchStarted ? controller.getSettings() : settings;
+  const rulesPending = matchStarted && RULE_KEYS.some((k) => settings[k] !== active[k]);
 
   return (
     <div className="app">
@@ -140,7 +161,8 @@ export function App() {
           <div>
             <h1>Mahjong Tradisional Indonesia</h1>
             <p className="muted small">
-              Aturan BMC ver06 · AI {DIFFICULTY_LABEL[controller.getSettings().aiDifficulty]} · Min. Hu {controller.getSettings().minHuTay} Tay
+              {activeRulesSummary(active)} · AI {DIFFICULTY_LABEL[active.aiDifficulty]} · Min. Hu {active.minHuTay} Tay
+              {rulesPending && ' · Aturan baru berlaku di permainan berikutnya'}
             </p>
           </div>
         </div>
@@ -173,10 +195,15 @@ export function App() {
 
       {view === 'menu' ? (
         <MainMenu kimEnabled={settings.kimEnabled} onKimChange={(enabled: boolean) => {
-          const stored = updateSettings({ ...settings, kimEnabled: enabled });
+          const stored = persistSettings(settings, { kimEnabled: enabled });
           setSettings(stored);
           controller.setSettings(stored);
-        }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
+        }} scoringBasis={settings.scoringBasis} bonusTileRule={settings.bonusTileRule}
+          onBonusTileRuleChange={(rule) => {
+            const stored = persistSettings(settings, { bonusTileRule: rule });
+            setSettings(stored);
+            controller.setSettings(stored);
+          }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
           onCalculator={() => setView('calculator')}
           lastResult={history[0] ? history[0].winner === null ? 'Seri' : `${history[0].totalTay} Tay` : null} />
       ) : view === 'table' ? (
@@ -198,7 +225,7 @@ export function App() {
         </main>
       ) : (
         <main className="page">
-          <TayCalculator defaultMinHuTay={settings.minHuTay} overlapPolicy={settings.overlapPolicy} />
+          <TayCalculator {...calculatorMatchProps(active)} />
         </main>
       )}
 
@@ -221,7 +248,7 @@ export function App() {
       )}
       {modal === 'rulebook' && (
         <Modal title="Rulebook & Kalkulator 44 Tay" variant="drawer" onClose={() => setModal(null)}>
-          <TayCalculator defaultMinHuTay={settings.minHuTay} overlapPolicy={settings.overlapPolicy} />
+          <TayCalculator {...calculatorMatchProps(active)} />
         </Modal>
       )}
     </div>

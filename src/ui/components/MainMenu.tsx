@@ -1,5 +1,6 @@
 import { Calculator, LayoutGrid } from 'lucide-react';
 import { keyToTile } from '../../core/tiles';
+import type { BonusTileRule, ScoringBasis } from '../../core/types';
 import { TileView } from './TileView';
 
 export interface MainMenuProps {
@@ -10,6 +11,19 @@ export interface MainMenuProps {
   /** Pregame Kim choice; the control only renders when both props are supplied. */
   kimEnabled?: boolean;
   onKimChange?: (enabled: boolean) => void;
+  /** Scoring rules for the next practice match; the summary renders with the Kim choice when supplied. */
+  scoringBasis?: ScoringBasis;
+  bonusTileRule?: BonusTileRule;
+  onBonusTileRuleChange?: (rule: BonusTileRule) => void;
+}
+
+function tableLine(kimEnabled: boolean, basis: ScoringBasis): string {
+  if (basis === 'hand_kim_usage') {
+    return 'Kolom dipilih per hand menurut Kim di tangan pemenang (pembacaan lama, dari Pengaturan).';
+  }
+  return kimEnabled
+    ? 'Setiap Hu dihitung dengan tabel Ada Kim, juga hand yang tidak memegang Kim.'
+    : 'Setiap Hu dihitung dengan tabel Tanpa Kim.';
 }
 
 /** One teaching row of the tile legend: example tiles plus a plain-language reading. */
@@ -26,7 +40,17 @@ const LEGEND: readonly { title: string; keys: readonly string[]; text: string }[
   },
 ];
 
-export function MainMenu({ difficultyLabel, lastResult, onPractice, onCalculator, kimEnabled, onKimChange }: MainMenuProps) {
+export function MainMenu({
+  difficultyLabel,
+  lastResult,
+  onPractice,
+  onCalculator,
+  kimEnabled,
+  onKimChange,
+  scoringBasis,
+  bonusTileRule,
+  onBonusTileRuleChange,
+}: MainMenuProps) {
   const showKim = kimEnabled !== undefined && onKimChange !== undefined;
   return (
     <main className="main-menu">
@@ -50,6 +74,40 @@ export function MainMenu({ difficultyLabel, lastResult, onPractice, onCalculator
               Mode Kim di sini adalah model lama: empat tile Kim tetap ikut di tembok dan berlaku sebagai joker. Penentuan Kim lewat
               indikator lemparan dadu belum diterapkan karena prosedurnya masih menunggu konfirmasi.
             </p>
+            {scoringBasis && bonusTileRule && (
+              <div className="menu-rules" aria-label="Ringkasan aturan">
+                <p className="small">
+                  <strong>Tabel:</strong> {tableLine(kimEnabled, scoringBasis)}
+                </p>
+                {onBonusTileRuleChange && (
+                  <div className="segmented" role="group" aria-label="Bunga dan Musim">
+                    <button
+                      type="button"
+                      className={bonusTileRule === 'own_seat_only' ? 'is-on' : ''}
+                      aria-pressed={bonusTileRule === 'own_seat_only'}
+                      onClick={() => onBonusTileRuleChange('own_seat_only')}
+                    >
+                      Bunga: posisi sendiri
+                    </button>
+                    <button
+                      type="button"
+                      className={bonusTileRule === 'rulebook_per_tile' ? 'is-on' : ''}
+                      aria-pressed={bonusTileRule === 'rulebook_per_tile'}
+                      onClick={() => onBonusTileRuleChange('rulebook_per_tile')}
+                    >
+                      Bunga: per tile (PDF)
+                    </button>
+                  </div>
+                )}
+                <p className="small">
+                  <strong>Bunga/Musim:</strong>{' '}
+                  {bonusTileRule === 'own_seat_only'
+                    ? 'hanya tile bernomor posisi Anda +1; tile posisi lain 0 (aturan rumah). Koleksi 4 Bunga, 4 Musim dan 7 tile tetap dihitung.'
+                    : 'Bunga 0 dan Musim 1 per tile, posisi sendiri +1 (nilai PDF).'}
+                </p>
+                <p className="muted small">Timur selalu dealer di latihan; giliran berjalan berlawanan arah jarum jam.</p>
+              </div>
+            )}
           </fieldset>
         )}
         <div className="menu-choices">

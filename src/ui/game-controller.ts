@@ -9,7 +9,7 @@ import type { ClaimDeclaration, LegalActions, Meld, Seat, Tile } from '../core/t
 import { createGameWall, createMulberry32 } from '../core/wall';
 import { canFormWinningHandWithKim } from '../kim/wildcard-solver';
 import type { ScoringResult } from '../scoring';
-import { saveGameRecord, type GameSettings, type StorageLike, type WinMethod } from '../storage';
+import { historyScoringFields, saveGameRecord, type GameSettings, type StorageLike, type WinMethod } from '../storage';
 import { buildObservation, builtInStrategy, chooseDiscard, isFirstGoAround, explainDiscardChoice, type AIStrategy } from './ai-controller';
 import { MELD_LABEL, PLAYER_NAME, SEAT_SHORT, tileText } from './labels';
 import { isInitialDealtHand, scoreHu, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
@@ -19,6 +19,8 @@ export type GameEventType = 'draw' | 'discard' | 'jia' | 'pung' | 'kong' | 'flow
 export interface GameEvent {
   type: GameEventType;
   seat?: Seat;
+  /** Only committed public tiles; draws never carry a face. */
+  tile?: Tile;
 }
 
 export interface LogEntry {
@@ -148,6 +150,20 @@ export class GameController {
   initialWallCount = 0;
   /** Bumped on every change so React can re-render */
   version = 0;
+  gameSerial = 0;
+  private presentationToken: object | null = null;
+  get isPresenting(): boolean { return this.presentationToken !== null; }
+
+  /** Optional mounted UI lease: headless engine loops never acquire it. */
+  beginPresentation(): () => void {
+    const token = {};
+    this.presentationToken = token;
+    return () => {
+      if (this.presentationToken !== token) return;
+      this.presentationToken = null;
+      this.changed(); // Resume the App automation effect after its earlier timer was blocked.
+    };
+  }
 
   constructor(options: GameControllerOptions) {
     this.settings = { ...options.settings };
@@ -182,9 +198,9 @@ export class GameController {
     for (const l of this.listeners) l();
   }
 
-  private emit(type: GameEventType, seat?: Seat): void {
-    if (type !== 'discard') this.lastDiscard = null;
-    for (const l of this.eventListeners) l({ type, seat });
+  private emit(type: GameEventType, seat?: Seat, tile?: Tile): void {
+    if (type !== 'discard' && type !== 'flower') this.lastDiscard = null;
+    for (const l of this.eventListeners) l({ type, seat, ...(tile ? { tile } : {}) });
   }
 
   private addLog(text: string, seat?: Seat): void {
@@ -219,6 +235,8 @@ export class GameController {
   }
 
   newGame(): void {
+    this.gameSerial++;
+    this.presentationToken = null;
     this.settings = { ...this.nextSettings };
     this.rules = toFullRules(this.settings);
     const seed = this.baseSeed === undefined ? undefined : this.baseSeed + this.gameIndex;
@@ -320,6 +338,7 @@ export class GameController {
         winningTile: o.winningTile,
         scoringBreakdown: o.scoring.patterns.map((p) => ({ id: p.id, name: p.name, tay: p.tay })),
         totalTay: o.scoring.totalTay,
+        ...historyScoringFields(o.scoring),
         isWithKim: o.scoring.isWithKim,
         winMethod: o.winMethod,
         durationSeconds: o.durationSeconds,
@@ -453,7 +472,7 @@ export class GameController {
       canReplaceFlowers: false,
       claim: null,
     };
-    if (this.outcome) return none;
+    if (this.outcome || this.isPresenting) return none;
     const s = this.getState();
     const me = this.humanSeat;
     const p = s.players[me];
@@ -579,7 +598,7 @@ export class GameController {
     this.discardCount++;
     if (seat === this.humanSeat) this.humanDrawnTileId = null;
     this.addLog(`${PLAYER_NAME[seat]} buang ${tileText(r.discardedTile)}.`, seat);
-    this.emit('discard', seat);
+    this.emit('discard', seat, r.discardedTile);
   }
 
   private ankongFor(seat: Seat, tiles: Tile[]): void {
@@ -703,7 +722,7 @@ export class GameController {
         const shape = result.winningAction === 'jia' ? 'urutan tiga tile' : result.winningAction === 'pung' ? 'Tris (tiga tile sama)' : 'Kong (empat tile sama)';
         this.botExplanation = `${PLAYER_NAME[claimant]} mengambil ${tileText(pending.tile)} dari ${PLAYER_NAME[pending.discarder]} untuk membentuk ${shape} terbuka. Klaim ini memenangkan resolusi prioritas klaim.`;
       }
-      this.emit(result.winningAction, claimant);
+      this.emit(result.winningAction, claimant, pending.tile);
       if (claimant === this.humanSeat) {
         const hand = this.getState().players[claimant].hand;
         this.humanDrawnTileId = result.winningAction === 'kong' ? hand[hand.length - 1]?.id ?? null : null;
@@ -736,7 +755,7 @@ export class GameController {
    * Returns false when nothing can happen without the human, or the game is over.
    */
   step(): boolean {
-    if (this.outcome || this.isWaitingForHuman()) return false;
+    if (this.isPresenting || this.outcome || this.isWaitingForHuman()) return false;
     const s = this.getState();
     let progressed = false;
     switch (s.phase) {

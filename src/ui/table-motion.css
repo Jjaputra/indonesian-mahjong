@@ -1,99 +1,10 @@
-/* Table motion: call toast, the pending discard flying in from its seat, and the freshest pool tile. */
-
-.call-toast {
-  display: inline-block;
-  margin: 0;
-  padding: 6px 14px;
-  border: 1px solid var(--accent, #2f6f6a);
-  border-radius: 999px;
-  background: var(--surface, #fbfaf6);
-  color: var(--text, #1f2a30);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  box-shadow: 0 4px 12px rgba(31, 42, 48, 0.12);
-  animation: call-toast-in 200ms ease-out both;
-}
-
-.call-toast::first-letter {
-  color: var(--accent-strong, #235652);
-}
-
-@keyframes call-toast-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* Pending discard: travels from the discarder's side of the table into the centre. */
-.discard-flight {
-  --flight-x: 0px;
-  --flight-y: 0px;
-  display: inline-flex;
-  animation: discard-flight-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-.discard-flight[data-from='bottom'] {
-  --flight-y: 90px;
-}
-.discard-flight[data-from='top'] {
-  --flight-y: -90px;
-}
-.discard-flight[data-from='right'] {
-  --flight-x: 120px;
-}
-.discard-flight[data-from='left'] {
-  --flight-x: -120px;
-}
-
-@keyframes discard-flight-in {
-  from {
-    transform: translate(var(--flight-x), var(--flight-y)) scale(0.85);
-    opacity: 0.2;
-  }
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
-
-.pool-tile.is-fresh {
-  position: relative;
-  box-shadow: 0 0 0 2px var(--accent, #2f6f6a);
-  animation: pool-tile-settle 250ms ease-out both;
-}
-
-@keyframes pool-tile-settle {
-  from {
-    transform: translateY(-6px);
-    opacity: 0.6;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@media (max-width: 560px) {
-  .discard-flight[data-from='bottom'] {
-    --flight-y: 60px;
-  }
-  .discard-flight[data-from='top'] {
-    --flight-y: -60px;
-  }
-  .discard-flight[data-from='right'] {
-    --flight-x: 70px;
-  }
-  .discard-flight[data-from='left'] {
-    --flight-x: -70px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .call-toast,
-  .discard-flight,
-  .pool-tile.is-fresh {
-    animation: none;
-  }
-}
+/* Only this tile moves. Fixed positioning and clipping keep it outside document flow. */
+.table-tile-flight { position: fixed; inset: 0 auto auto 0; z-index: 80; pointer-events: none; width: max-content; height: max-content; will-change: transform; }
+.table-tile-flight .tile { display: flex; margin: 0; }
+.table-stage { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 10px 12px; margin: 0 0 8px; border: 1px solid #a3b8ad; border-radius: 8px; background: #f7faf5; color: #25483f; }
+.table-stage small { flex-basis: 100%; }
+.table-stage.is-transition { border-color: #b99049; background: #fff8e8; }
+.bonus-rack { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.bonus-rack small { font-size: 10px; max-width: 230px; line-height: 1.3; }
+.call-toast { display: inline-block; margin: 0; padding: 6px 14px; border: 1px solid var(--accent); border-radius: 999px; background: var(--surface); font-weight: 700; }
+.pool-tile.is-fresh { position: relative; box-shadow: 0 0 0 2px var(--accent, #2f6f6a); }

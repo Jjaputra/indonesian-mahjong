@@ -1,4 +1,4 @@
-import type { GameRules, Meld, Seat, Tile, Wind } from '../core/types';
+import type { BonusTileRule, GameRules, Meld, ScoringBasis, Seat, Tile, Wind } from '../core/types';
 import type { KimMode, SolvedHand } from '../kim/types';
 
 // ============================================================================
@@ -65,7 +65,16 @@ export interface ScoringResult {
   isLewFit: boolean;
   rejectionReason?: string;
   /** Extensions beyond the PROJECT.md contract */
+  /** Table column the Tay were read from (not necessarily Kim usage; see `scoringBasis`) */
   mode: KimMode;
+  /** How `mode` was chosen: from Kim in the hand, or from the match choice */
+  scoringBasis: ScoringBasis;
+  /** Individual flower/season rule applied to #1/#2 */
+  bonusTileRule: BonusTileRule;
+  /** Physical Kim tiles in the winning hand (concealed + melds); `isWithKim` is `handKimCount > 0` */
+  handKimCount: number;
+  /** Plain-language notes on column choices that award nothing (e.g. Bo KIM in the Ada KIM column) */
+  notes: string[];
   lewFitReason?: LewFitReason;
   isInstantHu: boolean;
   minHuTay: number;

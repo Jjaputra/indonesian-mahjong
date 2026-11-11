@@ -48,6 +48,21 @@ export interface PlayerState {
 // Game Rules Configuration
 // ============================================================================
 
+/**
+ * Which DAFTAR TAY column ("Ada KIM" / "Tidak ada KIM") a Hu is scored from.
+ * - `hand_kim_usage` (legacy default): the column follows whether the winning hand holds any Kim.
+ * - `match_table`: the column follows the match choice (`kimEnabled`), for every hand of the match.
+ * Either way the actual Kim count in the hand is still what Kim patterns (#7, #8, #9, #30, #32, #40) look at.
+ */
+export type ScoringBasis = 'hand_kim_usage' | 'match_table';
+
+/**
+ * Individual flower/season Tay (#1, #2). Collection patterns (#4, #5, #6) are the same under both.
+ * - `rulebook_per_tile` (PDF default): Bunga 0 per tile, Musim 1 per tile, +1 per tile matching the seat.
+ * - `own_seat_only` (user house rule): a tile matching the seat scores +1, every other tile scores 0.
+ */
+export type BonusTileRule = 'rulebook_per_tile' | 'own_seat_only';
+
 export interface GameRules {
   /** Enable Kim joker tiles in the game (default: true) */
   kimEnabled: boolean;
@@ -57,6 +72,10 @@ export interface GameRules {
   allowKimInMeldClaim: boolean;
   /** Minimum Tay required to declare a legal Hu (default: 5) */
   minHuTay: number;
+  /** Table column basis; omitted = `hand_kim_usage` */
+  scoringBasis?: ScoringBasis;
+  /** Individual flower/season rule; omitted = `rulebook_per_tile` */
+  bonusTileRule?: BonusTileRule;
 }
 
 // ============================================================================

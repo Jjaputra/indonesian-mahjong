@@ -1,4 +1,4 @@
-import type { GameRules, Meld, Seat, Tile } from '../core/types';
+import type { BonusTileRule, GameRules, Meld, ScoringBasis, Seat, Tile } from '../core/types';
 import type { KimMode, SolvedHand } from '../kim/types';
 import { findWinningDecompositions, isKim } from '../kim/wildcard-solver';
 import { validateKimMeldLegality } from '../kim/kim-validator';
@@ -8,7 +8,7 @@ import {
   countKims,
   parseHandFeatures,
 } from './hand-parser';
-import { SUPERSEDES, baseTay, getPattern } from './patterns';
+import { SUPERSEDES, getPattern, tableTay } from './patterns';
 import type {
   DetectedPattern,
   IScoringEngine,
@@ -33,9 +33,14 @@ const DRAGON_LABEL: Record<number, string> = { 1: 'Zhong', 2: 'Fat', 3: 'Pat' };
 /** Everything a pattern detector may look at for one candidate decomposition. */
 interface ScoringInput {
   readonly features: HandFeatures;
+  /** Table column the values are read from; Kim usage is `features.kimCount`, not this */
   readonly mode: KimMode;
   readonly flowers: readonly Tile[];
   readonly context: WinContext;
+  /** Omitted = `hand_kim_usage` */
+  readonly basis?: ScoringBasis;
+  /** Omitted = `rulebook_per_tile` */
+  readonly bonusTileRule?: BonusTileRule;
 }
 
 function isSuitedType(type: string): boolean {
@@ -46,9 +51,15 @@ function isHonorType(type: string): boolean {
   return type === 'wind' || type === 'dragon';
 }
 
-/** Builds a DetectedPattern, or null when the pattern has no value in this mode. */
-function award(id: number, mode: KimMode, description: string, tayOverride?: number): DetectedPattern | null {
-  const base = baseTay(id, mode);
+/** Builds a DetectedPattern, or null when the pattern has no value in this column. */
+function award(
+  id: number,
+  mode: KimMode,
+  description: string,
+  tayOverride?: number,
+  basis: ScoringBasis = 'hand_kim_usage'
+): DetectedPattern | null {
+  const base = tableTay(id, mode, basis);
   if (base === null) return null;
   return { id, name: getPattern(id).name, tay: tayOverride ?? base, description };
 }
@@ -57,20 +68,29 @@ function award(id: number, mode: KimMode, description: string, tayOverride?: num
 // Pattern detectors
 // ============================================================================
 
-function detectBonus({ mode, flowers, context }: ScoringInput): DetectedPattern[] {
+function detectBonus({ mode, flowers, context, bonusTileRule }: ScoringInput): DetectedPattern[] {
   const out: (DetectedPattern | null)[] = [];
   const seatNo = SEAT_NUMBER[context.seatWind];
   const bunga = flowers.filter((t) => t.type === 'flower');
   const musim = flowers.filter((t) => t.type === 'season');
-
-  if (bunga.length > 0) {
-    const own = bunga.filter((t) => t.value === seatNo).length;
-    out.push(award(1, mode, `${bunga.length} bunga (0 Tay/tile)${own ? `, ${own} sesuai posisi duduk (+1)` : ''}`, own));
-  }
-  if (musim.length > 0) {
-    const own = musim.filter((t) => t.value === seatNo).length;
-    out.push(award(2, mode, `${musim.length} musim (1 Tay/tile)${own ? `, ${own} sesuai posisi duduk (+1)` : ''}`, musim.length + own));
-  }
+  const seatOnly = bonusTileRule === 'own_seat_only';
+  const individual = (id: 1 | 2, label: string, tiles: Tile[]) => {
+    if (tiles.length === 0) return;
+    const own = tiles.filter((t) => t.value === seatNo).length;
+    const seatBonus = own * (getPattern(id).seatMatchBonus ?? 0);
+    if (seatOnly) {
+      const off = tiles.length - own;
+      const parts = [own ? `${own} sesuai posisi duduk (+1)` : '', off ? `${off} posisi lain (0)` : ''].filter(Boolean);
+      out.push(award(id, mode, `${tiles.length} ${label}: ${parts.join(', ')} — aturan rumah: hanya posisi sendiri`, seatBonus));
+      return;
+    }
+    const perTile = tableTay(id, mode) ?? 0;
+    out.push(
+      award(id, mode, `${tiles.length} ${label} (${perTile} Tay/tile)${own ? `, ${own} sesuai posisi duduk (+1)` : ''}`, tiles.length * perTile + seatBonus)
+    );
+  };
+  individual(1, 'bunga', bunga);
+  individual(2, 'musim', musim);
   if (bunga.length === 4) out.push(award(4, mode, 'Memiliki keempat tile bunga'));
   if (musim.length === 4) out.push(award(5, mode, 'Memiliki keempat tile musim'));
   if (bunga.length + musim.length >= 7) out.push(award(6, mode, `${bunga.length + musim.length} tile bunga/musim dalam Hu lengkap`));
@@ -79,7 +99,8 @@ function detectBonus({ mode, flowers, context }: ScoringInput): DetectedPattern[
 
 function detectKim({ features, mode, context }: ScoringInput): DetectedPattern[] {
   const out: (DetectedPattern | null)[] = [];
-  if (mode === 'NK') {
+  // Kim usage comes from the hand; the column only decides the value (a blank cell awards nothing).
+  if (features.kimCount === 0) {
     out.push(award(8, mode, 'Tidak ada Kim di tangan (Bo KIM)'));
     return out.filter((p): p is DetectedPattern => p !== null);
   }
@@ -111,7 +132,8 @@ function detectFirstTurn({ mode, context }: ScoringInput): DetectedPattern[] {
   return out.filter((p): p is DetectedPattern => p !== null);
 }
 
-function detectShape({ features, mode, context, flowers }: ScoringInput): DetectedPattern[] {
+function detectShape(input: ScoringInput): DetectedPattern[] {
+  const { features, mode, context, flowers } = input;
   const out: (DetectedPattern | null)[] = [];
   const tiles = features.representedTiles.filter((t) => t.type !== 'kim');
   const suits = new Set(tiles.filter((t) => isSuitedType(t.type)).map((t) => t.type));
@@ -129,7 +151,7 @@ function detectShape({ features, mode, context, flowers }: ScoringInput): Detect
   if (features.shape === 'seven_pairs') push(award(16, mode, '7 pasang (Tjit Tuei)'));
   if (features.shape === 'thirteen_orphans') push(award(20, mode, '13 tile terminal & honor + 1 pasangan'));
   if (features.shape === 'se_sam_pu_tat' && flowers.length === 0) {
-    push(award(39, mode, 'Semua kartu tidak berhubungan (beda ≥3), tanpa pair, bunga/musim, atau Kim'));
+    push(award(39, mode, 'Semua kartu tidak berhubungan (beda ≥3), tanpa pair, bunga/musim, atau Kim', undefined, input.basis));
   }
 
   if (features.shape === 'standard') {
@@ -248,6 +270,22 @@ export function scoreDecomposition(input: ScoringInput, policy: OverlapPolicy = 
 // Engine
 // ============================================================================
 
+/** Explains cells that a match-table column leaves blank for what the hand actually holds. */
+export function columnNotes(column: KimMode, basis: ScoringBasis, handKimCount: number, shape?: string): string[] {
+  if (basis !== 'match_table') return [];
+  const notes: string[] = [];
+  if (column === 'K' && handKimCount === 0) {
+    notes.push('Hand tanpa Kim (Bo KIM terdeteksi), tetapi sel #8 Bo KIM di kolom Ada KIM kosong: 0 Tay.');
+  }
+  if (column === 'NK' && handKimCount > 0) {
+    notes.push(`Hand memegang ${handKimCount} Kim, tetapi pola Kim kosong di kolom Tanpa KIM.`);
+  }
+  if (column === 'NK' && shape === 'se_sam_pu_tat') {
+    notes.push('#39 Se Sam Pu Tat tercetak hanya di kolom Ada KIM; di pertandingan Tanpa Kim sel ini kosong.');
+  }
+  return notes;
+}
+
 function sumTay(patterns: readonly DetectedPattern[]): number {
   return patterns.reduce((s, p) => s + p.tay, 0);
 }
@@ -277,11 +315,19 @@ export class ScoringEngine implements IScoringEngine {
     const allTiles = [...concealed, ...melds.flatMap((m) => m.tiles)];
     const kimCount = countKims(allTiles);
     const rawMode: KimMode = kimCount > 0 ? 'K' : 'NK';
+    const scoringBasis: ScoringBasis = r.scoringBasis ?? 'hand_kim_usage';
+    const bonusTileRule: BonusTileRule = r.bonusTileRule ?? 'rulebook_per_tile';
+    // Match table: every hand of the match reads the column of the match choice.
+    const tableColumn: KimMode | null = scoringBasis === 'match_table' ? (r.kimEnabled ? 'K' : 'NK') : null;
     const isInstantHu = !!context.isInstantHu;
 
     const base = {
       isWithKim: kimCount > 0,
-      mode: rawMode,
+      mode: tableColumn ?? rawMode,
+      scoringBasis,
+      bonusTileRule,
+      handKimCount: kimCount,
+      notes: [] as string[],
       isInstantHu,
       minHuTay: r.minHuTay,
       candidateCount: 0,
@@ -302,7 +348,7 @@ export class ScoringEngine implements IScoringEngine {
       return reject('kim-claim', 'Lew Fit: Jia/Pung/Kong menggunakan Kim tidak diperbolehkan (Penalti #3)');
     }
 
-    if (isInstantHu) return this.evaluateInstantHu(concealed, melds, flowers, rawMode, base, reject);
+    if (isInstantHu) return this.evaluateInstantHu(concealed, melds, flowers, base.mode, base, reject);
 
     const candidates = findWinningDecompositions({
       hand: concealed,
@@ -326,15 +372,20 @@ export class ScoringEngine implements IScoringEngine {
     let best: { solved: SolvedHand; patterns: DetectedPattern[]; total: number } | null = null;
     for (const solved of validCandidates) {
       const features = parseHandFeatures(solved, concealed, melds);
-      const patterns = scoreDecomposition({ features, mode: solved.mode, flowers, context }, this.overlapPolicy);
+      const patterns = scoreDecomposition(
+        { features, mode: tableColumn ?? solved.mode, flowers, context, basis: scoringBasis, bonusTileRule },
+        this.overlapPolicy
+      );
       const total = sumTay(patterns);
       if (!best || total > best.total) best = { solved, patterns, total };
     }
     const { solved, patterns, total } = best!;
 
+    const mode = tableColumn ?? solved.mode;
     const result: ScoringResult = {
       ...base,
-      mode: solved.mode,
+      mode,
+      notes: columnNotes(mode, scoringBasis, solved.totalKims, solved.shape),
       isValidHu: total >= r.minHuTay,
       isLewFit: total < r.minHuTay,
       totalTay: total,

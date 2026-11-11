@@ -9,8 +9,8 @@
 //   `localStorage` is used if usable, otherwise an in-memory fallback store.
 // ============================================================================
 
-import type { GameRules, Meld, MeldType, Seat, Tile, TileType, Wind } from '../core/types';
-import type { KimRules } from '../kim/types';
+import type { BonusTileRule, GameRules, Meld, MeldType, ScoringBasis, Seat, Tile, TileType, Wind } from '../core/types';
+import type { KimMode, KimRules } from '../kim/types';
 import { CASUAL_KIM_RULES, TOURNAMENT_KIM_RULES } from '../kim/types';
 
 // ============================================================================
@@ -32,7 +32,9 @@ export type OverlapPolicy = 'rulebook_exclusive' | 'cumulative';
 /** UI animation speed. `off` disables animations entirely. */
 export type AnimationSpeed = 'off' | 'slow' | 'normal' | 'fast';
 
-export type SettingsPresetName = 'tournament' | 'casual';
+export type SettingsPresetName = 'tournament' | 'casual' | 'house';
+
+export type { BonusTileRule, ScoringBasis };
 
 export interface GameSettings {
   // --- Kim joker toggles -----------------------------------------------------
@@ -60,6 +62,10 @@ export interface GameSettings {
   startingSeatWind: Seat;
   flowerReplacementMode: FlowerReplacementMode;
   overlapPolicy: OverlapPolicy;
+  /** Table column basis: Kim in the winning hand (legacy) or the match Kim choice */
+  scoringBasis: ScoringBasis;
+  /** Individual flower/season rule: PDF per tile, or own seat only (house rule) */
+  bonusTileRule: BonusTileRule;
 
   // --- AI & presentation ------------------------------------------------------
   aiDifficulty: AIDifficulty;
@@ -86,7 +92,7 @@ export interface MatchHistoryRecord {
   winningTile: Tile | null;
   scoringBreakdown: ScoringBreakdownItem[];
   totalTay: number;
-  /** True when won in K mode (Ada Kim) */
+  /** True when the winning hand held at least one Kim (actual usage, not the table column) */
   isWithKim: boolean;
   winMethod: WinMethod;
   durationSeconds: number;
@@ -100,6 +106,17 @@ export interface MatchHistoryRecord {
    * Legacy v1 records stored meld tiles only inside `winningHand` and omit this.
    */
   melds: Meld[];
+  /**
+   * Scoring basis of the Hu. Absent on records saved before the basis existed; those were
+   * scored by Kim in the hand, but nothing more (column, Kim count) is assumed for them.
+   */
+  scoringBasis?: ScoringBasis;
+  /** Table column the Tay were read from */
+  tableColumn?: KimMode;
+  /** Individual flower/season rule used */
+  bonusTileRule?: BonusTileRule;
+  /** Physical Kim tiles in the winning hand */
+  handKimCount?: number;
 }
 
 /**
@@ -134,6 +151,9 @@ const SEATS: readonly Seat[] = ['dong', 'nan', 'xi', 'bei'];
 const AI_DIFFICULTIES: readonly AIDifficulty[] = ['easy', 'normal', 'hard'];
 const FLOWER_MODES: readonly FlowerReplacementMode[] = ['auto', 'manual'];
 const OVERLAP_POLICIES: readonly OverlapPolicy[] = ['rulebook_exclusive', 'cumulative'];
+const SCORING_BASES: readonly ScoringBasis[] = ['hand_kim_usage', 'match_table'];
+const BONUS_TILE_RULES: readonly BonusTileRule[] = ['rulebook_per_tile', 'own_seat_only'];
+const KIM_MODES: readonly KimMode[] = ['K', 'NK'];
 const ANIMATION_SPEEDS: readonly AnimationSpeed[] = ['off', 'slow', 'normal', 'fast'];
 const WIN_METHODS: readonly WinMethod[] = ['tsumo', 'ron', 'chiong_kong', 'draw'];
 const MELD_TYPES: readonly MeldType[] = ['jia', 'pung', 'kong', 'ankong'];
@@ -163,7 +183,10 @@ function kimToggles(rules: Readonly<KimRules>) {
   };
 }
 
-/** Bandung Mahjong Cup ver06 tournament rules. */
+/**
+ * Bandung Mahjong Cup ver06 reference: the PDF values as printed per tile (#1/#2), with the
+ * legacy hand-usage column reading (the PDF does not say which column applies; RULES.md §3).
+ */
 export const TOURNAMENT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   ...kimToggles(TOURNAMENT_KIM_RULES),
   minHuTay: DEFAULT_MIN_HU_TAY,
@@ -171,6 +194,8 @@ export const TOURNAMENT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   startingSeatWind: 'dong',
   flowerReplacementMode: 'auto',
   overlapPolicy: 'rulebook_exclusive',
+  scoringBasis: 'hand_kim_usage',
+  bonusTileRule: 'rulebook_per_tile',
   aiDifficulty: 'normal',
   animationSpeed: 'normal',
   soundEnabled: true,
@@ -184,15 +209,30 @@ export const CASUAL_SETTINGS: Readonly<GameSettings> = Object.freeze({
   startingSeatWind: 'dong',
   flowerReplacementMode: 'auto',
   overlapPolicy: 'cumulative',
+  scoringBasis: 'hand_kim_usage',
+  bonusTileRule: 'rulebook_per_tile',
   aiDifficulty: 'easy',
   animationSpeed: 'normal',
   soundEnabled: true,
+});
+
+/** The user's house choices (not PDF text): column from the match Kim choice, own-seat flowers only. */
+export const PRACTICE_SCORING_DEFAULTS: Readonly<Pick<GameSettings, 'scoringBasis' | 'bonusTileRule'>> = Object.freeze({
+  scoringBasis: 'match_table',
+  bonusTileRule: 'own_seat_only',
+});
+
+/** Tournament Kim and overlap rules with the user's house scoring choices. */
+export const HOUSE_SETTINGS: Readonly<GameSettings> = Object.freeze({
+  ...TOURNAMENT_SETTINGS,
+  ...PRACTICE_SCORING_DEFAULTS,
 });
 
 export const SETTINGS_PRESETS: Readonly<Record<SettingsPresetName, Readonly<GameSettings>>> =
   Object.freeze({
     tournament: TOURNAMENT_SETTINGS,
     casual: CASUAL_SETTINGS,
+    house: HOUSE_SETTINGS,
   });
 
 export const DEFAULT_SETTINGS: Readonly<GameSettings> = TOURNAMENT_SETTINGS;
@@ -339,6 +379,8 @@ export function sanitizeSettings(
       base.flowerReplacementMode,
     ),
     overlapPolicy: pickEnum(src.overlapPolicy, OVERLAP_POLICIES, base.overlapPolicy),
+    scoringBasis: pickEnum(src.scoringBasis, SCORING_BASES, base.scoringBasis),
+    bonusTileRule: pickEnum(src.bonusTileRule, BONUS_TILE_RULES, base.bonusTileRule),
     aiDifficulty: pickEnum(src.aiDifficulty, AI_DIFFICULTIES, base.aiDifficulty),
     animationSpeed: pickEnum(src.animationSpeed, ANIMATION_SPEEDS, base.animationSpeed),
     soundEnabled: pickBool(src.soundEnabled, base.soundEnabled),
@@ -367,6 +409,8 @@ export function detectPreset(settings: GameSettings): SettingsPresetName | 'cust
     'minHuTay',
     'flowerReplacementMode',
     'overlapPolicy',
+    'scoringBasis',
+    'bonusTileRule',
   ];
   for (const name of Object.keys(SETTINGS_PRESETS) as SettingsPresetName[]) {
     const preset = SETTINGS_PRESETS[name];
@@ -387,12 +431,44 @@ export function saveSettings(settings: Partial<GameSettings>, storage?: StorageL
   return safeWrite(getStorage(storage), SETTINGS_STORAGE_KEY, sanitizeSettings(settings));
 }
 
-/** Merge a partial patch into the currently stored settings and persist the result. */
+/** Scoring choices that are only written once someone has actually chosen them. */
+const SCORING_CHOICE_KEYS = ['scoringBasis', 'bonusTileRule'] as const;
+
+function hasValidChoice(src: Record<string, unknown>, key: (typeof SCORING_CHOICE_KEYS)[number]): boolean {
+  const allowed: readonly string[] = key === 'scoringBasis' ? SCORING_BASES : BONUS_TILE_RULES;
+  return typeof src[key] === 'string' && allowed.includes(src[key] as string);
+}
+
+/**
+ * Merge a partial patch into the currently stored settings and persist the result.
+ * A scoring choice that is neither stored nor in the patch stays unwritten, so an unrelated
+ * update (sound, pace) never turns the fallback value into an apparent explicit choice.
+ */
 export function updateSettings(patch: Partial<GameSettings>, storage?: StorageLike): GameSettings {
   const store = getStorage(storage);
+  const raw = safeRead(store, SETTINGS_STORAGE_KEY);
+  const stored = isRecord(raw) ? raw : {};
   const merged = sanitizeSettings({ ...loadSettings(store), ...patch });
-  safeWrite(store, SETTINGS_STORAGE_KEY, merged);
+  const written: Partial<GameSettings> = { ...merged };
+  for (const key of SCORING_CHOICE_KEYS) {
+    if (!hasValidChoice(stored, key) && !hasValidChoice(patch as Record<string, unknown>, key)) delete written[key];
+  }
+  safeWrite(store, SETTINGS_STORAGE_KEY, written);
   return merged;
+}
+
+/**
+ * Practice table defaults: a scoring choice the user never stored follows the house defaults
+ * (match table, own-seat flowers). A stored choice, including the PDF reference values, is kept.
+ */
+export function withPracticeScoringDefaults(settings: GameSettings, storage?: StorageLike): GameSettings {
+  const raw = safeRead(getStorage(storage), SETTINGS_STORAGE_KEY);
+  const stored = isRecord(raw) ? raw : {};
+  const next = { ...settings };
+  for (const key of SCORING_CHOICE_KEYS) {
+    if (!hasValidChoice(stored, key)) Object.assign(next, { [key]: PRACTICE_SCORING_DEFAULTS[key] });
+  }
+  return next;
 }
 
 /** Apply and persist a named preset, keeping the user's presentation preferences. */
@@ -425,13 +501,19 @@ export function resetSettings(storage?: StorageLike): GameSettings {
   return { ...DEFAULT_SETTINGS };
 }
 
-/** Project settings into the core engine `GameRules` contract. */
+/**
+ * Project settings into the core engine `GameRules` contract.
+ * The scoring choices are only included when they differ from the engine defaults
+ * (`hand_kim_usage`, `rulebook_per_tile`), which is what an omitted field means.
+ */
 export function toGameRules(settings: GameSettings): GameRules {
   return {
     kimEnabled: settings.kimEnabled,
     kimDiscardAllowed: settings.kimDiscardAllowed,
     allowKimInMeldClaim: settings.allowKimInMeldClaim,
     minHuTay: settings.minHuTay,
+    ...(settings.scoringBasis === 'match_table' ? { scoringBasis: settings.scoringBasis } : {}),
+    ...(settings.bonusTileRule === 'own_seat_only' ? { bonusTileRule: settings.bonusTileRule } : {}),
   };
 }
 
@@ -565,6 +647,34 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
       isFiniteNumber(raw.durationSeconds) && raw.durationSeconds >= 0 ? raw.durationSeconds : 0,
     flowers,
     melds,
+    ...sanitizeScoringFields(raw),
+  };
+}
+
+/** Optional scoring fields of a history row; invalid or missing values are left out, never guessed. */
+function sanitizeScoringFields(raw: Record<string, unknown>): Partial<MatchHistoryRecord> {
+  const out: Partial<MatchHistoryRecord> = {};
+  if (hasValidChoice(raw, 'scoringBasis')) out.scoringBasis = raw.scoringBasis as ScoringBasis;
+  if (hasValidChoice(raw, 'bonusTileRule')) out.bonusTileRule = raw.bonusTileRule as BonusTileRule;
+  if ((KIM_MODES as readonly unknown[]).includes(raw.tableColumn)) out.tableColumn = raw.tableColumn as KimMode;
+  if (isFiniteNumber(raw.handKimCount) && raw.handKimCount >= 0 && raw.handKimCount <= 8) {
+    out.handKimCount = Math.floor(raw.handKimCount);
+  }
+  return out;
+}
+
+/** History fields describing how a Hu was scored (spread into `saveGameRecord`). */
+export function historyScoringFields(scoring: {
+  mode: KimMode;
+  scoringBasis?: ScoringBasis;
+  bonusTileRule?: BonusTileRule;
+  handKimCount?: number;
+}): Pick<MatchHistoryRecord, 'scoringBasis' | 'tableColumn' | 'bonusTileRule' | 'handKimCount'> {
+  return {
+    tableColumn: scoring.mode,
+    scoringBasis: scoring.scoringBasis ?? 'hand_kim_usage',
+    bonusTileRule: scoring.bonusTileRule ?? 'rulebook_per_tile',
+    ...(scoring.handKimCount === undefined ? {} : { handKimCount: scoring.handKimCount }),
   };
 }
 
