@@ -80,6 +80,10 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
   return (
     <Modal title={valid ? `HU! ${PLAYER_NAME[outcome.winner]}` : `LEW FIT — ${PLAYER_NAME[outcome.winner]}`} onClose={onClose} footer={footer} wide>
       <div className="receipt">
+        <p className={`hu-banner${valid ? '' : ' is-lew-fit'}`} aria-hidden="true">
+          {valid ? 'HU' : 'LEW FIT'}
+          <small>{PLAYER_NAME[outcome.winner]} · {r.totalTay} Tay</small>
+        </p>
         {matchSummary}
         <dl className="receipt-meta">
           <dt>Pemenang</dt>

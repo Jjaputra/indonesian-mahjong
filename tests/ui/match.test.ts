@@ -54,10 +54,10 @@ describe('match rotation policy (nextSeating)', () => {
     expect(nextSeating({ dealer: 'bei', prevailingWind: 'dong', dealerPasses: 2 }, { kind: 'hu', winner: 'nan' }).dealer).toBe('dong');
   });
 
-  it('draw (Seri) or Lew Fit: nothing rotates', () => {
+  it('draw (Seri) keeps seating, while Lew Fit rotates without crediting a Hu', () => {
     expect(nextSeating({ dealer: 'xi', prevailingWind: 'nan', dealerPasses: 2 }, { kind: 'none' })).toEqual({ dealer: 'xi', prevailingWind: 'nan', dealerPasses: 2 });
     const m = recordHand(createMatch(8), 'nan', false, 3);
-    expect(m.seating).toEqual(start);
+    expect(m.seating).toEqual({ dealer: 'nan', prevailingWind: 'dong', dealerPasses: 1 });
     expect(m.huCount.nan).toBe(0);
     expect(m.hands[0]).toMatchObject({ winner: null, lewFit: true });
   });

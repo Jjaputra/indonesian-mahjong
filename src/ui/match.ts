@@ -22,8 +22,9 @@ export const DEFAULT_MATCH_LENGTH: MatchLength = 8;
 export type DealerWinRule = 'stay' | 'rotate';
 export const DEFAULT_DEALER_WIN_RULE: DealerWinRule = 'stay';
 
-/** What decides the next seating: a valid Hu by `winner`, or no valid winner (Seri / Lew Fit). */
-export type HandResult = { kind: 'hu'; winner: Seat } | { kind: 'none' };
+/** Distinguish wall-out Seri (`none`) from Lew Fit, since only Seri keeps the seating. */
+export type HandResult = { kind: 'hu'; winner: Seat } | { kind: 'none' } | { kind: 'lew_fit' };
+export type MatchTimeLimit = 90 | null;
 
 export interface Seating {
   dealer: Seat;
@@ -33,13 +34,14 @@ export interface Seating {
 }
 
 /**
- * PDF section 4: Seri keeps the seating. Lew Fit also keeps it (assumption).
+ * PDF section 4: Seri keeps the seating. Lew Fit rotates (user-approved inference
+ * from PlayLeh, where False Win is distinct from dealer Hu and stalemate).
  * PlayLeh practice: a dealer win retains the deal by default; optionally rotate anyway.
  * https://playleh.com/mahjongleh-rules.html (Game Setup).
  * The prevailing wind advances after four dealer changes (implementation convention).
  */
 export function nextSeating(current: Seating, result: HandResult, dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE): Seating {
-  if (result.kind !== 'hu' || (result.winner === current.dealer && dealerWinRule === 'stay')) return { ...current };
+  if (result.kind === 'none' || (result.kind === 'hu' && result.winner === current.dealer && dealerWinRule === 'stay')) return { ...current };
   const dealer = SEAT_ORDER[(SEAT_ORDER.indexOf(current.dealer) + 1) % 4]!;
   const passes = current.dealerPasses + 1;
   if (passes < 4) return { dealer, prevailingWind: current.prevailingWind, dealerPasses: passes };
@@ -64,6 +66,11 @@ export interface MatchState {
   /** Practice minimum fixed for the match; tournament default is 5. */
   minHuTay: number;
   dealerWinRule: DealerWinRule;
+  timeLimitMinutes: MatchTimeLimit;
+  /** Runtime only: closing the app discards this match and its clock, as before. */
+  startedAt: number;
+  finishedAt: number | null;
+  endedBy: 'hands' | 'time' | null;
   /** Seating of the current (or next, once the hand is finished) hand */
   seating: Seating;
   /** Hands already finished, oldest first */
@@ -76,8 +83,8 @@ export interface MatchState {
 
 const zero = (): Record<Seat, number> => ({ dong: 0, nan: 0, xi: 0, bei: 0 });
 
-export function createMatch(length: MatchLength, dealer: Seat = 'dong', prevailingWind: Wind = 'dong', minHuTay = 5, dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE): MatchState {
-  return { length, minHuTay, dealerWinRule, seating: { dealer, prevailingWind, dealerPasses: 0 }, hands: [], huCount: zero(), tayTotal: zero(), reachedAt: zero() };
+export function createMatch(length: MatchLength, dealer: Seat = 'dong', prevailingWind: Wind = 'dong', minHuTay = 5, dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE, timeLimitMinutes: MatchTimeLimit = null, now = Date.now()): MatchState {
+  return { length, minHuTay, dealerWinRule, timeLimitMinutes, startedAt: now, finishedAt: null, endedBy: null, seating: { dealer, prevailingWind, dealerPasses: 0 }, hands: [], huCount: zero(), tayTotal: zero(), reachedAt: zero() };
 }
 
 /** 1-based number of the hand being played (or about to be dealt). */
@@ -86,14 +93,15 @@ export function currentHandNumber(match: MatchState): number {
 }
 
 export function isMatchOver(match: MatchState): boolean {
-  return match.length !== null && match.hands.length >= match.length;
+  return match.endedBy !== null || (match.length !== null && match.hands.length >= match.length);
 }
 
 /**
  * Record a finished hand and rotate the seating for the next one. `winner` is the declarer of a
- * Hu; `validHu` false means a Lew Fit, which scores nothing and keeps the seating.
+ * Hu; `validHu` false means a Lew Fit, which scores nothing and rotates the dealer.
  */
-export function recordHand(match: MatchState, winner: Seat | null, validHu: boolean, totalTay: number): MatchState {
+export function recordHand(match: MatchState, winner: Seat | null, validHu: boolean, totalTay: number, now = Date.now()): MatchState {
+  if (isMatchOver(match)) return match;
   const hand = currentHandNumber(match);
   const credited = winner !== null && validHu && Number.isFinite(totalTay) && totalTay >= match.minHuTay ? winner : null;
   const record: MatchHandRecord = {
@@ -112,14 +120,14 @@ export function recordHand(match: MatchState, winner: Seat | null, validHu: bool
     tayTotal[credited] += totalTay;
     reachedAt[credited] = hand;
   }
-  return {
+  return finishMatchAtBoundary({
     ...match,
-    seating: nextSeating(match.seating, credited ? { kind: 'hu', winner: credited } : { kind: 'none' }, match.dealerWinRule),
+    seating: nextSeating(match.seating, credited ? { kind: 'hu', winner: credited } : winner !== null ? { kind: 'lew_fit' } : { kind: 'none' }, match.dealerWinRule),
     hands: [...match.hands, record],
     huCount,
     tayTotal,
     reachedAt,
-  };
+  }, now);
 }
 
 export interface Standing {
@@ -173,4 +181,33 @@ export function loadDealerWinRule(storage?: StorageLike): DealerWinRule {
 
 export function saveDealerWinRule(rule: DealerWinRule, storage?: StorageLike): void {
   try { (storage ?? getStorage()).setItem(DEALER_WIN_KEY, rule); } catch { /* Keep the live choice. */ }
+}
+
+
+/** Elapsed real time includes hidden tabs, bot pauses, dialogs and between-hand results. */
+export function remainingMatchMs(match: MatchState, now = Date.now()): number | null {
+  return match.timeLimitMinutes === null ? null : Math.max(0, match.timeLimitMinutes * 60_000 - Math.max(0, (match.finishedAt ?? now) - match.startedAt));
+}
+
+/** Call only once a hand is finished; expiry never interrupts live play. */
+export function finishMatchAtBoundary(match: MatchState, now = Date.now()): MatchState {
+  if (match.endedBy !== null) return match;
+  const byTime = remainingMatchMs(match, now) === 0;
+  const byHands = match.length !== null && match.hands.length >= match.length;
+  return byTime || byHands ? { ...match, endedBy: byTime ? 'time' : 'hands', finishedAt: now } : match;
+}
+
+const TIME_LIMIT_KEY = 'itm.match-time-limit.v1';
+export function loadMatchTimeLimit(storage?: StorageLike): MatchTimeLimit {
+  try { return (storage ?? getStorage()).getItem(TIME_LIMIT_KEY) === '90' ? 90 : null; }
+  catch { return null; }
+}
+export function saveMatchTimeLimit(limit: MatchTimeLimit, storage?: StorageLike): void {
+  try { (storage ?? getStorage()).setItem(TIME_LIMIT_KEY, limit === null ? 'unlimited' : String(limit)); } catch { /* Keep the live choice. */ }
+}
+
+/** No visibility/modal/pause gate: tournament time continues while the app is open. */
+export function watchMatchClock(target: { tickMatchClock(): void }): () => void {
+  const timer = setInterval(() => target.tickMatchClock(), 1000);
+  return () => clearInterval(timer);
 }

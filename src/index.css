@@ -1648,3 +1648,218 @@ select {
 }
 
 .action-hud:empty { display: none; }
+
+/* Dimensional table: explicit HUD track keeps every child out of implicit grid rows. */
+.table-felt {
+  --felt-ink: #f0edce;
+  position: relative;
+  grid-template-columns: 112px minmax(280px, 1fr) 112px 300px;
+  grid-template-rows: auto minmax(320px, 1fr) auto;
+  grid-template-areas: 'top top top hud' 'left center right hud' 'bottom bottom bottom hud';
+  gap: 12px;
+  padding: 24px;
+  margin: 14px;
+  border: 12px solid #755035;
+  border-radius: 32px;
+  background:
+    radial-gradient(ellipse at 45% 35%, #3f947442, transparent 65%),
+    repeating-conic-gradient(#ffffff03 0% 25%, #00000003 0% 50%) 0 0 / 4px 4px,
+    #176047;
+  box-shadow: inset 0 0 0 3px #c39760, inset 0 0 40px #05291eb0, 0 7px 0 #442e21, 0 12px 24px #29211635;
+  color: var(--felt-ink);
+}
+.table-felt > .kim-indicator { position: absolute; top: 6px; left: 16px; color: #f7d998; font-size: 11px; }
+.table-hud { grid-area: hud; align-self: start; min-width: 0; padding: 14px; border-radius: 16px; background: #fbf8ef; color: #233e34; box-shadow: 0 5px 18px #002b224d; border: 1px solid #d0bf9f; }
+.table-hud .table-stage { font-size: 12px; line-height: 1.5; background: #e7efe6; border-color: #c2d1bc; }
+.table-hud .match-board { display: flex; flex-direction: column; align-items: stretch; padding: 12px; background: #193e32; color: #ffedbf; border: 1px solid #a27d42; gap: 8px; }
+.table-hud .match-board .muted { color: #e3d9bd; }
+.table-hud .match-scores { display: grid; grid-template-columns: 1fr 1fr; color: #e1eadd; gap: 8px; }
+.table-hud .match-score { padding: 5px; background: #ffffff0b; border-radius: 4px; }
+.table-hud .match-score.is-dealer { color: #ffe3a3; }
+.table-hud [aria-label='Waktu pertandingan'] { font-size: 17px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.table-hud .play-progress { gap: 10px; }
+.table-hud .play-controls { gap: 6px; }
+.table-hud .play-controls > label { width: 100%; }
+.table-hud .play-controls select { max-width: 100%; }
+.table-hud .play-controls > .btn { padding: 6px 8px; font-size: 11px; min-height: 34px; }
+.table-hud .play-controls > span { font-size: 11px; }
+.table-hud .bot-explanation { max-height: 100px; overflow: auto; font-size: 11px; }
+.table-hud .center-stats { margin: 12px 0; }
+.table-hud .stat { font-size: 11px; padding: 3px 5px; }
+.table-hud .activity-history .game-log { max-height: 100px; font-size: 11px; }
+.table-felt .seat-panel, .table-felt .human-area, .table-felt .center-area { background: transparent; border-color: transparent; box-shadow: none; }
+.table-felt .seat-panel { padding: 6px 2px; align-self: center; position: relative; }
+.table-felt .seat-panel.is-active .seat-head, .table-felt .human-area.is-active .seat-head { color: #ffe5a2; }
+.table-felt .seat-head { gap: 4px 7px; font-size: 12px; }
+.table-felt .seat-head strong { letter-spacing: .3px; }
+.table-felt .rack, .table-felt .rack-empty, .table-felt .concealed .count { color: #d1e0ca; }
+.table-felt .badge { font-size: 9px; padding: 1px 5px; }
+.table-felt .seat-top { max-width: 100%; justify-self: center; align-items: center; }
+.table-felt .concealed { flex-wrap: nowrap; gap: 2px; padding: 3px 4px 8px; overflow: visible; }
+.table-felt .concealed .tile-back { --w: 19px; --h: 28px; }
+.table-felt .seat-left, .table-felt .seat-right { align-items: center; gap: 8px; }
+.table-felt .seat-left .seat-head, .table-felt .seat-right .seat-head { justify-content: center; }
+.table-felt .seat-left .concealed, .table-felt .seat-right .concealed { flex-direction: column; gap: 0; }
+.table-felt .seat-left .concealed .tile, .table-felt .seat-right .concealed .tile { --w: 27px; --h: 16px; margin: 0; border-radius: 3px; box-shadow: 3px 1px 0 #d1c8ac, 5px 3px 4px #002d2370; }
+.table-felt .seat-right .concealed .tile { box-shadow: -3px 1px 0 #d1c8ac, -5px 3px 4px #002d2370; }
+.table-felt .seat-panel .melds { justify-content: center; gap: 4px; }
+.table-felt .seat-panel .rack { justify-content: center; font-size: 10px; }
+.table-felt .seat-panel .bonus-rack { justify-content: center; }
+.table-felt .bonus-rack small { font-size: 9px; }
+.table-felt .center-area { position: relative; justify-content: center; padding: 0; overflow: visible; }
+.board-plane { position: relative; width: 100%; min-height: 340px; aspect-ratio: 1.12; transform: perspective(1100px) rotateX(9deg); transform-origin: center; }
+.wall-ring { position: absolute; inset: 25px 12px; pointer-events: none; }
+.wall-side { position: absolute; display: flex; justify-content: center; gap: 2px; }
+.wall-bottom, .wall-top { left: 20px; right: 20px; height: 21px; }
+.wall-bottom { bottom: 0; }
+.wall-top { top: 0; transform: rotate(180deg); }
+.wall-left, .wall-right { top: 24px; bottom: 24px; width: 20px; flex-direction: column; }
+.wall-left { left: 0; }
+.wall-right { right: 0; }
+.wall-stack { flex: 0 1 18px; min-width: 5px; height: 22px; border: 1px solid #eee6c8; border-radius: 2px; background: linear-gradient(#65b99c 0 55%, #248166 55% 70%, #fff2ce 70%); box-shadow: 0 5px 0 #b9b499, 0 7px 4px #003a2a; }
+.wall-left .wall-stack, .wall-right .wall-stack { width: 21px; min-height: 5px; flex-basis: 17px; }
+.felt-wind { position: absolute; color: #b4c9a7; font-size: 10px; letter-spacing: 1px; }
+.felt-wind b { font-size: 17px; }
+.felt-wind small { font-size: 9px; letter-spacing: 0; }
+.felt-wind.is-turn { color: #ffe6a2; text-shadow: 0 0 14px #ffe29c66; }
+.felt-top { top: -4px; left: 50%; transform: translateX(-50%); }
+.felt-bottom { bottom: -4px; left: 50%; transform: translateX(-50%); }
+.felt-left { left: -8px; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+.felt-right { right: -8px; top: 50%; transform: translate(50%, -50%) rotate(-90deg); }
+.table-felt .discard-pool { position: absolute; inset: 64px 48px; display: flex; gap: 5px 4px; min-height: 0; max-height: none; padding: 8px; background: #104c3520; border: 1px solid #abc58c26; border-radius: 5px; scrollbar-color: #d8c594 #104c35; }
+.table-felt .discard-pool .muted { color: #c1d0b7; font-size: 11px; }
+.table-felt .pool-tile { height: fit-content; }
+.table-felt .pending-discard { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); width: max-content; max-width: 100%; background: #183e32f2; color: #ffeac0; border: 1px solid #c5a567; z-index: 2; font-size: 11px; box-shadow: 0 4px 12px #00261b70; }
+.table-felt .pending-discard .tile-lg { --w: 30px; --h: 40px; }
+.hu-burst { position: absolute; inset: 20% 0 auto; margin: 0; text-align: center; font: 900 92px/1.1 Georgia, serif; color: #ffe2a0; text-shadow: 0 4px 0 #8a4a1c, 0 8px 20px #002719; pointer-events: none; z-index: 3; }
+.hu-burst small { display: block; font: 700 16px/2 'Segoe UI', sans-serif; letter-spacing: 3px; }
+.hu-burst.is-lew-fit { font-size: 50px; color: #ffd0bd; }
+.table-felt .seat-bottom { position: relative; bottom: auto; margin: 0; padding: 10px 0 0; background: transparent; box-shadow: none; border: 0; gap: 8px; }
+.table-felt .human-area { padding: 8px 10px; border-top: 1px solid #e6d4a330; border-radius: 0; }
+.table-felt .human-area .rack { margin-left: auto; }
+.table-felt .human-area .hand-row { justify-content: safe center; padding: 16px 5px 9px; }
+.table-felt .tile { background: linear-gradient(110deg, #fffef7, #f4edda); border-color: #e4d8bb; box-shadow: 0 4px 0 #c4b594, 1px 6px 0 #197a5e, 2px 8px 5px #002d2370; }
+.table-felt .tile.is-kim, .table-felt .tile.tone-kim { border-color: #ad83d9; background: linear-gradient(110deg, #fffef7, #eee2fc); }
+.table-felt .tile.tone-flower, .table-felt .tile.tone-season { background: linear-gradient(110deg, #fffdf2, #f7e8cc); }
+.table-felt .tile.tile-back { background: linear-gradient(90deg, #22846b, #3ba488 50%, #227a60); border: 2px solid #ece5c9; box-shadow: 0 4px 0 #c2b799, 1px 6px 6px #002d2370; }
+.table-felt .tile.tile-back::after { border-color: #a2d7bf77; }
+.table-felt .tile.is-selected { transform: translateY(-10px); border-color: #ffe3a4; box-shadow: 0 0 0 2px #ffe3a4, 0 5px 0 #b79e6b, 0 9px 14px #002d23; }
+.table-felt .tile.is-drawn { outline-color: #ffe3a4; }
+.table-felt .tile.is-highlight { box-shadow: 0 0 0 2px #ffe3a4, 0 4px 0 #c4b594; }
+.table-felt .action-hud { justify-content: center; background: #103f32d9; border-color: #bbcb9c33; padding: 10px; gap: 9px; }
+.table-felt .hud-btn { min-height: 44px; padding: 9px 18px; border-radius: 8px; background: linear-gradient(#faf6e8, #ded1b3); border: 1px solid #fff2cf; color: #273e31; font-weight: 800; box-shadow: 0 3px 0 #897b60, 0 5px 7px #002d2366; }
+.table-felt .hud-primary, .table-felt .hud-call { background: linear-gradient(#408bd0, #245c97); border-color: #84b7da; color: white; box-shadow: 0 3px 0 #153f6b, 0 5px 7px #002d2366; }
+.table-felt .hud-gold { background: linear-gradient(#ffe7a0, #dda64a); border-color: #ffecae; color: #513915; }
+.table-felt .hud-danger { background: linear-gradient(#c5644e, #953f32); border-color: #e4967c; color: #fff4e8; }
+.table-felt .hud-btn:hover:not(:disabled) { filter: brightness(1.12); }
+.table-felt .hud-btn.is-coached { outline-color: #f5d88d; outline-offset: 3px; }
+.hud-label { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.hud-preview { display: flex; gap: 2px; padding-bottom: 4px; }
+.table-felt .hud-btn.has-preview { flex-direction: column; gap: 6px; }
+.table-felt .hud-preview .tile-sm { --w: 18px; --h: 25px; }
+.table-felt .claim-banner { color: #ffe2a0; }
+.table-felt .practice-coach { padding: 6px 12px; background: transparent; border: 0; color: #f0e3c2; font-size: 12px; text-align: center; }
+.table-felt .hand-reading { color: #d4e1ca; }
+.table-felt .meld { background: #113f3155; border-color: #c0d2a744; }
+.table-felt .meld-label { color: #e2e4c9; }
+@media (min-width: 1500px) { .table-felt { max-width: 1560px; width: calc(100% - 28px); align-self: center; } }
+@media (max-width: 1150px) {
+  .table-felt { grid-template-columns: 78px minmax(240px, 1fr) 78px 260px; gap: 8px; padding: 18px; margin: 8px; border-width: 9px; }
+  .table-hud { padding: 10px; }
+  .table-felt .hand-row .tile-lg { --w: 36px; --h: 50px; }
+  .table-felt .human-area .rack { margin-left: 0; }
+}
+@media (max-width: 900px) {
+  .table-felt { grid-template-columns: 72px minmax(0, 1fr) 72px; grid-template-rows: auto auto auto auto; grid-template-areas: 'top top top' 'left center right' 'bottom bottom bottom' 'hud hud hud'; padding: 16px 12px; }
+  .table-hud { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .table-hud .play-progress { grid-column: 2; grid-row: 1 / 4; }
+  .table-hud .center-stats { margin: 0; align-content: start; }
+  .table-hud .table-stage { margin: 0; }
+  .board-plane { min-height: 320px; }
+}
+@media (max-width: 560px) {
+  .table-felt { margin: 5px; border-width: 7px; border-radius: 20px; padding: 18px 5px 8px; gap: 5px; grid-template-columns: 43px minmax(0, 1fr) 43px; grid-template-rows: auto auto auto auto; }
+  .table-felt .seat-panel { padding: 2px 0; gap: 3px; }
+  .table-felt .seat-top { align-items: center; }
+  .table-felt .seat-head { font-size: 10px; gap: 3px; }
+  .table-felt .seat-panel .seat-head strong { font-size: 10px; }
+  .table-felt .seat-left .seat-head, .table-felt .seat-right .seat-head { flex-direction: column; }
+  .table-felt .seat-panel .badges { justify-content: center; gap: 2px; }
+  .table-felt .seat-panel .badge { font-size: 8px; padding: 1px 3px; }
+  .table-felt .seat-panel .concealed .tile-back { --w: 13px; --h: 21px; }
+  .table-felt .seat-left .concealed .tile, .table-felt .seat-right .concealed .tile { --w: 21px; --h: 12px; }
+  .table-felt .seat-panel .rack-empty { font-size: 8px; overflow-wrap: anywhere; }
+  .table-felt .seat-panel .bonus-rack small { font-size: 8px; }
+  .table-felt .seat-panel .tile-sm { --w: 14px; --h: 20px; }
+  .table-felt .seat-panel .meld { flex-wrap: wrap; max-width: 40px; }
+  .table-felt .seat-top .meld { flex-wrap: nowrap; max-width: none; }
+  .board-plane { min-height: 300px; aspect-ratio: auto; }
+  .wall-ring { inset: 27px 3px; }
+  .wall-bottom, .wall-top { left: 15px; right: 15px; height: 15px; }
+  .wall-stack { height: 15px; min-width: 2px; }
+  .wall-left, .wall-right { width: 13px; }
+  .wall-left .wall-stack, .wall-right .wall-stack { width: 13px; flex-basis: 12px; }
+  .felt-wind { font-size: 8px; letter-spacing: 0; white-space: nowrap; }
+  .felt-wind b { font-size: 14px; }
+  .felt-left { left: -3px; }
+  .felt-right { right: -3px; }
+  .table-felt .discard-pool { inset: 56px 20px; padding: 5px; gap: 5px 3px; }
+  .table-felt .discard-pool .tile-sm { --w: 20px; --h: 27px; }
+  .table-felt .pending-discard { bottom: 14px; padding: 3px 5px; gap: 5px; font-size: 9px; }
+  .table-felt .pending-discard .tile-lg { --w: 23px; --h: 31px; }
+  .table-felt .seat-bottom { padding-top: 5px; gap: 4px; }
+  .table-felt .human-area { padding: 5px 0; }
+  .table-felt .human-area .hand-row { justify-content: flex-start; gap: 2px; padding: 14px 3px 8px; }
+  .table-felt .hand-row .tile-lg { --w: clamp(20px, 5.45vw, 30px); --h: clamp(30px, 7.8vw, 43px); }
+  .table-felt .drawn-gap { width: 5px; }
+  .table-felt .human-area .rack { font-size: 10px; }
+  .table-felt .human-area .rack .tile-sm { --w: 18px; --h: 25px; }
+  .table-felt .human-area .rack-empty { font-size: 9px; }
+  .table-felt .hud-btn { min-height: 44px; padding: 6px 12px; font-size: 13px; }
+  .table-felt .action-hud { padding: 8px 5px; gap: 8px; }
+  .table-felt .claim-banner { font-size: 11px; flex-basis: 100%; justify-content: center; }
+  .table-felt .practice-coach { font-size: 11px; padding: 4px; }
+  .table-hud { display: flex; flex-direction: column; padding: 10px; gap: 8px; }
+  .table-hud .play-progress { order: -1; }
+  .table-hud .match-board { display: grid; grid-template-columns: 1fr 1fr; padding: 8px; gap: 5px; }
+  .table-hud .match-board > .match-scores { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 3px; font-size: 10px; }
+  .table-hud .match-board > .muted { font-size: 10px; }
+  .table-hud [aria-label='Waktu pertandingan'] { font-size: 14px; }
+  .hu-burst { font-size: 65px; }
+}
+/* Keep the playing surface within one desktop view, independent of the HUD width. */
+.board-plane { max-width: 480px; height: 400px; min-height: 0; aspect-ratio: auto; align-self: center; }
+.table-felt .concealed .tile + .tile { margin-left: 0; }
+@media (min-width: 901px) {
+  .table-felt { grid-template-rows: auto minmax(360px, 1fr) auto; }
+}
+@media (max-width: 900px) { .board-plane { height: 340px; } }
+@media (max-width: 560px) {
+  .board-plane { height: 300px; }
+  .table-felt .seat-panel .rack-empty { display: none; }
+  .table-felt .seat-panel .rack:has(.rack-empty) { display: none; }
+  .table-felt .hand-row .tile-lg { --h: 40px; }
+  .table-felt .seat-panel .concealed { padding-left: 0; padding-right: 0; }
+}
+@media (min-width: 901px) and (max-height: 820px) {
+  .table-felt { padding: 12px 18px; margin: 8px; border-width: 9px; gap: 8px; grid-template-rows: auto minmax(290px, 1fr) auto; }
+  .board-plane { height: 300px; max-width: 420px; }
+  .table-felt .seat-top { gap: 3px; }
+  .table-felt .seat-top .rack:has(.rack-empty) { display: none; }
+  .table-felt .seat-left .concealed .tile, .table-felt .seat-right .concealed .tile { --h: 13px; }
+  .table-felt .seat-panel .rack { max-height: 50px; overflow: auto; }
+  .table-felt .seat-bottom { gap: 5px; padding-top: 3px; }
+  .table-felt .human-area { padding: 4px; }
+  .table-felt .hand-row .tile-lg { --w: 36px; --h: 49px; }
+  .table-felt .human-area .hand-row { padding-top: 13px; padding-bottom: 7px; }
+  .table-hud { padding: 10px; }
+  .table-hud .play-progress { gap: 6px; }
+  .table-hud .match-board { padding: 8px; gap: 5px; }
+  .table-hud .bot-explanation { max-height: 64px; }
+  .table-hud .activity-history .game-log { max-height: 56px; }
+  .table-hud .center-stats { margin: 8px 0; }
+}
+.hu-banner { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 0 0 14px; padding: 10px 16px; border: 1px solid #c6a15f; border-radius: 10px; background: linear-gradient(110deg, #214f3b, #113c2d); color: #ffe2a0; font: 900 40px/1 Georgia, serif; text-shadow: 0 2px 0 #76502d; }
+.hu-banner small { font: 700 14px/1.4 'Segoe UI', sans-serif; text-shadow: none; }
+.hu-banner.is-lew-fit { background: #6b332b; color: #ffe2d1; font-size: 30px; }
+@media (max-width: 560px) { .hu-banner { padding: 8px 12px; font-size: 30px; margin-bottom: 10px; gap: 12px; } .hu-banner small { font-size: 12px; } }

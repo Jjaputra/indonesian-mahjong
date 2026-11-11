@@ -15,7 +15,7 @@ This game does **not** claim full conformity with ITM/YDSP. The dice procedure f
 | Kim / joker may not be discarded | p. 7 §4, p. 11 §5.3 | `kimDiscardAllowed: false` in the tournament preset |
 | No dead wall: the wall is played until it is empty | p. 7 §4 | `Wall` has no dead wall; replacements come from the tail |
 | Empty wall = Seri (draw); the game still counts and seat winds do not rotate | p. 7 §4 | Seri outcome, `DRAW_SERI` phase |
-| Table winner = most Hu (each at least 5 Tay); a tie goes to whoever reached that count first | p. 7 §4, p. 12 §6 | Tournament admin, not modelled in the casual game |
+| Table winner = most Hu (each at least 5 Tay); a tie goes to whoever reached that count first | p. 7 §4, p. 12 §6 | Continuous match standings in `src/ui/match.ts`; practice may lower the minimum |
 | A replacement player cannot Hu | p. 5 §3.2, p. 11 §5.2 | Tournament admin, not modelled |
 | DAFTAR TAY, 44 rows, two columns "Ada KIM" / "Tidak ada KIM" | pp. 8–10 | `src/scoring/patterns.ts`; pinned by `tests/scoring/rulebook-columns.test.ts` |
 | Penalti 1–4 are all "Lew Fit": wrong tile count, wrong Jia/Pung, Jia/Pung using Kim, Hu below 5 Tay | p. 10 | `LewFitReason` `structure`, `kim-claim`, `below-minimum` |
@@ -87,7 +87,7 @@ Values are `Ada KIM / Tidak ada KIM`; `—` means the cell is blank. Column plac
 
 Eleven older tests expected the self-draw reading. They now assert the discard-only rule: the discard cases stay positive and the self-draw cases became explicit negatives. The fixture and test comments point here. **Unresolved:** if "hasil lew" means the first wall draw, the self-draw path should be restored.
 
-**#11 Thien Fu "posisi Dong" (p. 8).** The engine awards it when the seat wind is Dong and the hand is the untouched opening hand of the dealer. The app lets the starting dealer be another seat. In that case nobody can score Thien Fu. Whether "posisi Dong" means the East seat or the dealer is unresolved. In practice the human sits East and East is always the dealer (turns run counterclockwise), so both readings agree there.
+**#11 Thien Fu "posisi Dong" (p. 8).** The engine awards it when the seat wind is Dong and the hand is the untouched opening hand of the dealer. Seat winds are relative to the dealer, so a dealer on any physical chair can score Thien Fu. Treating "posisi Dong" as the dealer follows the continuous-match convention in §7; the PDF does not explicitly distinguish a fixed chair from its rotating seat wind.
 
 ## 3. Interpretations the PDF does not settle
 
@@ -159,7 +159,7 @@ Natural Kim cannot be discarded or used to claim Jia/Pung/Kong, even if a casual
 1. The user chose the match table for practice. Still open: should #39 Se Sam Pu Tat score in a Kim-off match (the printed Tidak ada KIM cell is blank)?
 2. What does "lew" mean in rows #10 and #12? Does a first-round self-draw after Pao Chin score Thi Fu?
 3. Flowers/seasons: the user chose own-seat only for individual tiles. Still open: do collection awards (#4, #5, #6) change under that rule?
-4. Is "posisi Dong" (Thien Fu) the East seat or the dealer?
+4. Does "posisi Dong" (Thien Fu) confirm the dealer-relative seat-wind convention used by the app?
 5. The full dice-Kim procedure: direction, stack/top indexing, wind and flower mapping, physical distribution, and indicator-to-Kim mapping (natural Bo KIM is now confirmed).
 6. Ce Chiong Kong: must the winning tile be the 4th tile of the exposed Pung?
 7. Is a triplet completed by the winning discard concealed for Sam/Si Am Kang?
@@ -170,7 +170,7 @@ Natural Kim cannot be discarded or used to claim Jia/Pung/Kong, even if a casual
 Code: `src/ui/match.ts`, `GameController.startMatch` / `nextHand`.
 
 From the PDF (section 4):
-- A match is 8 games (hands) or 90 minutes, whichever comes first. The app offers 4, 8 (default), 16 or endless practice; the 90-minute limit is not enforced.
+- A match is 8 games (hands) or 90 minutes, whichever comes first. The app offers 4, 8 (default), 16 or endless practice; the optional 90-minute limit is available in the pregame Waktu choice (default: tanpa batas).
 - Tournament table winner = most Hu that meet the 5-Tay minimum. A tie goes to whoever reached that Hu count first. A Lew Fit credits no Hu. Total Tay is shown, not used for ranking.
 - Wall runs out: the hand is Seri, still counts as a game, and seat winds do not rotate.
 
@@ -178,8 +178,11 @@ Dealer-win policy: the PDF is silent on dealer wins. The default follows the use
 
 Implementation conventions and practice choices (**not stated in the PDF**; seating policy is in `nextSeating`):
 - The dealer always sits posisi Dong (Timur). Seat winds are relative to the dealer, so Tris Angin Duduk, own Bunga/Musim number, Ping Fu and Thien Fu use the rotated seat wind each hand. Thien Fu belongs to the dealer.
-- Lew Fit: treated like Seri (no rotation).
+- Lew Fit: the dealer moves one chair and the seat winds rotate; no Hu is credited. This is a user-approved **inference** from [PlayLeh Game Setup and False Win](https://playleh.com/mahjongleh-rules.html), whose rotation exceptions are dealer wins and stalemates. Indonesian Lew Fit and PlayLeh False Win are different concepts; neither the PDF nor PlayLeh explicitly establishes this Indonesian penalty rotation.
 - The prevailing wind (angin putaran) advances Timur → Selatan → Barat → Utara after every seat has been dealer once (four dealer changes). Repeated dealer hands do not advance it.
 - Practice uses the minimum chosen at match start (fixed for that match); a lower minimum still credits the player's valid Hu. Scoreboards and final standings explicitly label a minimum below 5 as training rules, alongside the tournament minimum of 5.
 - The coach offers continuation after intermediate hands and final standings after the last; pace and pause preferences continue across hands.
 - Players keep their chairs on screen; only the winds and the dealer badge move. Each hand deals a fresh wall in the Kim mode chosen at the start of the match.
+
+
+**Optional match clock (PDF section 4).** `Waktu: tanpa batas (default) / 90 menit` is saved next to match-length preferences in `itm.match-time-limit.v1`, outside the settings module. With a limit, the hand-count limit or the 90-minute limit ends the match, whichever is reached first. Reaching time during a hand never interrupts it: that hand finishes and its result counts before final standings show “berakhir karena batas waktu”. If time expires between hands, no new hand is dealt. The clock includes bot pauses, hidden-tab time, dialogs and between-hand results. Only the preference is persisted; active matches and clocks remain in memory as before, so closing the app abandons that match and does not charge closed-app time to a later match. Finishing the current hand on expiry is the user-approved app policy; section 4 does not define that cutoff detail.

@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Home, RotateCcw } from 'lucide-react';
 import type { Seat, Wind } from '../../core/types';
 import { SEAT_ORDER } from '../../core/tiles';
-import { standings, type MatchState } from '../match';
+import { standings, isMatchOver, remainingMatchMs, type MatchState } from '../match';
 import { PLAYER_NAME, SEAT_SHORT, matchProgressLabel } from '../labels';
 import { Modal } from './Modal';
 
@@ -10,12 +11,25 @@ function MatchMinimumNote({ match }: { match: MatchState }) {
   return match.minHuTay < 5 ? <small className="muted">Minimum latihan {match.minHuTay} Tay — aturan turnamen 5 Tay.</small> : null;
 }
 
+export function MatchClock({ match }: { match: MatchState }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (match.timeLimitMinutes === null || match.endedBy !== null) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [match.startedAt, match.timeLimitMinutes, match.endedBy]);
+  const remaining = remainingMatchMs(match, now);
+  const seconds = Math.ceil((remaining ?? 0) / 1000);
+  return <span aria-label="Waktu pertandingan">{remaining === null ? 'Waktu: tanpa batas' : `Waktu: ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`}{remaining === 0 && match.endedBy === null ? ' — waktu habis, selesaikan game ini' : ''}</span>;
+}
+
 /** Compact in-play indicator: "Game 3/8 · Angin putaran Timur" plus each player's valid Hu count. */
 export function MatchScoreboard({ match, hand, prevailingWind, dealer }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat }) {
   return (
     <div className="match-board" aria-label="Papan skor pertandingan">
       <strong>{matchProgressLabel(hand, match.length, prevailingWind)}</strong>
       <MatchMinimumNote match={match} />
+      <MatchClock match={match} />
       <span className="match-scores">
         {SEAT_ORDER.map((seat) => (
           <span key={seat} className={`match-score${seat === dealer ? ' is-dealer' : ''}`} title={seat === dealer ? 'Dealer game ini' : undefined}>
@@ -31,9 +45,9 @@ export function MatchScoreboard({ match, hand, prevailingWind, dealer }: { match
 export function MatchResultNote({ match }: { match: MatchState }) {
   const last = match.hands[match.hands.length - 1];
   if (!last) return null;
-  const over = match.length !== null && match.hands.length >= match.length;
+  const over = isMatchOver(match);
   const next = match.seating;
-  const rotation = last.winner === null
+  const rotation = last.lewFit ? 'Lew Fit: dealer dan angin duduk berputar satu langkah.' : last.winner === null
     ? 'Tidak ada Hu sah: angin duduk tidak berputar.'
     : last.winner === last.dealer && match.dealerWinRule === 'stay'
       ? `${PLAYER_NAME[last.winner]} (dealer) menang: dealer tetap.`
@@ -41,7 +55,7 @@ export function MatchResultNote({ match }: { match: MatchState }) {
   return (
     <p className="match-note">
       <strong>{`Game ${last.hand}${match.length === null ? '' : `/${match.length}`} selesai.`}</strong>{' '}
-      {over ? 'Ini game terakhir pertandingan.' : `${rotation} Berikutnya dealer: ${PLAYER_NAME[next.dealer]} · Angin putaran ${SEAT_SHORT[next.prevailingWind]}.`}
+      {over ? match.endedBy === 'time' ? 'Pertandingan berakhir karena batas waktu 90 menit.' : 'Ini game terakhir pertandingan.' : `${rotation} Berikutnya dealer: ${PLAYER_NAME[next.dealer]} · Angin putaran ${SEAT_SHORT[next.prevailingWind]}.`}
     </p>
   );
 }
@@ -66,6 +80,7 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: Mat
       }
     >
       <MatchMinimumNote match={match} />
+      {match.endedBy === 'time' && <p>Pertandingan berakhir karena batas waktu 90 menit; game terakhir telah diselesaikan.</p>}
       <p>{champion ? `Pemenang meja: ${PLAYER_NAME[champion.seat]} dengan ${champion.hu} Hu.` : 'Tidak ada pemenang meja tunggal.'}</p>
       <table className="tay-table match-standings">
         <thead>

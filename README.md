@@ -1,14 +1,14 @@
 # Mahjong Tradisional Indonesia
 
-A browser game of Indonesian Traditional Mahjong (ITM / YDSP), scored from the Bandung Mahjong Cup Rulebook ver06. You sit as Timur (East). Three bots take the other seats. There is no account and no server: settings, sound, and match history stay in this browser.
+A browser game of Indonesian Traditional Mahjong (ITM / YDSP), scored from the Bandung Mahjong Cup Rulebook ver06. You keep the same chair against three bots; your seat wind changes as the dealer rotates. There is no account and no server: settings, sound, and hand history stay in this browser.
 
 ## What you can do
 
 ### Play at the table
 
-- Start a game from a 148-tile wall. The dealer gets 14 tiles. Everyone else gets 13. There is no dead wall.
+- Start a game from a 144-tile wall by default, with four normal copies of one face marked Kim. Learner mode adds four dedicated Kim for 148 tiles; Kim-off uses 144. The dealer gets 14 tiles. Everyone else gets 13. There is no dead wall.
 - Flowers and seasons leave the hand and are replaced from the back of the wall.
-- Tell them apart by the ink of the number and glyph, as on the supplied tile sheet: **Musim** (season, "bunga biru") has a blue number and 春 夏 秋 冬; **Bunga** (flower, "bunga merah") has a red number and 梅 蘭 竹 菊 (plum, orchid, bamboo, chrysanthemum). Each family has one tile per number 1–4.
+- Tell them apart by the ink of the number and glyph, as on the supplied tile sheet: **Musim** (season, "kembang merah") has a red number and 春 夏 秋 冬; **Bunga** (flower, "kembang hitam / biru") has a blue/black number and 梅 蘭 竹 菊 (plum, orchid, bamboo, chrysanthemum). Each family has one tile per number 1–4.
 - **Bonus posisi +1:** a Bunga or Musim whose number equals your seat (1 Timur, 2 Selatan, 3 Barat, 4 Utara) earns +1 Tay on top of that tile's base (0 in the practice house rule). See RULES.md §3.
 - On your turn: **Tarik** (draw), choose a tile, **Buang** (discard). Click a tile once to lift it, then again to discard.
 - On someone else's discard: **Hu**, **Kong**, **Pung**, or **Jia**. Hu wins over Kong and Pung. Jia is only for the player on the discarder's left.
@@ -18,9 +18,17 @@ A browser game of Indonesian Traditional Mahjong (ITM / YDSP), scored from the B
 
 ### Kim (the joker)
 
-- **Turnamen:** Kim stays in the hand. You cannot throw it, and you cannot use it to claim Jia, Pung, or Kong.
-- **Kasual:** the same switches can be turned on in Pengaturan (discard, claim, pair, pung, jia, triplet).
-- A hand that uses Kim scores in the **Ada Kim (K)** column. A hand with no Kim scores **Bo Kim**, +3 Tay, in the **Tanpa Kim (NK)** column.
+- **Natural Kim (default):** one normal face is chosen randomly each hand and all four copies become Kim, retaining their printed face. Kim stays in the hand and cannot be discarded or used to claim Jia, Pung, or Kong.
+- **Learner Kim:** four extra dedicated jokers. Casual switches can allow discards and claims for these legacy jokers.
+- Kim used entirely as its own printed face qualifies for **Bo Kim**, +3 Tay, in the **Tanpa Kim (NK)** column. The scorer chooses the highest-scoring legal interpretation, so a better joker reading can win instead. Dedicated jokers cannot be used naturally.
+- In practice's match-table scoring, a Kim match normally reads **Ada Kim (K)**, including hands without Kim; an all-natural Kim interpretation is the exception above. The alternative hand-usage setting follows actual joker use. See RULES.md §3 for blank cells and special hands.
+
+### Continuous matches
+
+- Choose 4, 8 (default), 16 hands or endless practice. A valid Hu counts toward the standings; most Hu wins, with ties broken by who reached that count first. Total Tay is shown separately.
+- After a non-dealer Hu or **Lew Fit**, the dealer moves one chair. Lew Fit earns no Hu or Tay. Dealer wins retain the deal by default, with an option to rotate; **Seri** counts as a hand and never rotates the seating. The prevailing wind advances after four dealer changes.
+- **Waktu** offers no limit (default) or 90 minutes. Time keeps running through bot pauses, dialogs, hidden tabs and results between hands. A hand in progress at expiry finishes and counts; expiry between hands prevents another deal. Reaching the hand limit first freezes the clock.
+- Match preferences are saved, but the active match and its clock are runtime only. Closing the app abandons the match; reopening starts a fresh one.
 
 ### Scoring
 
