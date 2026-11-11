@@ -13,8 +13,8 @@ export function publicMotion(event: GameEvent): PublicMotion | null {
   return null;
 }
 export function motionTiming(speed: AnimationSpeed, reduced: boolean): { travel: number; hold: number } {
-  return { travel: reduced || speed === 'off' ? 0 : speed === 'slow' ? 620 : 420,
-    hold: speed === 'slow' ? 1400 : speed === 'fast' || speed === 'off' ? 900 : 1150 };
+  return { travel: reduced || speed === 'off' ? 0 : speed === 'slow' ? 950 : speed === 'fast' ? 520 : 800,
+    hold: speed === 'slow' ? 2200 : speed === 'fast' || speed === 'off' ? 1100 : 1700 };
 }
 
 /** Geometry is optional: every visible transition settles, even with missing anchors. */

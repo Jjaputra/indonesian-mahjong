@@ -1,13 +1,12 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { RotateCcw, Save } from 'lucide-react';
 import {
   getPreset,
   type AIDifficulty,
-  type AnimationSpeed,
   type GameSettings,
   type SettingsPresetName,
 } from '../../storage';
-import { ANIMATION_LABEL, DIFFICULTY_LABEL } from '../labels';
+import { DIFFICULTY_LABEL } from '../labels';
 import { Modal } from './Modal';
 
 interface SettingsModalProps {
@@ -40,15 +39,6 @@ function Toggle({ label, hint, checked, disabled, onChange }: { label: string; h
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-    </label>
-  );
-}
-
 export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps) {
   const [draft, setDraft] = useState<GameSettings>({ ...settings });
   const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => setDraft((d) => ({ ...d, [key]: value }));
@@ -71,6 +61,17 @@ export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps)
       <div className="settings">
         <section>
           <h3>Preferensi bermain</h3>
+          <label className="field">Mode Kim
+            <select value={draft.kimMode ?? (draft.kimEnabled ? 'dedicated' : 'off')} onChange={e => {
+              const kimMode = e.target.value as 'off' | 'dedicated' | 'natural';
+              setDraft(d => ({ ...d, kimMode, kimEnabled: kimMode !== 'off' }));
+            }}>
+              <option value="natural">Kim dari tile yang ada</option>
+              <option value="dedicated">Kim khusus — pemula (148 tile)</option>
+              <option value="off">Tanpa Kim</option>
+            </select>
+            <small>Kim natural: satu jenis tile dipilih acak tiap hand (144 tile). Ini penyederhanaan; prosedur dadu belum dikonfirmasi. Semua Kim yang dipakai sesuai nomer/jenis mendapat Bo KIM.</small>
+          </label>
           <div className="field">
             <span>Tingkat kesulitan AI</span>
             <div className="segmented" role="group" aria-label="Tingkat kesulitan AI">
@@ -81,15 +82,8 @@ export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps)
               ))}
             </div>
           </div>
-          <Field label="Kecepatan animasi">
-            <select value={draft.animationSpeed} onChange={(e) => set('animationSpeed', e.target.value as AnimationSpeed)}>
-              {(['off', 'slow', 'normal', 'fast'] as AnimationSpeed[]).map((a) => (
-                <option key={a} value={a}>
-                  {ANIMATION_LABEL[a]}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <Toggle label={`Animasi tile: ${draft.animationSpeed === 'off' ? 'mati' : 'aktif'}`}
+            checked={draft.animationSpeed !== 'off'} onChange={enabled => set('animationSpeed', enabled ? 'slow' : 'off')} />
           <Toggle label="Suara" checked={draft.soundEnabled} onChange={(v) => set('soundEnabled', v)} />
         </section>
       </div>

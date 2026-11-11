@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryStorage, SETTINGS_STORAGE_KEY, updateSettings } from '@/storage';
-import { hasExplicitSpeed, loadPracticeSettings, loadPracticePace, savePracticePace, practiceDelay, scheduleAutomation, singleAutomationStep } from '@/ui/practice-pace';
+import { hasExplicitSpeed, settingsForPace, motionSpeedForPace, loadPracticeSettings, loadPracticePace, savePracticePace, practiceDelay, scheduleAutomation, singleAutomationStep } from '@/ui/practice-pace';
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('practice pacing and cancellation', () => {
@@ -28,6 +28,28 @@ describe('practice pacing and cancellation', () => {
     updateSettings({ kimEnabled: true });
     expect(loadPracticePace()).toBe('fast');
     expect(practiceDelay(loadPracticePace())).toBe(300);
+  });
+  it('keeps legacy off visible across learning tempo, explicit enable, unrelated saves and reload', () => {
+    vi.stubGlobal('localStorage', new MemoryStorage());
+    updateSettings({ animationSpeed: 'off' });
+    savePracticePace('learn');
+    expect(loadPracticeSettings().animationSpeed).toBe('off');
+    updateSettings(settingsForPace(loadPracticeSettings(), 'learn'));
+    expect(loadPracticePace()).toBe('learn');
+    expect(loadPracticeSettings().animationSpeed).toBe('off');
+    updateSettings({ animationSpeed: motionSpeedForPace(loadPracticePace()) });
+    expect(loadPracticeSettings().animationSpeed).toBe('slow');
+    updateSettings({ soundEnabled: false });
+    expect(loadPracticeSettings().animationSpeed).toBe('slow');
+    for (const pace of ['normal', 'fast', 'learn'] as const) {
+      updateSettings(settingsForPace(loadPracticeSettings(), pace));
+      expect(loadPracticeSettings().animationSpeed).toBe(motionSpeedForPace(pace));
+    }
+    updateSettings({ animationSpeed: 'off' });
+    for (const pace of ['normal', 'fast', 'learn'] as const) {
+      updateSettings(settingsForPace(loadPracticeSettings(), pace));
+      expect(loadPracticeSettings().animationSpeed).toBe('off');
+    }
   });
   it('invalid or missing speed is not mistaken for an explicit preference', () => {
     const storage = new MemoryStorage();

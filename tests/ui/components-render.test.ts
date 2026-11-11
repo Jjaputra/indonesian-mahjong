@@ -121,7 +121,7 @@ describe('UI render smoke tests', () => {
   it('Settings modal exposes only preferences; maintainer presets keep preferences', () => {
     const s = settings({ aiDifficulty: 'hard', soundEnabled: true });
     const html = renderToString(createElement(SettingsModal, { settings: s, onSave: noop, onClose: noop }));
-    for (const label of ['kesulitan AI', 'animasi', 'Suara', 'Simpan']) {
+    for (const label of ['kesulitan AI', 'Animasi tile: aktif', 'Suara', 'Simpan']) {
       expect(html).toContain(label);
     }
     expect(html).not.toMatch(/Kim aktif|Minimum Tay|Dealer awal|Bunga.Musim|PDF|Preset|Aturan rumah/);
@@ -140,7 +140,7 @@ describe('UI render smoke tests', () => {
     saveGameRecord({ winner: null, winningHand: [], winningTile: null, scoringBreakdown: [], totalTay: 0, isWithKim: false, winMethod: 'draw', durationSeconds: 300 }, storage);
     const html = renderToString(createElement(HistoryModal, { history: loadGameHistory(storage), onDelete: noop, onClear: noop, onClose: noop }));
     expect(html).toContain('Riwayat Permainan');
-    expect(html).toContain('Bot Barat Hu');
+    expect(html).toContain('Bot Seberang Hu');
     expect(html).toContain('Seri');
     expect(html).toContain('30 Tay');
   });

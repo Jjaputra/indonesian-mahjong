@@ -100,7 +100,7 @@ function detectBonus({ mode, flowers, context, bonusTileRule }: ScoringInput): D
 function detectKim({ features, mode, context }: ScoringInput): DetectedPattern[] {
   const out: (DetectedPattern | null)[] = [];
   // Kim usage comes from the hand; the column only decides the value (a blank cell awards nothing).
-  if (features.kimCount === 0) {
+  if (features.kimCount === 0 || features.isBoKim) {
     out.push(award(8, mode, 'Tidak ada Kim di tangan (Bo KIM)'));
     return out.filter((p): p is DetectedPattern => p !== null);
   }
@@ -368,12 +368,18 @@ export class ScoringEngine implements IScoringEngine {
       return reject('structure', 'Lew Fit: Se Sam Pu Tat tidak boleh memiliki bunga, musim, atau Kim');
     }
 
+    // Every Kim used at its own face reads Tidak ada KIM (Bo KIM, RULES.md #8). Se Sam Pu Tat is the
+    // exception: "tidak ada kim" there is met the same way, so it reads the column a Kim-free hand reads.
+    const allNominal = (s: SolvedHand) => s.totalKims > 0 && s.mode === 'NK';
+    const columnFor = (s: SolvedHand): KimMode =>
+      allNominal(s) && s.shape !== 'se_sam_pu_tat' ? 'NK' : tableColumn ?? s.mode;
+
     // Arbitration: pick the Kim wildcard decomposition with the highest TOTAL Tay
     let best: { solved: SolvedHand; patterns: DetectedPattern[]; total: number } | null = null;
     for (const solved of validCandidates) {
       const features = parseHandFeatures(solved, concealed, melds);
       const patterns = scoreDecomposition(
-        { features, mode: tableColumn ?? solved.mode, flowers, context, basis: scoringBasis, bonusTileRule },
+        { features, mode: columnFor(solved), flowers, context, basis: scoringBasis, bonusTileRule },
         this.overlapPolicy
       );
       const total = sumTay(patterns);
@@ -381,11 +387,12 @@ export class ScoringEngine implements IScoringEngine {
     }
     const { solved, patterns, total } = best!;
 
-    const mode = tableColumn ?? solved.mode;
+    const mode = columnFor(solved);
     const result: ScoringResult = {
       ...base,
       mode,
-      notes: columnNotes(mode, scoringBasis, solved.totalKims, solved.shape),
+      isWithKim: solved.mode === 'K',
+      notes: allNominal(solved) && mode === 'NK' ? ['Semua Kim dipakai sesuai nomer/jenis: Bo KIM, kolom Tidak ada KIM.'] : columnNotes(mode, scoringBasis, solved.totalKims, solved.shape),
       isValidHu: total >= r.minHuTay,
       isLewFit: total < r.minHuTay,
       totalTay: total,

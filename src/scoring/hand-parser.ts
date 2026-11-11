@@ -29,6 +29,7 @@ export interface HandFeatures {
   /** Jia/Pung/Kong claimed from discards (Ankong excluded) */
   readonly claimedMeldCount: number;
   readonly kimCount: number;
+  readonly isBoKim?: boolean;
 }
 
 function kindOf(t: Tile): TileKind {
@@ -77,7 +78,7 @@ export function parseHandFeatures(
       if (m.type === 'jia') {
         sequenceCount++;
       } else if (isTripletMeld(m)) {
-        const isKimThi = m.type === 'kim_thi' || m.tiles.every(isKim);
+        const isKimThi = m.type === 'kim_thi' || (m.kimCount === 3 && m.tiles.every(isKim));
         const natural = m.representedTiles.find((t) => t.type !== 'kim') ?? m.representedTiles[0]!;
         triplets.push({ kind: kindOf(natural), concealed: !m.isOpen, isKimThi });
       }
@@ -92,6 +93,7 @@ export function parseHandFeatures(
     pair: solved.shape === 'standard' ? solved.pair : undefined,
     claimedMeldCount: countClaimedMelds(openMelds),
     kimCount: solved.totalKims,
+    isBoKim: solved.mode === 'NK',
   };
 }
 

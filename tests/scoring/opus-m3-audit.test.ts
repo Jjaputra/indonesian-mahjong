@@ -265,7 +265,29 @@ describe('Multi-pattern combinations', () => {
     });
     has(result, 6, 30);
     lacks(result, 4);
-    expect(result.totalTay).toBe(46);
+    lacks(result, 1);
+    lacks(result, 2);
+    expect(result.totalTay).toBe(41);
+  });
+
+  it('supersede drops individual bonus tiles when 4 Musim (+20) or 4 Bunga (+10) is present', () => {
+    // 4 Musim: awards #5 (20), supersedes #2 (Tile Musim)
+    const musimRes = score(PING, '5S', {
+      flowers: 'M1 M2 M3 M4',
+      ctx: { ...SELF, seatWind: 'nan' },
+      engine: new ScoringEngine({ overlapPolicy: 'supersede' }),
+    });
+    has(musimRes, 5, 20);
+    lacks(musimRes, 2);
+
+    // 4 Bunga: awards #4 (10), supersedes #1 (Tile Bunga)
+    const bungaRes = score(PING, '5S', {
+      flowers: 'F1 F2 F3 F4',
+      ctx: { ...SELF, seatWind: 'nan' },
+      engine: new ScoringEngine({ overlapPolicy: 'supersede' }),
+    });
+    has(bungaRes, 4, 10);
+    lacks(bungaRes, 1);
   });
 
   it('Ta San Yen stacks with the per-dragon pungs, Tuei Tuei, Si Am Kang, and Bo Kim', () => {

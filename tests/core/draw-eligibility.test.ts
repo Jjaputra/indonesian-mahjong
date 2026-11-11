@@ -218,17 +218,18 @@ describe('Thien Fu: posisi Dong winning on the hand from the first deal', () => 
     expect(c.getHumanActions().selfHuScore!.patterns.map((p) => p.id)).toContain(11);
   });
 
-  it('Nan starting dealer: no Thien Fu for Nan, nor for East on a normal first-round draw', () => {
+  it('dealer on the nan chair: the dealer sits posisi Dong (Thien Fu); the dong chair gets none on a normal first-round draw', () => {
     const c = controller('nan');
     const engine = engineOf(c);
     const s = mutable(engine);
     expect(s.dealerSeat).toBe('nan');
 
-    // Nan (dealer) wins on its dealt hand: not posisi Dong, so no Thien Fu.
+    // Seat winds follow the dealer (match rotation, RULES.md "Match flow"): the dealer's chair is Timur.
     s.players.nan.hand = parseTileHand(`${SHANPON} 9T`);
     const obs = buildObservation(s, 'nan', engine.getLegalActions('nan'), 'hard', rules, 'additive');
     expect(obs.isInitialDealtHand).toBe(true);
-    expect(evaluateSelfDrawHu(obs)!.patterns.map((p) => p.id)).not.toContain(11);
+    expect(obs.seatWind).toBe('dong');
+    expect(evaluateSelfDrawHu(obs)!.patterns.map((p) => p.id)).toContain(11);
 
     // Nan, Xi and Bei discard; East then wins on its first normal draw.
     forceDiscard(engine, 'nan', keyToTile('9S', 4));

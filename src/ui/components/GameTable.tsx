@@ -1,5 +1,5 @@
 import { TableMotion } from './TableMotion';
-import { Hand, Layers, Sparkles, Trophy, Undo2, Flower2, ArrowDownToLine, Trash2, Crown } from 'lucide-react';
+import { Hand, Layers, Sparkles, Trophy, Undo2, Flower2, ArrowDownToLine, MoveDownRight, Crown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { sortTiles } from '../../core/tiles';
 import type { Seat, Tile } from '../../core/types';
@@ -8,7 +8,7 @@ import type { GameController, HumanActions } from '../game-controller';
 import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIND_GLYPH, tileText } from '../labels';
 import { practiceCoachLine, type CoachEmphasis } from '../practice-coach';
 import { handReadingLine } from '../hand-reading';
-import { isFirstGoAround, isInitialDealtHand, toFullRules, toScoringOverlap } from '../win-context';
+import { isFirstGoAround, isInitialDealtHand, seatWindOf, toFullRules, toScoringOverlap } from '../win-context';
 import { MeldView, TileBack, TileRow, TileView } from './TileView';
 
 /** Screen position of each seat relative to the human at the bottom (turn order runs counter-clockwise). */
@@ -20,12 +20,13 @@ export function seatPositions(human: Seat): Record<'bottom' | 'right' | 'top' | 
 
 function WindBadges({ seat, controller }: { seat: Seat; controller: GameController }) {
   const s = controller.getState();
+  const wind = seatWindOf(s, seat);
   return (
     <span className="badges">
-      <span className="badge badge-seat" title={`Angin duduk: ${SEAT_LABEL[seat]}`}>
-        {WIND_GLYPH[seat]} {SEAT_SHORT[seat]}
+      <span className="badge badge-seat" title={`Angin duduk: ${SEAT_LABEL[wind]}`}>
+        {WIND_GLYPH[wind]} {SEAT_SHORT[wind]}
       </span>
-      {s.roundWind === seat && (
+      {s.roundWind === wind && (
         <span className="badge badge-round" title="Angin putaran sama dengan angin duduk">
           Putaran
         </span>
@@ -40,6 +41,7 @@ function WindBadges({ seat, controller }: { seat: Seat; controller: GameControll
   );
 }
 
+/** `seat` is the seat wind this hand: own Bunga / Musim number 1–4 = Timur–Utara. */
 function FlowerRack({ tiles, seat }: { tiles: readonly Tile[]; seat: Seat }) {
   if (!tiles.length) return <span className="rack-empty">Belum ada Bunga / Musim</span>;
   const ownNumber = ['dong', 'nan', 'xi', 'bei'].indexOf(seat) + 1;
@@ -52,7 +54,7 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
   const active = s.currentTurn === seat && (s.phase === 'ACTION_DECISION' || s.phase === 'TURN_DRAW');
   const kimInMelds = p.melds.flatMap((m) => m.tiles).filter(isKim).length;
   return (
-    <section className={`seat-panel seat-${position}${active ? ' is-active' : ''}`} aria-label={`${PLAYER_NAME[seat]} — ${SEAT_LABEL[seat]}`}>
+    <section className={`seat-panel seat-${position}${active ? ' is-active' : ''}`} aria-label={`${PLAYER_NAME[seat]} — ${SEAT_LABEL[seatWindOf(s, seat)]}`}>
       <div className="seat-head">
         <strong>{PLAYER_NAME[seat]}</strong>
         <WindBadges seat={seat} controller={controller} />
@@ -70,7 +72,7 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
         ))}
       </div>
       <div className="rack">
-        <Flower2 size={12} /> <FlowerRack tiles={p.flowers} seat={seat} />
+        <Flower2 size={12} /> <FlowerRack tiles={p.flowers} seat={seatWindOf(s, seat)} />
       </div>
     </section>
   );
@@ -170,7 +172,7 @@ export function HumanArea({ controller, actions, selectedId, onSelect }: HumanAr
         <strong>{PLAYER_NAME[seat]}</strong>
         <WindBadges seat={seat} controller={controller} />
         <span className="rack">
-          <Flower2 size={12} /> <FlowerRack tiles={p.flowers} seat={seat} />
+          <Flower2 size={12} /> <FlowerRack tiles={p.flowers} seat={seatWindOf(s, seat)} />
         </span>
       </div>
       <div data-meld-anchor={seat} className="melds">
@@ -222,10 +224,10 @@ export function ActionHud({
   const state = controller.getState();
   const player = state.players[controller.humanSeat];
   const selected = player.hand.find(t => t.id === selectedId);
-  const coach = practiceCoachLine({ ...actions, selectedTileId: selectedId, selectedTileLabel: selected ? tileText(selected) : null, outcome: controller.outcome });
+  const coach = practiceCoachLine({ ...actions, selectedTileId: selectedId, selectedTileLabel: selected ? tileText(selected) : null, outcome: controller.outcome, matchComplete: controller.match ? controller.matchOver : undefined });
   const coached = (action: CoachEmphasis) => coach.emphasis === action;
   const reading = selected ? handReadingLine({ hand: player.hand.filter(t => t.id !== selected.id), winningTile: selected,
-    melds: player.melds, flowers: player.flowers, seat: controller.humanSeat, roundWind: state.roundWind,
+    melds: player.melds, flowers: player.flowers, seat: seatWindOf(state, controller.humanSeat), roundWind: state.roundWind,
     flags: {
       isSelfDraw: !claim,
       isRobbingKong: !!claim?.isPromotedKong,
@@ -267,7 +269,7 @@ export function ActionHud({
           if (selectedId) controller.humanDiscard(selectedId);
           onSelect(null);
         }}
-        icon={<Trash2 size={14} />}
+        icon={<MoveDownRight size={14} />}
       />}
       {claim?.jiaOptions.length
         ? claim.jiaOptions.map((opt, i) => (

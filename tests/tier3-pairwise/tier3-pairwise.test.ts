@@ -201,7 +201,7 @@ describe('F03 × F04 × F07 × F25 claims and Kim rules', () => {
       }),
     ).toThrow(/Kim/i);
 
-    saveSettings(CASUAL_SETTINGS, store);
+    saveSettings({ ...CASUAL_SETTINGS, kimMode: 'dedicated' }, store);
     // Casual allowKimInMeldClaim: the Kim fills the missing copy, and the claim resolves into a Pung.
     const casual = rig(toGameRules(loadSettings(store)));
     casual.engine.submitClaim({

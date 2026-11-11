@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Check, Copy, RotateCcw } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { ArrowRight, Check, Copy, RotateCcw, Trophy } from 'lucide-react';
 import type { GameOutcome } from '../game-controller';
 import { PLAYER_NAME, SEAT_LABEL, WIN_METHOD_LABEL } from '../labels';
 import { classifyHand, modeLabel } from '../tay-calculator';
@@ -19,9 +19,16 @@ interface HuResultModalProps {
   outcome: GameOutcome;
   onClose: () => void;
   onNewGame: () => void;
+  /** Match in progress: deal the next hand with rotated seats */
+  onNextHand?: () => void;
+  /** Last hand of the match finished: open the final standings */
+  onStandings?: () => void;
+  /** Match status shown above the receipt, e.g. "Game 3/8 selesai" */
+  matchSummary?: ReactNode;
 }
 
-export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProps) {
+export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStandings, matchSummary }: HuResultModalProps) {
+  const inMatch = !!(onNextHand || onStandings);
   const [copied, setCopied] = useState(false);
 
   const footer = (
@@ -34,7 +41,7 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
             setCopied(await copyText([
               'Pemenang: ' + PLAYER_NAME[outcome.winner],
               modeLabel(outcome.scoring.mode),
-              ...outcome.scoring.patterns.map(p => p.name + ': ' + p.tay + ' Tay'),
+              ...outcome.scoring.patterns.filter(p => p.id !== 13).map(p => p.name + ': ' + p.tay + ' Tay'),
               'Total Tay: ' + outcome.scoring.totalTay,
             ].join('\n')));
           }}
@@ -42,15 +49,26 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
           {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Struk disalin' : 'Salin Struk'}
         </button>
       )}
-      <button type="button" className="btn btn-primary" onClick={onNewGame}>
-        <RotateCcw size={14} /> Permainan Baru
+      <button type="button" className={inMatch ? 'btn' : 'btn btn-primary'} onClick={onNewGame}>
+        <RotateCcw size={14} /> {inMatch ? 'Kembali ke menu' : 'Permainan Baru'}
       </button>
+      {onNextHand && (
+        <button type="button" className="btn btn-primary" onClick={onNextHand}>
+          Lanjut ke game berikutnya <ArrowRight size={14} />
+        </button>
+      )}
+      {onStandings && (
+        <button type="button" className="btn btn-primary" onClick={onStandings}>
+          <Trophy size={14} /> Lihat klasemen akhir
+        </button>
+      )}
     </>
   );
 
   if (outcome.kind === 'seri') {
     return (
       <Modal title="Seri — Tembok Habis" onClose={onClose} footer={footer}>
+        {matchSummary}
         <p>Tidak ada pemain yang Hu sebelum tembok habis. Permainan berakhir Seri.</p>
         <p className="muted">Durasi: {outcome.durationSeconds} detik</p>
       </Modal>
@@ -62,10 +80,11 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
   return (
     <Modal title={valid ? `HU! ${PLAYER_NAME[outcome.winner]}` : `LEW FIT — ${PLAYER_NAME[outcome.winner]}`} onClose={onClose} footer={footer} wide>
       <div className="receipt">
+        {matchSummary}
         <dl className="receipt-meta">
           <dt>Pemenang</dt>
           <dd>
-            {PLAYER_NAME[outcome.winner]} — {SEAT_LABEL[outcome.winner]}
+            {PLAYER_NAME[outcome.winner]} — {SEAT_LABEL[outcome.seatWind ?? outcome.winner]}
           </dd>
           <dt>Tile menang</dt>
           <dd>
@@ -106,7 +125,7 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
             </tr>
           </thead>
           <tbody>
-            {r.patterns.map((p) => {
+            {r.patterns.filter((p) => p.id !== 13).map((p) => {
               return (
                 <tr key={p.id}>
                   <td>{p.id}</td>

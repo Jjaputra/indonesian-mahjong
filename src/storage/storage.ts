@@ -1,3 +1,4 @@
+import type { KimMode as WallKimMode } from '../core/types';
 // ============================================================================
 // Persistence Layer (F25): LocalStorage-backed GameSettings & Match History
 // ----------------------------------------------------------------------------
@@ -40,6 +41,7 @@ export interface GameSettings {
   // --- Kim joker toggles -----------------------------------------------------
   /** Master toggle: enable Kim joker tiles */
   kimEnabled: boolean;
+  kimMode?: WallKimMode;
   /** Allow discarding Kim tiles (Tournament: false) */
   kimDiscardAllowed: boolean;
   /** Allow Kim to complete Pung melds */
@@ -189,6 +191,7 @@ function kimToggles(rules: Readonly<KimRules>) {
  */
 export const TOURNAMENT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   ...kimToggles(TOURNAMENT_KIM_RULES),
+  kimMode: 'natural',
   minHuTay: DEFAULT_MIN_HU_TAY,
   roundWind: 'dong',
   startingSeatWind: 'dong',
@@ -204,6 +207,7 @@ export const TOURNAMENT_SETTINGS: Readonly<GameSettings> = Object.freeze({
 /** Relaxed casual rules (Kim meld claims permitted, patterns stack). */
 export const CASUAL_SETTINGS: Readonly<GameSettings> = Object.freeze({
   ...kimToggles(CASUAL_KIM_RULES),
+  kimMode: 'natural',
   minHuTay: DEFAULT_MIN_HU_TAY,
   roundWind: 'dong',
   startingSeatWind: 'dong',
@@ -362,8 +366,13 @@ export function sanitizeSettings(
     );
   }
 
+  const kimMode: WallKimMode = src.kimMode === undefined
+    // Legacy rows: kimEnabled true was the old default, not a choice of dedicated Kim, so it reads natural.
+    ? (src.kimEnabled === false ? 'off' : src.kimEnabled === true ? 'natural' : base.kimMode ?? 'natural')
+    : pickEnum(src.kimMode, ['off', 'dedicated', 'natural'] as const, src.kimEnabled === false ? 'off' : 'natural');
   return {
-    kimEnabled: pickBool(src.kimEnabled, base.kimEnabled),
+    kimMode,
+    kimEnabled: kimMode !== 'off',
     kimDiscardAllowed: pickBool(src.kimDiscardAllowed, base.kimDiscardAllowed),
     allowKimInPung: pickBool(src.allowKimInPung, base.allowKimInPung),
     allowKimInJia: pickBool(src.allowKimInJia, base.allowKimInJia),
@@ -400,6 +409,7 @@ export function getPreset(name: SettingsPresetName): GameSettings {
 export function detectPreset(settings: GameSettings): SettingsPresetName | 'custom' {
   const ruleKeys: (keyof GameSettings)[] = [
     'kimEnabled',
+    'kimMode',
     'kimDiscardAllowed',
     'allowKimInPung',
     'allowKimInJia',
@@ -448,7 +458,8 @@ export function updateSettings(patch: Partial<GameSettings>, storage?: StorageLi
   const store = getStorage(storage);
   const raw = safeRead(store, SETTINGS_STORAGE_KEY);
   const stored = isRecord(raw) ? raw : {};
-  const merged = sanitizeSettings({ ...loadSettings(store), ...patch });
+  const modePatch = patch.kimMode === undefined && typeof patch.kimEnabled === 'boolean' ? { kimMode: patch.kimEnabled ? loadSettings(store).kimMode === 'dedicated' ? 'dedicated' : 'natural' : 'off' } : {};
+  const merged = sanitizeSettings({ ...loadSettings(store), ...patch, ...modePatch });
   const written: Partial<GameSettings> = { ...merged };
   for (const key of SCORING_CHOICE_KEYS) {
     if (!hasValidChoice(stored, key) && !hasValidChoice(patch as Record<string, unknown>, key)) delete written[key];
@@ -509,6 +520,7 @@ export function resetSettings(storage?: StorageLike): GameSettings {
 export function toGameRules(settings: GameSettings): GameRules {
   return {
     kimEnabled: settings.kimEnabled,
+    ...(settings.kimMode ? { kimMode: settings.kimEnabled ? settings.kimMode : 'off' as const } : {}),
     kimDiscardAllowed: settings.kimDiscardAllowed,
     allowKimInMeldClaim: settings.allowKimInMeldClaim,
     minHuTay: settings.minHuTay,
@@ -521,6 +533,7 @@ export function toGameRules(settings: GameSettings): GameRules {
 export function toKimRules(settings: GameSettings): KimRules {
   return {
     kimEnabled: settings.kimEnabled,
+    ...(settings.kimMode ? { kimMode: settings.kimEnabled ? settings.kimMode : 'off' as const } : {}),
     kimDiscardAllowed: settings.kimDiscardAllowed,
     allowKimInMeldClaim: settings.allowKimInMeldClaim,
     allowKimInPair: settings.allowKimInPair,

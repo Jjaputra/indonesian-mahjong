@@ -25,6 +25,8 @@ export interface PracticeCoachInput {
   selectedTileLabel?: string | null;
   /** controller.outcome: any non-null value means the hand is over */
   outcome?: unknown;
+  /** Omitted for a standalone hand; false between match hands, true after the last. */
+  matchComplete?: boolean;
   /** True while the bots are taking their turns */
   waiting?: boolean;
 }
@@ -68,7 +70,14 @@ function discardTail(input: PracticeCoachInput): string {
 }
 
 export function practiceCoachLine(input: PracticeCoachInput): CoachLine {
-  if (input.outcome) return { text: COACH_GAME_OVER_TEXT, emphasis: 'none' };
+  if (input.outcome) {
+    const text = input.matchComplete === false
+      ? 'Hasil game sudah siap. Buka hasil lalu pilih Lanjut ke game berikutnya untuk melanjutkan pertandingan.'
+      : input.matchComplete === true
+        ? 'Pertandingan selesai. Buka hasil lalu Lihat klasemen akhir; pilih Main lagi atau Kembali ke menu.'
+        : COACH_GAME_OVER_TEXT;
+    return { text, emphasis: 'none' };
+  }
   if (input.claim) return claimLine(input.claim);
   if (input.canReplaceFlowers) {
     return { text: 'Anda memegang Bunga; tekan Ganti Bunga untuk menukarnya dengan tile baru.', emphasis: 'flowers' };

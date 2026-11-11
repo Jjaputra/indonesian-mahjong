@@ -127,6 +127,7 @@ describe('Storage: settings persistence', () => {
     const custom = {
       ...getPreset('casual'),
       kimEnabled: false,
+      kimMode: 'off' as const,
       kimDiscardAllowed: true,
       allowKimInPung: false,
       allowKimInJia: false,
@@ -227,11 +228,12 @@ describe('Storage: settings persistence', () => {
     const s = { ...getPreset('casual'), minHuTay: 7, allowKimInPair: false };
     expect(toGameRules(s)).toEqual({
       kimEnabled: true,
+      kimMode: 'natural',
       kimDiscardAllowed: false,
       allowKimInMeldClaim: true,
       minHuTay: 7,
     });
-    expect(toKimRules(s)).toEqual({ ...CASUAL_KIM_RULES, allowKimInPair: false });
+    expect(toKimRules(s)).toEqual({ ...CASUAL_KIM_RULES, kimMode: 'natural', allowKimInPair: false });
   });
 });
 

@@ -13,7 +13,7 @@ import type { ClaimDeclaration, LegalActions, Meld, Seat, Suit, Tile, Wind } fro
 import { isKim } from '../kim/wildcard-solver';
 import type { OverlapPolicy as ScoringOverlapPolicy, ScoringResult } from '../scoring';
 import type { AIDifficulty } from '../storage';
-import { isFirstGoAround, isInitialDealtHand, scoreHu, type FullRules, type WinFlags } from './win-context';
+import { isFirstGoAround, isInitialDealtHand, scoreHu, seatWindOf, type FullRules, type WinFlags } from './win-context';
 
 export interface PublicSeatInfo {
   seat: Seat;
@@ -30,6 +30,8 @@ export interface AIObservation {
   rules: FullRules;
   overlapPolicy: ScoringOverlapPolicy;
   roundWind: Wind;
+  /** Own seat wind this hand (rotates with the dealer in a match); omitted = `seat` */
+  seatWind?: Wind;
   /** Own concealed tiles, in engine order (last tile = most recent draw) */
   hand: Tile[];
   melds: Meld[];
@@ -74,6 +76,7 @@ export function buildObservation(
     rules,
     overlapPolicy,
     roundWind: state.roundWind,
+    seatWind: seatWindOf(state, seat),
     hand: copyTiles(me.hand),
     melds: copyMelds(me.melds),
     flowers: copyTiles(me.flowers),
@@ -120,7 +123,7 @@ export function evaluateSelfDrawHu(obs: AIObservation): ScoringResult | null {
   if (!winningTile) return null;
   return scoreHu(
     { hand: obs.hand.slice(0, -1), melds: obs.melds, flowers: obs.flowers, winningTile },
-    obs.seat,
+    obs.seatWind ?? obs.seat,
     obs.roundWind,
     winFlags(obs, true),
     obs.rules,
@@ -133,7 +136,7 @@ export function evaluateDiscardHu(obs: AIObservation): ScoringResult | null {
   if (!obs.pendingDiscard) return null;
   return scoreHu(
     { hand: obs.hand, melds: obs.melds, flowers: obs.flowers, winningTile: obs.pendingDiscard.tile },
-    obs.seat,
+    obs.seatWind ?? obs.seat,
     obs.roundWind,
     winFlags(obs, false),
     obs.rules,
@@ -185,9 +188,9 @@ export function dominantSuit(obs: AIObservation): { suit: Suit | null; share: nu
 const WIND_VALUE: Record<Wind, number> = { dong: 1, nan: 2, xi: 3, bei: 4 };
 
 /** Dragons, seat wind and round wind are worth Tay as triplets. */
-export function isValuableHonor(tile: Tile, obs: Pick<AIObservation, 'seat' | 'roundWind'>): boolean {
+export function isValuableHonor(tile: Tile, obs: Pick<AIObservation, 'seat' | 'roundWind' | 'seatWind'>): boolean {
   if (tile.type === 'dragon') return true;
-  if (tile.type === 'wind') return tile.value === WIND_VALUE[obs.seat] || tile.value === WIND_VALUE[obs.roundWind];
+  if (tile.type === 'wind') return tile.value === WIND_VALUE[obs.seatWind ?? obs.seat] || tile.value === WIND_VALUE[obs.roundWind];
   return false;
 }
 
@@ -223,7 +226,7 @@ export function tileKeepValue(tile: Tile, obs: AIObservation, visible: Map<strin
 /** Deterministic tie-break on tile id keeps choices reproducible under a seeded RNG. */
 export function chooseDiscard(obs: AIObservation, rng: () => number): string | null {
   const allowed = new Set(obs.legal.discardableTileIds);
-  const candidates = obs.hand.filter((t) => allowed.has(t.id) && (obs.rules.kimDiscardAllowed || !isKim(t)));
+  const candidates = obs.hand.filter((t) => allowed.has(t.id) && ((obs.rules.kimMode !== 'natural' && obs.rules.kimDiscardAllowed) || !isKim(t)));
   if (candidates.length === 0) return null;
   const visible = visibleKindCounts(obs);
   const noise = obs.difficulty === 'easy' ? 25 : obs.difficulty === 'normal' ? 4 : 0;
@@ -323,7 +326,7 @@ export function explainDiscardChoice(obs: AIObservation, tileId: string): string
   if (!tile || !obs.legal.discardableTileIds.includes(tileId)) return null;
   const visible = visibleKindCounts(obs);
   const allowed = new Set(obs.legal.discardableTileIds);
-  const candidates = obs.hand.filter(t => allowed.has(t.id) && (obs.rules.kimDiscardAllowed || !isKim(t)));
+  const candidates = obs.hand.filter(t => allowed.has(t.id) && ((obs.rules.kimMode !== 'natural' && obs.rules.kimDiscardAllowed) || !isKim(t)));
   if (!candidates.some(t => t.id === tileId)) return null;
   const value = tileKeepValue(tile, obs, visible);
   const lowest = candidates.every(t => value <= tileKeepValue(t, obs, visible));

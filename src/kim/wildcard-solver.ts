@@ -1,3 +1,4 @@
+import { KimValidator } from './kim-validator';
 import type { GameRules, Meld, MeldType, Seat, Tile, TileType } from '../core/types';
 import {
   DEFAULT_KIM_RULES,
@@ -954,7 +955,7 @@ function normalizeConcealedTiles(input: SolverHandInput): Tile[] {
  * Finds all valid distinct winning hand decompositions (standard 4 melds + 1 pair,
  * 7 pairs, 13 orphans, and Shi Kim instant Hu).
  */
-export function findWinningDecompositions(input: SolverHandInput): SolvedHand[] {
+function findWildcardDecompositions(input: SolverHandInput): SolvedHand[] {
   const allConcealed = normalizeConcealedTiles(input);
   const openMelds = input.melds ?? [];
   const rules = resolveKimRules(input.rules);
@@ -1021,6 +1022,47 @@ export function findWinningDecompositions(input: SolverHandInput): SolvedHand[] 
     }
   }
 
+  return results;
+}
+
+/** Enumerate both nominal and joker roles for faced Kim; arbitration scores every interpretation. */
+export function findWinningDecompositions(input: SolverHandInput): SolvedHand[] {
+  const hand = normalizeConcealedTiles(input);
+  const faced = hand.filter(t => isKim(t) && t.type !== 'kim');
+  if (faced.length === 0) return findWildcardDecompositions(input);
+  const physical = new Map(hand.map(t => [t.id, t]));
+  const restore = (t: Tile): Tile => physical.get(t.id) ?? t;
+  const results: SolvedHand[] = [];
+  const validator = new KimValidator(input.rules);
+  for (let mask = 0; mask < 2 ** faced.length; mask++) {
+    const nominal = new Set(faced.filter((_, i) => mask & (1 << i)).map(t => t.id));
+    const converted = hand.map(t => nominal.has(t.id) ? { ...t, isKim: false } : t);
+    for (const sol of findWildcardDecompositions({ ...input, hand: converted, winningTile: undefined })) {
+      const assignments = sol.wildcardAssignments.map(a => ({ ...a, kimTile: restore(a.kimTile) }));
+      const evaluation = validator.evaluateHandKimMode([...hand, ...(input.melds ?? []).flatMap(m => m.tiles)], [
+        ...hand.filter(t => nominal.has(t.id)).map(kimTile => ({ kimTile, role: 'natural_nominal' as const })),
+        ...assignments.map(a => ({ kimTile: a.kimTile, role: validator.isNaturalKim(a.kimTile, a.representedTile) ? 'natural_nominal' as const : 'wildcard' as const })),
+        ...(input.melds ?? []).flatMap(m => m.tiles.filter(isKim).map(kimTile => ({ kimTile, role: 'wildcard' as const }))),
+      ]);
+      const wild = (t: Tile, rep: Tile) => isKim(restore(t)) && !nominal.has(t.id) && !validator.isNaturalKim(restore(t), rep);
+      const pair = (p: NonNullable<SolvedHand['pair']>) => ({ ...p,
+        tiles: p.tiles.map(restore) as [Tile, Tile],
+        kimCount: p.tiles.filter((t, i) => wild(t, p.representedTiles[i]!)).length,
+      });
+      results.push({ ...sol,
+        melds: sol.melds.map(m => ({ ...m, tiles: m.tiles.map(restore),
+          kimCount: m.tiles.filter((t, i) => wild(t, m.representedTiles[i]!)).length })),
+        pair: sol.pair ? pair(sol.pair) : undefined,
+        pairs: sol.pairs?.map(pair),
+        wildcardAssignments: assignments,
+        totalKims: hand.filter(isKim).length + (input.melds ?? []).flatMap(m => m.tiles).filter(isKim).length,
+        totalKimCount: evaluation.totalKimCount,
+        wildcardKimCount: evaluation.wildcardKimCount,
+        mode: evaluation.mode,
+        signature: sol.signature + ':N' + mask,
+      });
+    }
+  }
   return results;
 }
 

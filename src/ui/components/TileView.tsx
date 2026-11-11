@@ -17,8 +17,8 @@ interface TileViewProps {
 }
 
 export function TileView({ tile, size = 'md', selected, highlight, disabled, drawn, onClick, onDoubleClick }: TileViewProps) {
-  const face = getTileFace(tile);
-  const label = tileAccessibleLabel(face);
+  const face = getTileFace(tile.isKim && tile.type !== 'kim' ? { ...tile, isKim: false } : tile);
+  const label = tileAccessibleLabel(face) + (tile.isKim && tile.type !== 'kim' ? ' — Kim' : '');
   const cls = [
     'tile',
     `tile-${size}`,
@@ -34,7 +34,7 @@ export function TileView({ tile, size = 'md', selected, highlight, disabled, dra
   const content = (
     <>
       <TileArt tile={tile} face={face} />
-      {face.tone === 'kim' && <span className="kim-badge" aria-hidden="true">KIM</span>}
+      {(face.tone === 'kim' || tile.isKim) && <span className="kim-badge" aria-hidden="true">KIM</span>}
     </>
   );
   if (!onClick) {

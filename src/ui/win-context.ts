@@ -9,7 +9,7 @@ import { toGameRules, toKimRules, type GameSettings, type OverlapPolicy as Stora
 export type FullRules = GameRules & KimRules;
 
 export function toFullRules(settings: GameSettings): FullRules {
-  return { ...toKimRules(settings), ...toGameRules(settings) };
+  return { ...toKimRules(settings), ...toGameRules(settings), ...(settings.kimMode === 'natural' ? { kimDiscardAllowed: false, allowKimInMeldClaim: false } : {}) };
 }
 
 /** storage 'rulebook_exclusive' ↔ scoring 'supersede'; storage 'cumulative' ↔ scoring 'additive'. */
@@ -24,6 +24,15 @@ const engines: Record<ScoringOverlapPolicy, ScoringEngine> = {
 
 export function getScoringEngine(policy: ScoringOverlapPolicy): ScoringEngine {
   return engines[policy];
+}
+
+/**
+ * Seat wind of a chair this hand. Chairs keep their `dong`/`nan`/`xi`/`bei` ids for the whole
+ * match; the dealer's chair is Timur (Dong) and the winds follow turn order from there. With the
+ * dealer on `dong` (a single game) every chair's wind equals its id.
+ */
+export function seatWindOf(state: Pick<GameEngineState, 'dealerSeat'>, seat: Seat): Wind {
+  return SEAT_ORDER[(SEAT_ORDER.indexOf(seat) - SEAT_ORDER.indexOf(state.dealerSeat) + 4) % 4]!;
 }
 
 /**

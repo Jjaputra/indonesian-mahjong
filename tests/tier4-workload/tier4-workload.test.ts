@@ -35,8 +35,8 @@ import { buildWinContext, getScoringEngine, isFirstGoAround, scoreHu, toFullRule
 // Helpers
 // ============================================================================
 
-const TOURNAMENT = (patch: Partial<GameSettings> = {}): GameSettings => ({ ...getPreset('tournament'), soundEnabled: false, ...patch });
-const CASUAL = (patch: Partial<GameSettings> = {}): GameSettings => ({ ...getPreset('casual'), soundEnabled: false, ...patch });
+const TOURNAMENT = (patch: Partial<GameSettings> = {}): GameSettings => ({ ...getPreset('tournament'), kimMode: 'dedicated', soundEnabled: false, ...patch });
+const CASUAL = (patch: Partial<GameSettings> = {}): GameSettings => ({ ...getPreset('casual'), kimMode: 'dedicated', soundEnabled: false, ...patch });
 
 /** A deterministic clock so durations are reproducible. */
 function fakeClock(stepMs = 1500): () => number {
@@ -611,16 +611,16 @@ describe('Tier 4 · Tournament ↔ Casual transitions', () => {
   }
 
   it('Kim meld-claim toggle reaches the engine; tournament never offers a Kim-assisted claim', () => {
-    const tournament = afterDiscardOf5T(toGameRules(getPreset('tournament')));
+    const tournament = afterDiscardOf5T(toGameRules({ ...getPreset('tournament'), kimMode: 'dedicated' }));
     expect(tournament.getState().rules.allowKimInMeldClaim).toBe(false);
     expect(tournament.getLegalActions('nan').canPung).toBe(false);
     expect(() => tournament.submitClaim({ seat: 'nan', action: 'pung' })).toThrow();
-    const casual = afterDiscardOf5T(toGameRules(getPreset('casual')));
+    const casual = afterDiscardOf5T(toGameRules({ ...getPreset('casual'), kimMode: 'dedicated' }));
     expect(casual.getState().rules.allowKimInMeldClaim).toBe(true);
   });
 
   it('casual: KIM + 5T is offered a Pung on a discarded 5T and the claim resolves into a Kim Pung', () => {
-    const engine = afterDiscardOf5T(toGameRules(getPreset('casual')));
+    const engine = afterDiscardOf5T(toGameRules({ ...getPreset('casual'), kimMode: 'dedicated' }));
     const legal = engine.getLegalActions('nan');
     expect(legal.canPung).toBe(true);
     expect(legal.pungTiles!.some(isKim)).toBe(true);
@@ -637,7 +637,7 @@ describe('Tier 4 · Tournament ↔ Casual transitions', () => {
 
   it('casual: one Kim fills the gap of a Jia from the left seat', () => {
     const hands = { dong: '5T 1S 2S 3S 4S 5S 6S 7S 8S 9S 1B 2B 3B WD', nan: 'KIM 7T 1S 1S 9B 9B 9B WX WX WX DZ DZ DF' };
-    const engine = new GameEngine(toGameRules(getPreset('casual')), riggedWall({ hands }));
+    const engine = new GameEngine(toGameRules({ ...getPreset('casual'), kimMode: 'dedicated' }), riggedWall({ hands }));
     engine.startNewGame(true);
     engine.discard('dong', engine.getState().players.dong.hand.find((t) => tileToKey(t) === '5T')!.id);
     const legal = engine.getLegalActions('nan');
@@ -653,7 +653,7 @@ describe('Tier 4 · Tournament ↔ Casual transitions', () => {
 
   it('casual: 5T + two Kims may Kong a discarded 5T and draw a tail replacement', () => {
     const hands = { dong: '5T 1S 2S 3S 4S 5S 6S 7S 8S 9S 1B 2B 3B WD', xi: 'KIM KIM 5T 1S 1S 9B 9B 9B WX WX WX DZ DF' };
-    const engine = new GameEngine(toGameRules(getPreset('casual')), riggedWall({ hands, tail: 'WN' }));
+    const engine = new GameEngine(toGameRules({ ...getPreset('casual'), kimMode: 'dedicated' }), riggedWall({ hands, tail: 'WN' }));
     engine.startNewGame(true);
     engine.discard('dong', engine.getState().players.dong.hand.find((t) => tileToKey(t) === '5T')!.id);
     const legal = engine.getLegalActions('xi');
@@ -667,7 +667,7 @@ describe('Tier 4 · Tournament ↔ Casual transitions', () => {
   });
 
   it('tournament rejects an explicit Kim-assisted Jia or Pung (Lew Fit rule)', () => {
-    const engine = afterDiscardOf5T(toGameRules(getPreset('tournament')));
+    const engine = afterDiscardOf5T(toGameRules({ ...getPreset('tournament'), kimMode: 'dedicated' }));
     const nan = engine.getState().players.nan.hand;
     const kim = nan.find(isKim)!;
     const five = nan.find((t) => tileToKey(t) === '5T')!;

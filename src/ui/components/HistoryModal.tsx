@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { computeHistoryStats, concealedHistoryTiles, type MatchHistoryRecord } from '../../storage';
-import { PLAYER_NAME, SEAT_SHORT, WIN_METHOD_LABEL } from '../labels';
+import { PLAYER_NAME, WIN_METHOD_LABEL } from '../labels';
 import { modeLabel } from '../tay-calculator';
 import { Modal } from './Modal';
 import { MeldView, TileRow, TileView } from './TileView';
@@ -86,9 +86,10 @@ export function HistoryModal({ history, onDelete, onClear, onClose }: HistoryMod
         <span>
           Menang (Ada Kim / Tanpa Kim): <b>{stats.kimWins}</b> / <b>{stats.noKimWins}</b>
         </span>
+        {/* Wins per player (chair); seat winds rotate within a match, so they are not tallied here. */}
         {(['dong', 'nan', 'xi', 'bei'] as const).map((s) => (
           <span key={s}>
-            {SEAT_SHORT[s]}: <b>{stats.wins[s]}</b>
+            {PLAYER_NAME[s]}: <b>{stats.wins[s]}</b>
           </span>
         ))}
       </div>

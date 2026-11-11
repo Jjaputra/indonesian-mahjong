@@ -232,7 +232,7 @@ export const PATTERN_FIXTURES: Readonly<Record<PatternId, PatternFixture>> = {
     name: 'Tile Bunga',
     category: 'bonus',
     values: { K: 0, NK: 0, seatMatchBonus: 1 },
-    definition: 'Each exposed black Flower scores 0; a Flower whose number equals the seat number (Dong=1 … Bei=4) scores +1.',
+    definition: 'Each exposed black/blue Flower scores 0; a Flower whose number equals the seat number (Dong=1 … Bei=4) scores +1.',
     definitionConfidence: 'authoritative',
     positive: [
       { label: 'own-seat flower F2 for Nan', mode: 'NK', hand: withFlowers(BASE, 'F2'), expectDetected: true, expectedTay: 1 },
@@ -248,7 +248,7 @@ export const PATTERN_FIXTURES: Readonly<Record<PatternId, PatternFixture>> = {
     name: 'Tile Musim',
     category: 'bonus',
     values: { K: 1, NK: 1, seatMatchBonus: 1 },
-    definition: 'Each exposed red Season scores 1; a Season whose number equals the seat number scores +1 more.',
+    definition: 'Each exposed red Season scores 1; a Season whose number equals the seat number scores +1 more (1+1=2).',
     definitionConfidence: 'authoritative',
     positive: [
       { label: 'off-seat season M3 for Nan', mode: 'NK', hand: withFlowers(BASE, 'M3'), expectDetected: true, expectedTay: 1 },

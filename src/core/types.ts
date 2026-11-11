@@ -9,6 +9,9 @@ export type BonusType = 'flower' | 'season';
 export type TileType = Suit | 'wind' | 'dragon' | BonusType | 'kim';
 export type Seat = 'dong' | 'nan' | 'xi' | 'bei';
 
+export type KimMode = 'off' | 'dedicated' | 'natural';
+export type TileFace = Readonly<Pick<Tile, 'type' | 'value'>>;
+
 export interface Tile {
   /** Unique physical instance identifier, e.g. "tong-1-1", "wind-dong-2", "kim-0-3" */
   readonly id: string;
@@ -66,6 +69,7 @@ export type BonusTileRule = 'rulebook_per_tile' | 'own_seat_only';
 export interface GameRules {
   /** Enable Kim joker tiles in the game (default: true) */
   kimEnabled: boolean;
+  kimMode?: KimMode;
   /** Allow discarding Kim tiles (default: false per tournament BMC06) */
   kimDiscardAllowed: boolean;
   /** Allow using Kim from hand to call Jia or Pung (default: false, triggers Lew Fit) */

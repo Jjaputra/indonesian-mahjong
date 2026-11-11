@@ -17,8 +17,10 @@ import { MainMenu } from './ui/components/MainMenu';
 import { AbandonMatchDialog } from './ui/components/AbandonMatchDialog';
 import { GameController, type GameEventType } from './ui/game-controller';
 import { PlayProgress } from './ui/components/PlayProgress';
-import { loadPracticePace, loadPracticeSettings, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
-import { DIFFICULTY_LABEL } from './ui/labels';
+import { MatchResultNote, MatchStandingsModal } from './ui/components/MatchBoard';
+import { loadMatchLength, saveMatchLength, loadDealerWinRule, saveDealerWinRule, type MatchLength, type DealerWinRule } from './ui/match';
+import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsForPace, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
+import { DIFFICULTY_LABEL, tileText } from './ui/labels';
 import { releaseVersion } from './ui/release';
 
 type View = 'menu' | 'table';
@@ -68,6 +70,9 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
   const [abandonOpen, setAbandonOpen] = useState(false);
+  const [standingsOpen, setStandingsOpen] = useState(false);
+  const [matchLength, setMatchLength] = useState<MatchLength>(loadMatchLength);
+  const [dealerWinRule, setDealerWinRule] = useState<DealerWinRule>(loadDealerWinRule);
   const [history, setHistory] = useState(() => loadGameHistory());
 
   // Sound effects follow the live "Suara" setting.
@@ -102,6 +107,7 @@ export function App() {
 
   const newGame = () => {
     setAbandonOpen(false);
+    setStandingsOpen(false);
     setView('menu');
     setMatchStarted(false);
     setResultOpen(false);
@@ -109,16 +115,32 @@ export function App() {
   };
   const startPractice = () => {
     setResultOpen(false);
+    setStandingsOpen(false);
     setSelectedId(null);
     setPaused(false);
     controller.setSettings({ ...settings, startingSeatWind: 'dong' });
-    controller.newGame();
+    controller.startMatch(matchLength, dealerWinRule);
     setMatchStarted(true);
     setView('table');
   };
 
+  // Continuous match: the next hand keeps the bot pause choice and the match's Kim mode.
+  const nextHand = () => {
+    setResultOpen(false);
+    setSelectedId(null);
+    controller.nextHand();
+  };
+  const openStandings = () => {
+    setResultOpen(false);
+    setStandingsOpen(true);
+  };
+  // Leaving between hands of an unfinished match still asks first.
+  const midMatch = matchStarted && (!outcome || (!!controller.match && !controller.matchOver));
+
   const saveSettings = (draft: GameSettings) => {
-    if (draft.animationSpeed !== settings.animationSpeed) setPace(draft.animationSpeed);
+    if (draft.animationSpeed !== 'off' && draft.animationSpeed !== settings.animationSpeed) {
+      draft = { ...draft, animationSpeed: motionSpeedForPace(pace) };
+    }
     const changed: Partial<GameSettings> = { ...draft };
     if (draft.scoringBasis === settings.scoringBasis) delete changed.scoringBasis;
     if (draft.bonusTileRule === settings.bonusTileRule) delete changed.bonusTileRule;
@@ -131,11 +153,17 @@ export function App() {
   const changePace = (choice: PracticePace) => {
     setPace(choice);
     savePracticePace(choice);
-    if (choice !== 'learn') {
-      const stored = persistSettings(settings, { animationSpeed: choice });
-      setSettings(stored);
-      controller.setSettings(stored);
-    }
+    const stored = persistSettings(settings, settingsForPace(settings, choice));
+    setSettings(stored);
+    controller.setSettings(stored);
+  };
+
+  const toggleMotion = () => {
+    const stored = persistSettings(settings, {
+      animationSpeed: settings.animationSpeed === 'off' ? motionSpeedForPace(pace) : 'off',
+    });
+    setSettings(stored);
+    controller.setSettings(stored);
   };
 
   const toggleSound = () => {
@@ -157,6 +185,13 @@ export function App() {
         </div>
 
         <div className="header-actions">
+          {view === 'menu' && <label>Mode Kim <select aria-label="Mode Kim" value={settings.kimMode ?? (settings.kimEnabled ? 'dedicated' : 'off')} onChange={e => {
+            const kimMode = e.target.value as 'off' | 'dedicated' | 'natural';
+            const stored = persistSettings(settings, { kimMode, kimEnabled: kimMode !== 'off' });
+            setSettings(stored);
+            controller.setSettings(stored);
+          }}><option value="natural">Kim dari tile yang ada</option><option value="dedicated">Kim khusus (pemula)</option><option value="off">Tanpa Kim</option></select></label>}
+
           <button type="button" className="icon-btn" onClick={() => setModal('history')} title="Riwayat Permainan">
             <History size={18} />
           </button>
@@ -166,7 +201,7 @@ export function App() {
           <button type="button" className="icon-btn" onClick={() => setModal('settings')} title="Pengaturan">
             <Settings size={18} />
           </button>
-          {matchStarted && <button type="button" className="btn btn-primary" onClick={() => matchStarted && !outcome ? setAbandonOpen(true) : newGame()}>
+          {matchStarted && <button type="button" className="btn btn-primary" onClick={() => midMatch ? setAbandonOpen(true) : newGame()}>
             <RotateCcw size={14} /> Permainan Baru
           </button>}
         </div>
@@ -174,16 +209,19 @@ export function App() {
 
       {view === 'menu' ? (
         <MainMenu kimEnabled={settings.kimEnabled} onKimChange={(enabled: boolean) => {
-          const stored = persistSettings(settings, { kimEnabled: enabled });
+          const stored = persistSettings(settings, { kimEnabled: enabled, kimMode: enabled ? (settings.kimMode === 'dedicated' ? 'dedicated' : 'natural') : 'off' });
           setSettings(stored);
           controller.setSettings(stored);
         }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
+          dealerWinRule={dealerWinRule} onDealerWinRuleChange={rule => { setDealerWinRule(rule); saveDealerWinRule(rule); }}
+          matchLength={matchLength} onMatchLengthChange={(length) => { setMatchLength(length); saveMatchLength(length); }}
           lastResult={history[0] ? history[0].winner === null ? 'Seri' : `${history[0].totalTay} Tay` : null} />
       ) : (
         <main className="table-felt">
+          {controller.getState().kimFace && <div className="kim-indicator">Kim: {tileText({ ...controller.getState().kimFace!, id: 'kim-indicator', isKim: false })}</div>}
           <OpponentPanel seat={pos.top} position="top" controller={controller} />
           <OpponentPanel seat={pos.left} position="left" controller={controller} />
-          <CenterArea controller={controller} progress={<PlayProgress controller={controller} paused={paused} blocked={automationBlocked} pace={pace} onPaceChange={changePace}
+          <CenterArea controller={controller} progress={<PlayProgress controller={controller} paused={paused} blocked={automationBlocked} pace={pace} onPaceChange={changePace} onToggleMotion={toggleMotion}
             onPause={() => setPaused(p => !p)} onStep={() => singleAutomationStep(controller, automationBlocked || !paused)} />} />
           <OpponentPanel seat={pos.right} position="right" controller={controller} />
           <div className="seat-bottom">
@@ -198,7 +236,12 @@ export function App() {
         </main>
       )}
 
-      {view === 'table' && outcome && resultOpen && !modal && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)} onNewGame={newGame} />}
+      {view === 'table' && outcome && resultOpen && !modal && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)}
+        onNewGame={controller.match && !controller.matchOver ? () => { setResultOpen(false); setAbandonOpen(true); } : newGame}
+        onNextHand={controller.match && !controller.matchOver ? nextHand : undefined}
+        onStandings={controller.matchOver ? openStandings : undefined}
+        matchSummary={controller.match ? <MatchResultNote match={controller.match} /> : undefined} />}
+      {view === 'table' && standingsOpen && controller.match && !modal && <MatchStandingsModal match={controller.match} onPlayAgain={startPractice} onMenu={newGame} />}
       {abandonOpen && <AbandonMatchDialog onStay={() => setAbandonOpen(false)} onLeave={newGame} />}
       {modal === 'settings' && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setModal(null)} />}
       {modal === 'history' && (

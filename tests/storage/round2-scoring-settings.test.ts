@@ -127,7 +127,7 @@ describe('Round 2 · a match freezes its rules until the next hand', () => {
     let checked = 0;
     for (const kimEnabled of [true, false]) {
       for (let seed = 1; seed <= 40 && checked < 4; seed++) {
-        const c = new GameController({ settings: { ...HOUSE_SETTINGS, kimEnabled, soundEnabled: false }, seed, saveHistory: false });
+        const c = new GameController({ settings: { ...HOUSE_SETTINGS, kimEnabled, kimMode: kimEnabled ? 'dedicated' : 'off', soundEnabled: false }, seed, saveHistory: false });
         play(c);
         const o = c.outcome;
         if (!o || o.kind !== 'hu') continue;
@@ -158,7 +158,7 @@ describe('Round 2 · results and history explain the column vs actual Kim usage'
     expect(text).toContain('Kolom tabel Ada Kim (pilihan pertandingan) · Kim di tangan: 0');
     expect(text).toContain('hanya posisi sendiri');
     expect(text).toContain('Catatan: Hand tanpa Kim (Bo KIM terdeteksi)');
-    expect(activeRulesSummary(HOUSE_SETTINGS)).toBe('Tabel Ada Kim untuk semua Hu · Bunga/Musim hanya posisi sendiri');
+    expect(activeRulesSummary(HOUSE_SETTINGS)).toBe('Tabel Ada Kim untuk semua Hu (semua Kim natural: Bo KIM/NK) · Bunga/Musim hanya posisi sendiri');
     expect(activeRulesSummary(TOURNAMENT_SETTINGS)).toBe('Kolom menurut Kim di tangan · Bunga/Musim per tile (PDF)');
   });
 

@@ -204,7 +204,7 @@ export function evaluateDecomposition(
   const wildcardKimCount = getWildcardKimCount(decomposition);
 
   // K mode if totalKimCount > 0 and not all Kims are natural nominal matches
-  const isKMode = totalKimCount > 0;
+  const isKMode = totalKimCount > 0 && (context.isInstantHu || !('mode' in decomposition) || decomposition.mode !== 'NK');
   const mode: KimMode = isKMode ? 'K' : 'NK';
   const isInstantHu = !!context.isInstantHu;
 
@@ -262,7 +262,7 @@ export function evaluateDecomposition(
     mode,
     totalKimCount,
     wildcardKimCount,
-    naturalNominalCount: 0,
+    naturalNominalCount: Math.max(0, totalKimCount - wildcardKimCount),
     isBoKimEligible: mode === 'NK',
     patterns,
     kimTay,

@@ -135,6 +135,7 @@ export function TayCalculator({
 
   return (
     <div className="calculator">
+      <p className="muted small">Semua Kim sesuai nomer/jenis: pilih Tanpa Kim dan Bo KIM (+3), termasuk dalam pertandingan Ada Kim.</p>
       <div className="calc-controls">
         <label className="check">
           <input type="checkbox" checked={withKim} onChange={(e) => setMode(e.target.checked)} />

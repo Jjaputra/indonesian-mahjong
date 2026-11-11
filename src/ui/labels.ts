@@ -14,11 +14,15 @@ export const SEAT_SHORT: Record<Seat, string> = { dong: 'Timur', nan: 'Selatan',
 /** Chinese character for a wind badge. */
 export const WIND_GLYPH: Record<Wind, string> = { dong: '東', nan: '南', xi: '西', bei: '北' };
 
+/**
+ * Player names by chair, relative to the human at the bottom. Seat winds rotate during a match,
+ * so a name never names a wind (see seatWindOf in win-context.ts).
+ */
 export const PLAYER_NAME: Record<Seat, string> = {
   dong: 'Anda',
-  nan: 'Bot Selatan',
-  xi: 'Bot Barat',
-  bei: 'Bot Utara',
+  nan: 'Bot Kanan',
+  xi: 'Bot Seberang',
+  bei: 'Bot Kiri',
 };
 
 export const MELD_LABEL: Record<MeldType, string> = {
@@ -36,6 +40,16 @@ export const WIN_METHOD_LABEL: Record<WinMethod, string> = {
 };
 
 export const DIFFICULTY_LABEL: Record<AIDifficulty, string> = { easy: 'Mudah', normal: 'Normal', hard: 'Sulit' };
+
+/** Match length choice; `null` = endless practice. */
+export function matchLengthLabel(length: number | null): string {
+  return length === null ? 'Tanpa batas' : `${length} game`;
+}
+
+/** Compact match indicator, e.g. "Game 3/8 · Angin putaran Timur". */
+export function matchProgressLabel(hand: number, length: number | null, prevailingWind: Wind): string {
+  return `Game ${hand}${length === null ? '' : `/${length}`} · Angin putaran ${SEAT_SHORT[prevailingWind]}`;
+}
 
 export const ANIMATION_LABEL: Record<AnimationSpeed, string> = {
   off: 'Mati',
@@ -73,12 +87,12 @@ export const SEASON_FACE: Record<number, { glyph: string; name: string }> = {
   4: { glyph: '冬', name: 'Dingin' },
 };
 /**
- * How to tell the two bonus families apart, per the supplied tile sheet (tiles.pdf p. 2) and the user's
- * clarification "Bunga biru = Musim": read the ink of the number and glyph, not the petals.
+ * How to tell the two bonus families apart, per tiles rev2.pdf p. 2 and Bandung Mahjong Cup rulebook:
+ * Musim = bunga merah (angka & huruf merah), Bunga = bunga hitam / biru (angka & huruf biru).
  */
 export const BONUS_INK_CUE = {
-  season: 'Musim = bunga biru: angka & huruf biru',
-  flower: 'Bunga = bunga merah: angka & huruf merah',
+  season: 'Musim = bunga merah: angka & huruf merah',
+  flower: 'Bunga = bunga hitam: angka & huruf biru',
 } as const;
 const SUIT_GLYPH: Record<string, string> = { tong: '筒', sok: '索', ban: '萬' };
 
@@ -111,8 +125,13 @@ export function tileAccessibleLabel(face: TileFace): string {
 }
 
 export function getTileFace(tile: Tile): TileFace {
-  if (tile.type === 'kim' || tile.isKim) {
+  if (tile.type === 'kim') {
     return { main: '金', sub: 'KIM', tone: 'kim', title: 'KIM (Joker)', hint: 'tile Kim tetap, mode joker lama' };
+  }
+  if (tile.isKim) {
+    // Natural Kim keeps its printed face; logs and receipts name both the face and the Kim role.
+    const face = getTileFace({ ...tile, isKim: false });
+    return { ...face, title: `${face.title} (Kim)`, hint: face.hint ? `${face.hint}, Kim natural` : 'Kim natural' };
   }
   switch (tile.type) {
     case 'tong':
@@ -133,12 +152,12 @@ export function getTileFace(tile: Tile): TileFace {
     }
     case 'flower': {
       const f = FLOWER_FACE[tile.value];
-      const hint = f ? `bunga merah ${f.glyph} ${f.name}, angka & huruf merah` : 'bunga merah, angka & huruf merah';
+      const hint = f ? `bunga hitam ${f.glyph} ${f.name}, angka & huruf biru` : 'bunga hitam, angka & huruf biru';
       return { main: f?.glyph ?? '花', sub: `Bunga ${tile.value}`, tone: 'flower', title: `Bunga ${tile.value}`, hint };
     }
     case 'season': {
       const f = SEASON_FACE[tile.value];
-      const hint = f ? `bunga biru ${f.glyph} ${f.name}, angka & huruf biru` : 'bunga biru, angka & huruf biru';
+      const hint = f ? `bunga merah ${f.glyph} ${f.name}, angka & huruf merah` : 'bunga merah, angka & huruf merah';
       return { main: f?.glyph ?? '季', sub: `Musim ${tile.value}`, tone: 'season', title: `Musim ${tile.value}`, hint };
     }
     default:

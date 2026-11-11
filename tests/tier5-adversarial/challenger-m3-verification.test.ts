@@ -168,10 +168,12 @@ describe('Challenger 2 M3 Empirical Verification: 44-Tay Scoring Engine', () => 
       expect(addRes.patterns.some((p) => p.id === 6)).toBe(true);
       expect(addRes.patterns.some((p) => p.id === 4)).toBe(true);
 
-      // Supersede drops #4
+      // Supersede drops #4, #1, #2
       expect(supRes.patterns.some((p) => p.id === 6)).toBe(true);
       expect(supRes.patterns.some((p) => p.id === 4)).toBe(false);
-      expect(supRes.totalTay).toBe(addRes.totalTay - 10);
+      expect(supRes.patterns.some((p) => p.id === 1)).toBe(false);
+      expect(supRes.patterns.some((p) => p.id === 2)).toBe(false);
+      expect(supRes.totalTay).toBe(41);
     });
 
     it('mutually exclusive finish patterns: exactly ONE of #42, #43, #44 is awarded per regular win', () => {
