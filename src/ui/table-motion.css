@@ -8,3 +8,5 @@
 .bonus-rack small { font-size: 10px; max-width: 230px; line-height: 1.3; }
 .call-toast { display: inline-block; margin: 0; padding: 6px 14px; border: 1px solid var(--accent); border-radius: 999px; background: var(--surface); font-weight: 700; }
 .pool-tile.is-fresh { position: relative; box-shadow: 0 0 0 2px var(--accent, #2f6f6a); }
+
+.tile-arrived { outline: 2px solid #bb8d35; outline-offset: 3px; box-shadow: 0 0 0 5px #bb8d3520; }

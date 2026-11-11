@@ -5,14 +5,15 @@
  */
 import { GameEngine, canFormWinningHand, type GameEngineState } from '../core/game-engine';
 import { SEAT_ORDER, isSameKind } from '../core/tiles';
-import type { ClaimDeclaration, LegalActions, Meld, Seat, Tile } from '../core/types';
+import type { ClaimDeclaration, LegalActions, Meld, Seat, Tile, Wind } from '../core/types';
 import { createGameWall, createMulberry32 } from '../core/wall';
 import { canFormWinningHandWithKim } from '../kim/wildcard-solver';
 import type { ScoringResult } from '../scoring';
 import { historyScoringFields, saveGameRecord, type GameSettings, type StorageLike, type WinMethod } from '../storage';
 import { buildObservation, builtInStrategy, chooseDiscard, isFirstGoAround, explainDiscardChoice, type AIStrategy } from './ai-controller';
 import { MELD_LABEL, PLAYER_NAME, SEAT_SHORT, tileText } from './labels';
-import { isInitialDealtHand, scoreHu, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
+import { isInitialDealtHand, scoreHu, seatWindOf, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
+import { createMatch, currentHandNumber, isMatchOver, recordHand, type DealerWinRule, type MatchLength, type MatchState } from './match';
 
 export type GameEventType = 'draw' | 'discard' | 'jia' | 'pung' | 'kong' | 'flower' | 'hu' | 'lewFit' | 'seri';
 
@@ -32,6 +33,8 @@ export interface LogEntry {
 export interface HuOutcome {
   kind: 'hu';
   winner: Seat;
+  /** Winner's seat wind this hand (differs from the chair once the dealer has rotated) */
+  seatWind?: Wind;
   winningTile: Tile;
   winMethod: Exclude<WinMethod, 'draw'>;
   discarder?: Seat;
@@ -137,6 +140,10 @@ export class GameController {
   private eventListeners = new Set<(e: GameEvent) => void>();
 
   outcome: GameOutcome | null = null;
+  /** Continuous match in progress (null = single game); updated as soon as a hand ends. */
+  match: MatchState | null = null;
+  /** Kim choice fixed for the whole match (later setting changes apply from the next match). */
+  private matchKim: Pick<GameSettings, 'kimEnabled' | 'kimMode'> | null = null;
   log: LogEntry[] = [];
   /** Id of the tile the human just drew (highlighted on the right of the hand) */
   humanDrawnTileId: string | null = null;
@@ -234,25 +241,51 @@ export class GameController {
     return this.engine.getState();
   }
 
+  /** Start a match of `length` hands (null = endless) and deal its first hand. */
+  startMatch(length: MatchLength, dealerWinRule: DealerWinRule = 'stay'): void {
+    this.match = createMatch(length, this.nextSettings.startingSeatWind, this.nextSettings.roundWind, this.nextSettings.minHuTay, dealerWinRule);
+    this.matchKim = { kimEnabled: this.nextSettings.kimEnabled, kimMode: this.nextSettings.kimMode };
+    this.newGame();
+  }
+
+  /** True once the last hand of a fixed-length match has finished. */
+  get matchOver(): boolean {
+    return !!this.match && !!this.outcome && isMatchOver(this.match);
+  }
+
+  /** Deal the next hand of the match with the rotated seating; no-op mid-hand or after the last hand. */
+  nextHand(): boolean {
+    if (!this.match || !this.outcome || isMatchOver(this.match)) return false;
+    this.newGame();
+    return true;
+  }
+
+  /** Single wall factory for every hand: a fresh shuffle in the match's Kim mode. */
+  private dealWall(rules: FullRules, seed?: number) {
+    return createGameWall(rules.kimMode ?? (rules.kimEnabled ? 'dedicated' : 'off'), seed);
+  }
+
   newGame(): void {
     this.gameSerial++;
     this.presentationToken = null;
-    this.settings = { ...this.nextSettings };
+    this.settings = this.match && this.matchKim ? { ...this.nextSettings, ...this.matchKim, minHuTay: this.match.minHuTay } : { ...this.nextSettings };
     this.rules = toFullRules(this.settings);
+    const dealer = this.match ? this.match.seating.dealer : this.settings.startingSeatWind;
+    const roundWind = this.match ? this.match.seating.prevailingWind : this.settings.roundWind;
     const seed = this.baseSeed === undefined ? undefined : this.baseSeed + this.gameIndex;
     this.gameIndex++;
     this.rng = seed === undefined ? Math.random : createMulberry32(seed * 7919 + 17);
     const rules = this.rules;
     this.engine = new GameEngine(rules, undefined, {
-      dealerSeat: this.settings.startingSeatWind,
-      roundWind: this.settings.roundWind,
+      dealerSeat: dealer,
+      roundWind,
       huValidator: (hand, melds, winningTile) => {
         const full = [...hand, winningTile];
         return canFormWinningHand(full, rules.kimEnabled) || canFormWinningHandWithKim(full, melds, rules);
       },
     });
     const auto = this.settings.flowerReplacementMode === 'auto';
-    const wall = createGameWall(rules.kimEnabled, seed);
+    const { wall } = this.dealWall(rules, seed);
     const records = this.engine.startNewGame(auto, wall);
     this.initialWallCount = this.getState().wall.remainingCount;
     this.discardCount = 0;
@@ -265,7 +298,10 @@ export class GameController {
     this.discardTrail = [];
     this.humanDrawnTileId = null;
     this.startedAt = this.now();
-    this.addLog(`Permainan baru dimulai. Dealer: ${SEAT_SHORT[this.settings.startingSeatWind]}.`);
+    const total = this.match ? (this.match.length === null ? '' : `/${this.match.length}`) : '';
+    this.addLog(this.match
+      ? `Game ${currentHandNumber(this.match)}${total} dimulai. Dealer (Timur): ${PLAYER_NAME[dealer]}. Angin putaran: ${SEAT_SHORT[roundWind]}.`
+      : `Permainan baru dimulai. Dealer (Timur): ${PLAYER_NAME[dealer]}.`);
     this.logFlowerRecords(records);
     this.checkSeri();
     this.changed();
@@ -301,7 +337,17 @@ export class GameController {
     this.addLog('Tembok habis — permainan Seri (tidak ada pemenang).');
     this.emit('seri');
     this.record();
+    this.settleMatch();
     return true;
+  }
+
+  /** Credit the finished hand to the match and rotate the seating for the next hand. */
+  private settleMatch(): void {
+    if (!this.match || !this.outcome) return;
+    const o = this.outcome;
+    this.match = o.kind === 'hu'
+      ? recordHand(this.match, o.winner, o.scoring.isValidHu, o.scoring.totalTay)
+      : recordHand(this.match, null, false, 0);
   }
 
   private record(): void {
@@ -370,7 +416,7 @@ export class GameController {
     if (!winningTile) return null;
     return scoreHu(
       { hand: p.hand.slice(0, -1), melds: p.melds, flowers: p.flowers, winningTile },
-      seat,
+      seatWindOf(this.getState(), seat),
       this.getState().roundWind,
       this.flagsFor(seat, true),
       this.rules,
@@ -384,7 +430,7 @@ export class GameController {
     const p = s.players[seat];
     return scoreHu(
       { hand: p.hand, melds: p.melds, flowers: p.flowers, winningTile: s.discardPending.tile },
-      seat,
+      seatWindOf(s, seat),
       s.roundWind,
       this.flagsFor(seat, false),
       this.rules,
@@ -399,6 +445,7 @@ export class GameController {
     this.outcome = {
       kind: 'hu',
       winner: seat,
+      seatWind: seatWindOf(s, seat),
       winningTile,
       winMethod,
       discarder,
@@ -412,6 +459,7 @@ export class GameController {
     this.addLog(`${PLAYER_NAME[seat]} HU! (${how}, ${tileText(winningTile)}) — ${scoring.totalTay} Tay.`, seat);
     this.emit(scoring.isValidHu ? 'hu' : 'lewFit', seat);
     this.record();
+    this.settleMatch();
   }
 
   // --------------------------------------------------------------------------

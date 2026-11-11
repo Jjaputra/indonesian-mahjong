@@ -7,12 +7,12 @@ describe('CallToast', () => {
   it('renders a Pung call with the bot name', () => {
     const html = renderToString(createElement(CallToast, { event: { type: 'pung', seat: 'nan' } }));
     expect(html).toContain('class="call-toast"');
-    expect(html).toContain('Bot Selatan: Pung');
+    expect(html).toContain('Bot Kanan: Pung');
   });
 
   it('renders a discard with the tile label', () => {
     const html = renderToString(createElement(CallToast, { event: { type: 'discard', seat: 'xi', tileLabel: '5 Tong' } }));
-    expect(html).toContain('Bot Barat membuang 5 Tong');
+    expect(html).toContain('Bot Seberang membuang 5 Tong');
   });
 
   it('renders nothing for a quiet draw', () => {

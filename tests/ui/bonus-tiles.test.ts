@@ -38,23 +38,23 @@ const view = (key: string, size: 'sm' | 'md' | 'lg') => renderToStaticMarkup(cre
 const numberInk = (html: string, v: number) => html.match(new RegExp(`class="art-bonus-number"[^>]*fill="(#[0-9a-f]{6})"[^>]*>${v}</text>`))?.[1];
 const glyphInk = (html: string, glyph: string) => html.match(new RegExp(`class="art-detail art-bonus-glyph"[^>]*fill="(#[0-9a-f]{6})"[^>]*>${glyph}</text>`))?.[1];
 
-describe('bonus tile SVG ink (tiles.pdf p. 2)', () => {
-  it('Musim numbers and glyphs are blue at every tile size', () => {
+describe('bonus tile SVG ink (tiles rev2.pdf p. 2)', () => {
+  it('Musim numbers and glyphs are red at every tile size', () => {
     for (const [v, glyph] of SEASONS) {
       for (const html of [art(`M${v}`), view(`M${v}`, 'sm'), view(`M${v}`, 'lg')]) {
-        expect(numberInk(html, v), `M${v}`).toBe(BLUE);
-        expect(glyphInk(html, glyph), `M${v}`).toBe(BLUE);
-        expect(html).not.toContain(`fill="${RED}"`);
+        expect(numberInk(html, v), `M${v}`).toBe(RED);
+        expect(glyphInk(html, glyph), `M${v}`).toBe(RED);
+        expect(html).not.toContain(`fill="${BLUE}"`);
       }
     }
   });
 
-  it('Bunga numbers and glyphs are red at every tile size', () => {
+  it('Bunga numbers and glyphs are blue at every tile size', () => {
     for (const [v, glyph] of FLOWERS) {
       for (const html of [art(`F${v}`), view(`F${v}`, 'sm'), view(`F${v}`, 'lg')]) {
-        expect(numberInk(html, v), `F${v}`).toBe(RED);
-        expect(glyphInk(html, glyph), `F${v}`).toBe(RED);
-        expect(html).not.toContain(`fill="${BLUE}"`);
+        expect(numberInk(html, v), `F${v}`).toBe(BLUE);
+        expect(glyphInk(html, glyph), `F${v}`).toBe(BLUE);
+        expect(html).not.toContain(`fill="${RED}"`);
       }
     }
   });
@@ -64,8 +64,8 @@ describe('bonus tile SVG ink (tiles.pdf p. 2)', () => {
     expect(arts).toEqual(['flower-1', 'flower-2', 'flower-3', 'flower-4', 'season-1', 'season-2', 'season-3', 'season-4']);
     const bodies = ['F1', 'F2', 'F3', 'F4', 'M1', 'M2', 'M3', 'M4'].map((k) => art(k).replace(/<text[\s\S]*?<\/text>/g, '').replace(/data-art="[^"]*"/, ''));
     expect(new Set(bodies).size).toBe(8);
-    expect(glyphInk(art('F3'), '竹')).toBe(RED);
-    expect(glyphInk(art('F4'), '菊')).toBe(RED);
+    expect(glyphInk(art('F3'), '竹')).toBe(BLUE);
+    expect(glyphInk(art('F4'), '菊')).toBe(BLUE);
     expect(art('F3')).toContain('class="art-blossom"');
     expect(art('M3')).toContain('class="art-season"');
   });
@@ -76,12 +76,12 @@ describe('bonus tile names, order and hints', () => {
     for (const [v, glyph, name] of FLOWERS) {
       expect(getTileFace(keyToTile(`F${v}`)).main).toBe(glyph);
       expect(getTileFace(keyToTile(`F${v}`)).title).toBe(`Bunga ${v}`);
-      expect(tileAccessibleLabel(getTileFace(keyToTile(`F${v}`)))).toBe(`Bunga ${v}, bunga merah ${glyph} ${name}, angka & huruf merah`);
+      expect(tileAccessibleLabel(getTileFace(keyToTile(`F${v}`)))).toBe(`Bunga ${v}, bunga hitam ${glyph} ${name}, angka & huruf biru`);
     }
     for (const [v, glyph, name] of SEASONS) {
       expect(getTileFace(keyToTile(`M${v}`)).main).toBe(glyph);
       expect(getTileFace(keyToTile(`M${v}`)).title).toBe(`Musim ${v}`);
-      expect(tileAccessibleLabel(getTileFace(keyToTile(`M${v}`)))).toBe(`Musim ${v}, bunga biru ${glyph} ${name}, angka & huruf biru`);
+      expect(tileAccessibleLabel(getTileFace(keyToTile(`M${v}`)))).toBe(`Musim ${v}, bunga merah ${glyph} ${name}, angka & huruf merah`);
     }
     expect(['F1', 'F2', 'F3', 'F4'].map((k) => getTileIndonesianLabel(keyToTile(k)))).toEqual([
       'Bunga 1 (Plum / 梅)',
@@ -111,16 +111,16 @@ describe('bonus tile names, order and hints', () => {
   it('public bonus tiles retain readable artwork and accessible names', () => {
     const season = view('M1', 'sm');
     const flower = view('F4', 'sm');
-    expect(season).toContain('aria-label="Musim 1, bunga biru 春 Semi, angka &amp; huruf biru"');
-    expect(flower).toContain('aria-label="Bunga 4, bunga merah 菊 Krisan, angka &amp; huruf merah"');
-    expect(numberInk(season, 1)).toBe(BLUE);
-    expect(numberInk(flower, 4)).toBe(RED);
+    expect(season).toContain('aria-label="Musim 1, bunga merah 春 Semi, angka &amp; huruf merah"');
+    expect(flower).toContain('aria-label="Bunga 4, bunga hitam 菊 Krisan, angka &amp; huruf biru"');
+    expect(numberInk(season, 1)).toBe(RED);
+    expect(numberInk(flower, 4)).toBe(BLUE);
   });
 
   it('calculator keeps the rulebook wording but adds the tile-sheet ink beside it', () => {
     const html = renderToStaticMarkup(createElement(TayCalculator, { defaultMinHuTay: 5 }));
-    expect(html).toContain('Kembang hitam (sesuai posisi duduk +1) (istilah rulebook; di tile: Bunga = bunga merah: angka &amp; huruf merah)');
-    expect(html).toContain('Kembang merah (sesuai posisi duduk +1) (istilah rulebook; di tile: Musim = bunga biru: angka &amp; huruf biru)');
+    expect(html).toContain('Kembang hitam (sesuai posisi duduk +1) (istilah rulebook; di tile: Bunga = bunga hitam: angka &amp; huruf biru)');
+    expect(html).toContain('Kembang merah (sesuai posisi duduk +1) (istilah rulebook; di tile: Musim = bunga merah: angka &amp; huruf merah)');
   });
 
   it('table bonus rack keeps tiles and own seat number without instructional paragraphs', () => {

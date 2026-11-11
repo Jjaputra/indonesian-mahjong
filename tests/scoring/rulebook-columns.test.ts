@@ -8,7 +8,8 @@ import { describe, it, expect } from 'vitest';
 import { keyToTile, parseTileHand } from '@/core/tiles';
 import { PATTERNS, baseTay, scoringEngine, type WinContext } from '@/scoring';
 
-/** [id, Ada KIM, Tidak ada KIM] exactly as printed; null = blank cell. */
+/** [id, Ada KIM, Tidak ada KIM] exactly as printed; null = blank cell.
+ * Per Bandung Mahjong Cup PDF + tiles rev2: #1 Bunga is 0 / 0, #2 Musim is 1 / 1. */
 const PDF_TABLE: readonly [number, number | null, number | null][] = [
   [1, 0, 0], [2, 1, 1], [3, 3, 3], [4, 10, 10], [5, 20, 20], [6, 30, 30],
   [7, 1, null], [8, null, 3], [9, 40, null], [10, 20, 30], [11, 40, 60], [12, 40, 60],

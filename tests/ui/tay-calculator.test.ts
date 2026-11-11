@@ -166,7 +166,7 @@ describe('Hu receipt', () => {
       durationSeconds: 90,
     };
     const text = buildHuReceipt(outcome);
-    expect(text).toContain('Bot Selatan');
+    expect(text).toContain('Bot Kanan');
     expect(text).toContain('Buangan');
     expect(text).toContain('Tanpa Kim');
     for (const p of scoring.patterns) expect(text).toContain(`#${p.id} ${p.name}: ${p.tay} Tay`);

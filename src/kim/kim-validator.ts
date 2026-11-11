@@ -200,7 +200,7 @@ export class KimValidator {
     if (!isKim(tile)) return false;
     if (!substitutedTile) return true; // Standard unfaced Kim substituting is a wildcard
     // If nominal face matches substitutedTile, it's natural nominal
-    const nominalFace = (tile as any).nominalTile as Tile | undefined;
+    const nominalFace = tile.type !== 'kim' ? tile : (tile as any).nominalTile as Tile | undefined;
     if (nominalFace && nominalFace.type === substitutedTile.type && nominalFace.value === substitutedTile.value) {
       return false;
     }
@@ -285,7 +285,7 @@ export class KimValidator {
       isBoKim,
       hasKimThi,
       hasKimCiok,
-      hasShiKim,
+      hasShiKim: hasShiKim && !isBoKim,
       hasPyongPi,
       assignments: assigned,
     };

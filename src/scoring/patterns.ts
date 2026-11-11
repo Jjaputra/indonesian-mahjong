@@ -100,7 +100,9 @@ export function tableTay(id: number, column: KimMode, basis: ScoringBasis = 'han
  */
 export const SUPERSEDES: ReadonlyMap<number, readonly number[]> = new Map([
   [12, [10]],
-  [6, [4, 5]],
+  [4, [1]],
+  [5, [2]],
+  [6, [1, 2, 4, 5]],
   [21, [27, 28, 29]],
   [22, [27, 28, 29]],
   [23, [25, 26]],

@@ -66,7 +66,7 @@ export const BONUS_TILE_RULE_LABEL: Record<BonusTileRule, string> = {
 export function activeRulesSummary(rules: { kimEnabled: boolean; scoringBasis: ScoringBasis; bonusTileRule: BonusTileRule }): string {
   const table =
     rules.scoringBasis === 'match_table'
-      ? `Tabel ${modeLabel(rules.kimEnabled ? 'K' : 'NK')} untuk semua Hu`
+      ? `Tabel ${modeLabel(rules.kimEnabled ? 'K' : 'NK')} untuk semua Hu${rules.kimEnabled ? ' (semua Kim natural: Bo KIM/NK)' : ''}`
       : 'Kolom menurut Kim di tangan';
   const bonus = rules.bonusTileRule === 'own_seat_only' ? 'Bunga/Musim hanya posisi sendiri' : 'Bunga/Musim per tile (PDF)';
   return `${table} · ${bonus}`;
@@ -264,7 +264,7 @@ export function buildHuReceipt(outcome: HuOutcome): string {
   const r: ScoringResult = outcome.scoring;
   const lines = [
     '=== STRUK HU — Mahjong Tradisional Indonesia ===',
-    `Pemenang      : ${PLAYER_NAME[outcome.winner]} — ${SEAT_LABEL[outcome.winner]}`,
+    `Pemenang      : ${PLAYER_NAME[outcome.winner]} — ${SEAT_LABEL[outcome.seatWind ?? outcome.winner]}`,
     `Tile menang   : ${tileText(outcome.winningTile)}`,
     `Cara menang   : ${WIN_METHOD_LABEL[outcome.winMethod]}${outcome.discarder ? ` (dari ${PLAYER_NAME[outcome.discarder]})` : ''}`,
     `Tabel         : ${scoringColumnSummary(r)}`,
@@ -276,7 +276,7 @@ export function buildHuReceipt(outcome: HuOutcome): string {
   }
   if (outcome.flowers.length) lines.push(`Tile bonus    : ${outcome.flowers.map(tileText).join(', ')}`);
   lines.push('--- Rincian Tay ---');
-  for (const p of r.patterns) lines.push(`#${p.id} ${p.name}: ${p.tay} Tay`);
+  for (const p of r.patterns.filter((p) => p.id !== 13)) lines.push(`#${p.id} ${p.name}: ${p.tay} Tay`);
   for (const note of r.notes) lines.push(`Catatan: ${note}`);
   lines.push(`TOTAL         : ${r.totalTay} Tay (minimum ${r.minHuTay})`);
   lines.push(r.isValidHu ? `HU SAH ✓ (${r.totalTay} ≥ ${r.minHuTay} Tay)` : `LEW FIT ✗ ${r.rejectionReason ?? ''}`.trim());

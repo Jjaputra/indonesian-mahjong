@@ -54,7 +54,7 @@ describe('GameController full-game loop', () => {
   }
 
   it('tile conservation: 148 tiles are always accounted for', () => {
-    const c = new GameController({ settings: settings(), seed: 7, saveHistory: false });
+    const c = new GameController({ settings: settings({ kimMode: 'dedicated' }), seed: 7, saveHistory: false });
     let checks = 0;
     while (!c.outcome && checks < 3000) {
       const s = c.getState();
@@ -160,7 +160,7 @@ describe('practice automation boundaries and public activity', () => {
     expect(automated).toBeGreaterThan(0);
     expect(c.discardCount).toBeGreaterThan(0);
     expect(c.log.some(l => l.text.includes('menarik satu tile'))).toBe(true);
-    expect(c.botExplanation).toMatch(/^Bot (Selatan|Barat|Utara)/);
+    expect(c.botExplanation).toMatch(/^Bot (Kanan|Seberang|Kiri)/);
     c.newGame();
     expect(c.discardCount).toBe(0);
     expect(c.botExplanation).toBeNull();

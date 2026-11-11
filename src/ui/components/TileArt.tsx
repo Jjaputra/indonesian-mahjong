@@ -17,8 +17,8 @@ const INK = {
 } as const;
 
 const CN_NUMERAL = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
-/** Bonus ink per family, as on the supplied tile sheet (tiles.pdf p. 2): Musim blue, Bunga red. */
-export const BONUS_INK = { season: INK.blue, flower: INK.red } as const;
+/** Bonus ink per family, following tiles rev2.pdf p. 2: Musim red, Bunga blue/black. */
+export const BONUS_INK = { season: INK.red, flower: INK.blue } as const;
 
 type Pt = readonly [number, number];
 type Ink = keyof typeof INK;

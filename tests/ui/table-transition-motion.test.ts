@@ -57,6 +57,9 @@ describe('committed table transition leases', () => {
     expect(publicMotion({ type: 'pung', seat: 'nan', tile })).toEqual({ kind: 'claim', seat: 'nan', tile, call: 'Pung' });
   });
   it('reduced motion and off keep a readable static transition; fast still finishes travel before release', () => {
+    expect(motionTiming('slow', false)).toEqual({ travel: 950, hold: 2200 });
+    expect(motionTiming('normal', false).travel).toBe(800);
+    expect(motionTiming('off', false).travel).toBe(0);
     for (const speed of ['off', 'fast', 'normal', 'slow'] as const) {
       const normal = motionTiming(speed, false); const reduced = motionTiming(speed, true);
       expect(normal.hold).toBeGreaterThan(normal.travel + 400);

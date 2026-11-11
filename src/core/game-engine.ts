@@ -21,6 +21,7 @@ import {
   PlayerState,
   Seat,
   Tile,
+  TileFace,
   TurnDrawResult,
   TurnPhase,
   Wind,
@@ -41,6 +42,7 @@ export interface GameEngineState {
   currentTurn: Seat;
   dealerSeat: Seat;
   wall: Wall;
+  kimFace?: TileFace | null;
   players: Record<Seat, PlayerState>;
   discardPending: DiscardPendingState | null;
   pendingClaims: Partial<Record<Seat, ClaimDeclaration>>;
@@ -298,10 +300,14 @@ export class GameEngine {
       ...options?.rules,
     };
 
+    if (mergedRules.kimMode === 'natural') {
+      mergedRules.kimDiscardAllowed = false;
+      mergedRules.allowKimInMeldClaim = false;
+    }
     const dealerSeat: Seat = options?.dealerSeat ?? 'dong';
     const roundWind: Wind = options?.roundWind ?? 'dong';
     this.initialCustomWall = customWall ?? options?.wall;
-    const wall = this.initialCustomWall ?? createGameWall(mergedRules.kimEnabled);
+    const wall = this.initialCustomWall ?? createGameWall(mergedRules.kimMode ?? (mergedRules.kimEnabled ? 'dedicated' : 'off')).wall;
 
     const players: Record<Seat, PlayerState> = {
       dong: {
@@ -356,6 +362,7 @@ export class GameEngine {
       currentTurn: dealerSeat,
       dealerSeat,
       wall,
+      kimFace: wall.serialize().tiles.find(t => t.isKim && t.type !== 'kim') ?? null,
       players,
       discardPending: null,
       pendingClaims: {},
@@ -401,8 +408,10 @@ export class GameEngine {
       this.state.wall = this.initialCustomWall;
       this.customWallConsumed = true;
     } else {
-      this.state.wall = createGameWall(this.state.rules.kimEnabled);
+      this.state.wall = createGameWall(this.state.rules.kimMode ?? (this.state.rules.kimEnabled ? 'dedicated' : 'off')).wall;
     }
+
+    this.state.kimFace = this.state.wall.serialize().tiles.find(t => t.isKim && t.type !== 'kim') ?? null;
 
     // Reset player state
     for (const seat of SEAT_ORDER) {
@@ -600,7 +609,7 @@ export class GameEngine {
     }
 
     const tile = player.hand[tileIndex]!;
-    if (!this.state.rules.kimDiscardAllowed && isKim(tile)) {
+    if ((this.state.rules.kimMode === 'natural' || !this.state.rules.kimDiscardAllowed) && isKim(tile)) {
       throw new Error('Discarding Kim is prohibited under tournament rules');
     }
 
@@ -1433,7 +1442,7 @@ export class GameEngine {
       const effectiveHandSize = player.hand.length + player.melds.length * 3;
       if (effectiveHandSize === 14) {
         const discardable = player.hand
-          .filter((t) => this.state.rules.kimDiscardAllowed || !isKim(t))
+          .filter((t) => (this.state.rules.kimMode !== 'natural' && this.state.rules.kimDiscardAllowed) || !isKim(t))
           .map((t) => t.id);
         result.discardableTileIds = discardable;
         result.canDiscard = discardable.length > 0;

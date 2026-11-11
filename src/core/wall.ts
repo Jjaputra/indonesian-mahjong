@@ -1,5 +1,5 @@
 import { createCompleteTileSet } from './tiles';
-import { Seat, Tile } from './types';
+import { KimMode, TileFace, Seat, Tile } from './types';
 
 export interface DealResult {
   readonly hands: Record<Seat, Tile[]>;
@@ -208,19 +208,23 @@ export class Wall {
   }
 }
 
-/**
- * Builds the shuffled wall for a new hand.
- *
- * Kim enabled: the legacy 148-tile set with 4 dedicated Kim joker tiles. This is the app's existing model;
- * the rulebook PDF does not establish it. The proposed (user-described) dice-selected Kim has unconfirmed
- * details and is not implemented (see RULES.md).
- * Kim disabled: the 4 dedicated Kim tiles are removed BEFORE the shuffle and deal, leaving 144 tiles
- * (136 playing tiles + 8 bonus tiles), so no joker can ever reach a hand.
- *
- * With a seed the shuffle is deterministic (Mulberry32); without one it uses Math.random.
+/** Natural Kim uses a random existing face, pending confirmation of the dice procedure.
+ * Boolean overload preserves the legacy wall-only API.
  */
-export function createGameWall(kimEnabled: boolean, seed?: number): Wall {
-  if (kimEnabled) return seed === undefined ? new Wall() : new Wall(undefined, seed);
-  const tiles = createCompleteTileSet().filter((t) => t.type !== 'kim' && !t.isKim);
-  return seed === undefined ? new Wall(shuffleTiles(tiles, Math.random), null) : new Wall(tiles, seed);
+export function createGameWall(kimMode: KimMode, seed?: number): { wall: Wall; kimFace: TileFace | null };
+export function createGameWall(kimEnabled: boolean, seed?: number): Wall;
+export function createGameWall(mode: KimMode | boolean, seed?: number): Wall | { wall: Wall; kimFace: TileFace | null } {
+  const kimMode = typeof mode === 'boolean' ? (mode ? 'dedicated' : 'off') : mode;
+  const rng = seed === undefined ? Math.random : createMulberry32(seed);
+  let tiles = createCompleteTileSet().filter(t => kimMode === 'dedicated' || t.type !== 'kim');
+  tiles = shuffleTiles(tiles, rng);
+  let kimFace: TileFace | null = null;
+  if (kimMode === 'natural') {
+    const playing = tiles.filter(t => t.type !== 'flower' && t.type !== 'season');
+    const chosen = playing[Math.floor(rng() * playing.length)]!;
+    kimFace = { type: chosen.type, value: chosen.value };
+    tiles = tiles.map(t => t.type === chosen.type && t.value === chosen.value ? { ...t, isKim: true } : t);
+  }
+  const wall = new Wall(tiles, null);
+  return typeof mode === 'boolean' ? wall : { wall, kimFace };
 }

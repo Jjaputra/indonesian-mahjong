@@ -5,6 +5,7 @@ import type { GameRules, Meld, MeldType, Seat, Tile, TileType, Wind } from '../c
 // ============================================================================
 
 export interface KimRules {
+  readonly kimMode?: import('../core/types').KimMode;
   /** Master toggle: enable Kim joker tiles in the game (default: true) */
   readonly kimEnabled: boolean;
   /** Allow discarding Kim tiles (default: false per tournament BMC06) */
@@ -55,9 +56,10 @@ export const DEFAULT_KIM_RULES: Readonly<KimRules> = TOURNAMENT_KIM_RULES;
 
 export function resolveKimRules(rules?: Partial<KimRules> | GameRules): KimRules {
   return {
+    ...(rules?.kimMode ? { kimMode: rules.kimMode } : {}),
     kimEnabled: rules?.kimEnabled ?? DEFAULT_KIM_RULES.kimEnabled,
-    kimDiscardAllowed: rules?.kimDiscardAllowed ?? DEFAULT_KIM_RULES.kimDiscardAllowed,
-    allowKimInMeldClaim: rules?.allowKimInMeldClaim ?? DEFAULT_KIM_RULES.allowKimInMeldClaim,
+    kimDiscardAllowed: rules?.kimMode === 'natural' ? false : rules?.kimDiscardAllowed ?? DEFAULT_KIM_RULES.kimDiscardAllowed,
+    allowKimInMeldClaim: rules?.kimMode === 'natural' ? false : rules?.allowKimInMeldClaim ?? DEFAULT_KIM_RULES.allowKimInMeldClaim,
     allowKimInPair: (rules as any)?.allowKimInPair ?? DEFAULT_KIM_RULES.allowKimInPair,
     allowKimInPung: (rules as any)?.allowKimInPung ?? DEFAULT_KIM_RULES.allowKimInPung,
     allowKimInJia: (rules as any)?.allowKimInJia ?? DEFAULT_KIM_RULES.allowKimInJia,

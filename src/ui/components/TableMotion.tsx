@@ -15,6 +15,14 @@ export function TableMotion({ controller }: { controller: GameController }) {
   const overlay = useRef<HTMLDivElement>(null);
   const finish = useRef<(() => void) | null>(null);
   const serial = controller.gameSerial;
+  const speed = controller.getSettings().animationSpeed;
+  const [reduced, setReduced] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const change = () => setReduced(media.matches);
+    media.addEventListener('change', change);
+    return () => media.removeEventListener('change', change);
+  }, []);
   useEffect(() => {
     const off = controller.onEvent((event: GameEvent) => {
       const motion = publicMotion(event);
@@ -32,11 +40,12 @@ export function TableMotion({ controller }: { controller: GameController }) {
     });
     return () => { off(); finish.current?.(); finish.current = null; };
   }, [controller]);
+  // A live preference change cancels the current presentation before automation resumes.
+  useEffect(() => { finish.current?.(); }, [speed, reduced]);
   useLayoutEffect(() => {
     if (!flight || flight.serial !== serial) { setFlight(null); return; }
     const { motion, source, done } = flight;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const timing = motionTiming(controller.getSettings().animationSpeed, reduced);
+    const timing = motionTiming(speed, reduced);
     const destinationSelector = motion.kind === 'draw' ? `[data-hand-anchor="${motion.seat}"]`
       : motion.kind === 'claim' ? `[data-meld-anchor="${motion.seat}"] [data-tile-id="${CSS.escape(motion.tile!.id)}"]`
       : '.pending-discard .tile';
@@ -47,7 +56,7 @@ export function TableMotion({ controller }: { controller: GameController }) {
       : document.querySelector<HTMLElement>(destinationSelector);
     const previousVisibility = target?.style.visibility ?? '';
     const restore = () => { if (target) target.style.visibility = previousVisibility; };
-    const settle = () => { if (el) el.style.visibility = 'hidden'; animation?.cancel(); restore(); setMoving(false); };
+    const settle = () => { if (el) el.style.visibility = 'hidden'; animation?.cancel(); restore(); target?.classList.add('tile-arrived'); setMoving(false); };
     if (el && source && destination && timing.travel > 0 && typeof el.animate === 'function') {
       if (target) target.style.visibility = 'hidden';
       // Center a real tile on each measured anchor. Only the tile is transformed.
@@ -63,13 +72,16 @@ export function TableMotion({ controller }: { controller: GameController }) {
         { transform: `translate(${x1}px, ${y1}px)` },
       ], { duration: timing.travel, easing: 'cubic-bezier(.25,.65,.3,1)', fill: 'both' });
       animation.onfinish = settle;
-    } else { setMoving(false); }
+    } else { settle(); }
     // Geometry changes settle at the newly laid-out destination, never a stale viewport coordinate.
     window.addEventListener('scroll', settle, true);
     window.addEventListener('resize', settle);
     const cancelHold = holdPresentation(timing.hold, done, () => { settle(); setFlight(null); });
+    const cancel = () => { cancelHold(); settle(); setFlight(null); };
+    finish.current = cancel;
     return () => {
-      cancelHold(); animation?.cancel(); restore();
+      if (finish.current === cancel) finish.current = null;
+      cancelHold(); animation?.cancel(); restore(); target?.classList.remove('tile-arrived');
       window.removeEventListener('scroll', settle, true); window.removeEventListener('resize', settle);
     };
   }, [flight, serial, controller]);
@@ -77,15 +89,15 @@ export function TableMotion({ controller }: { controller: GameController }) {
   const active = flight?.serial === serial ? flight : null;
   const state = controller.getState();
   const actor = PLAYER_NAME[state.currentTurn];
-  const cue = active ? `${PLAYER_NAME[active.motion.seat]} · ${active.motion.kind === 'draw'
-    ? moving ? 'mengambil tile dari tembok' : 'mengambil tile dari tembok · tiba di tangan, memilih buangan'
-    : active.motion.kind === 'claim' ? `${active.motion.call} ${tileText(active.motion.tile!)} · mengambil ke meld terbuka`
-    : moving ? `membuang ${tileText(active.motion.tile!)}` : `${tileText(active.motion.tile!)} di tengah · menunggu klaim`}`
-    : state.phase === 'CLAIM_WINDOW' ? `${PLAYER_NAME[state.discardPending!.discarder]} · menunggu klaim`
-    : `${actor} · ${state.phase === 'TURN_DRAW' ? 'giliran berikutnya · mengambil tile' : state.phase === 'ACTION_DECISION' ? 'memilih buangan' : 'persiapan / akhir giliran'}`;
+  const cue = active ? `${PLAYER_NAME[active.motion.seat]} Â· ${active.motion.kind === 'draw'
+    ? moving ? 'mengambil tile dari tembok' : 'mengambil tile dari tembok Â· tiba di tangan, memilih buangan'
+    : active.motion.kind === 'claim' ? `${active.motion.call} ${tileText(active.motion.tile!)} Â· mengambil ke meld terbuka`
+    : moving ? `membuang ${tileText(active.motion.tile!)}` : `${tileText(active.motion.tile!)} di tengah Â· menunggu klaim`}`
+    : state.phase === 'CLAIM_WINDOW' ? `${PLAYER_NAME[state.discardPending!.discarder]} Â· menunggu klaim`
+    : `${actor} Â· ${state.phase === 'TURN_DRAW' ? 'giliran berikutnya Â· mengambil tile' : state.phase === 'ACTION_DECISION' ? 'memilih buangan' : 'persiapan / akhir giliran'}`;
   return <>
     <p className={`table-stage${active ? ' is-transition' : ''}`} role="status" aria-live="polite" data-stage={active ? moving ? 'moving' : 'reading' : 'selecting'}>
-      <strong>{cue}</strong>{active && <small>Transisi meja · tunggu tile selesai</small>}
+      <strong>{cue}</strong>{active && <small>{speed === 'off' || reduced ? 'Aksi meja' : moving ? 'Tile bergerak' : 'Tile tiba'}</small>}
     </p>
     {active && moving && createPortal(<div ref={overlay} className="table-tile-flight" data-motion-kind={active.motion.kind} aria-hidden="true">
       {active.motion.kind === 'draw' ? <TileBack size="lg" /> : <TileView tile={active.motion.tile!} size="lg" />}

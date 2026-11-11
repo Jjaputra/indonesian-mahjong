@@ -47,3 +47,11 @@ export function scheduleAutomation(target: AutomationTarget, delay: number, bloc
   const timer = setTimeout(() => singleAutomationStep(target), delay);
   return () => clearTimeout(timer);
 }
+
+/** Tempo changes preserve deliberate motion-off; enabled travel follows the bot pace. */
+export function motionSpeedForPace(pace: PracticePace): GameSettings['animationSpeed'] {
+  return pace === 'learn' || pace === 'slow' ? 'slow' : pace === 'fast' ? 'fast' : 'normal';
+}
+export function settingsForPace(settings: GameSettings, pace: PracticePace): GameSettings {
+  return { ...settings, animationSpeed: settings.animationSpeed === 'off' ? 'off' : motionSpeedForPace(pace) };
+}
