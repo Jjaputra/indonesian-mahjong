@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { BookOpen, Calculator, History, LayoutGrid, RotateCcw, Settings, Volume2, VolumeX } from 'lucide-react';
+import { History, RotateCcw, Settings, Volume2, VolumeX } from 'lucide-react';
 import { playSound, type SoundEffectName } from './audio';
 import {
   clearGameHistory,
@@ -12,19 +12,17 @@ import {
 import { ActionHud, CenterArea, HumanArea, OpponentPanel, seatPositions } from './ui/components/GameTable';
 import { HistoryModal } from './ui/components/HistoryModal';
 import { HuResultModal } from './ui/components/HuResultModal';
-import { Modal } from './ui/components/Modal';
 import { SettingsModal } from './ui/components/SettingsModal';
-import { TayCalculator } from './ui/components/TayCalculator';
 import { MainMenu } from './ui/components/MainMenu';
 import { AbandonMatchDialog } from './ui/components/AbandonMatchDialog';
 import { GameController, type GameEventType } from './ui/game-controller';
 import { PlayProgress } from './ui/components/PlayProgress';
 import { loadPracticePace, loadPracticeSettings, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
 import { DIFFICULTY_LABEL } from './ui/labels';
-import { activeRulesSummary, calculatorMatchProps } from './ui/tay-calculator';
+import { releaseVersion } from './ui/release';
 
-type View = 'menu' | 'table' | 'calculator';
-type ModalName = 'settings' | 'history' | 'rulebook' | null;
+type View = 'menu' | 'table';
+type ModalName = 'settings' | 'history' | null;
 
 const EVENT_SOUND: Partial<Record<GameEventType, SoundEffectName>> = {
   discard: 'discard',
@@ -35,8 +33,6 @@ const EVENT_SOUND: Partial<Record<GameEventType, SoundEffectName>> = {
   hu: 'hu',
   lewFit: 'lewFit',
 };
-
-const RULE_KEYS = ['kimEnabled', 'minHuTay', 'overlapPolicy', 'scoringBasis', 'bonusTileRule'] as const;
 
 /**
  * Persist a settings patch without pinning the practice scoring defaults: an unchanged scoring
@@ -149,35 +145,18 @@ export function App() {
   };
 
   const pos = seatPositions(controller.humanSeat);
-  // The table shows the frozen rules of the hand in play; edits apply from the next game.
-  const active = matchStarted ? controller.getSettings() : settings;
-  const rulesPending = matchStarted && RULE_KEYS.some((k) => settings[k] !== active[k]);
-
   return (
     <div className="app">
       <header className="app-header">
         <div className="brand">
           <span className="brand-tile">金</span>
           <div>
-            <h1>Mahjong Tradisional Indonesia</h1>
-            <p className="muted small">
-              {activeRulesSummary(active)} · AI {DIFFICULTY_LABEL[active.aiDifficulty]} · Min. Hu {active.minHuTay} Tay
-              {rulesPending && ' · Aturan baru berlaku di permainan berikutnya'}
-            </p>
+            <h1>Mahjong Indonesia</h1>
+            <span className="release-version" aria-label={"Versi " + releaseVersion}>{"v" + releaseVersion}</span>
           </div>
         </div>
-        {view !== 'menu' && <nav className="tabs" aria-label="Tampilan">
-          <button type="button" className={view === 'table' ? 'is-on' : ''} onClick={() => setView(matchStarted ? 'table' : 'menu')}>
-            <LayoutGrid size={15} /> {matchStarted ? 'Meja' : 'Menu Utama'}
-          </button>
-          <button type="button" className={view === 'calculator' ? 'is-on' : ''} onClick={() => setView('calculator')}>
-            <Calculator size={15} /> Kalkulator Tay
-          </button>
-        </nav>}
+
         <div className="header-actions">
-          <button type="button" className="icon-btn" onClick={() => setModal('rulebook')} title="Rulebook & Kalkulator 44 Tay">
-            <BookOpen size={18} />
-          </button>
           <button type="button" className="icon-btn" onClick={() => setModal('history')} title="Riwayat Permainan">
             <History size={18} />
           </button>
@@ -198,15 +177,9 @@ export function App() {
           const stored = persistSettings(settings, { kimEnabled: enabled });
           setSettings(stored);
           controller.setSettings(stored);
-        }} scoringBasis={settings.scoringBasis} bonusTileRule={settings.bonusTileRule}
-          onBonusTileRuleChange={(rule) => {
-            const stored = persistSettings(settings, { bonusTileRule: rule });
-            setSettings(stored);
-            controller.setSettings(stored);
-          }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
-          onCalculator={() => setView('calculator')}
+        }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
           lastResult={history[0] ? history[0].winner === null ? 'Seri' : `${history[0].totalTay} Tay` : null} />
-      ) : view === 'table' ? (
+      ) : (
         <main className="table-felt">
           <OpponentPanel seat={pos.top} position="top" controller={controller} />
           <OpponentPanel seat={pos.left} position="left" controller={controller} />
@@ -222,10 +195,6 @@ export function App() {
               </button>
             )}
           </div>
-        </main>
-      ) : (
-        <main className="page">
-          <TayCalculator {...calculatorMatchProps(active)} />
         </main>
       )}
 
@@ -246,11 +215,7 @@ export function App() {
           onClose={() => setModal(null)}
         />
       )}
-      {modal === 'rulebook' && (
-        <Modal title="Rulebook & Kalkulator 44 Tay" variant="drawer" onClose={() => setModal(null)}>
-          <TayCalculator {...calculatorMatchProps(active)} />
-        </Modal>
-      )}
+
     </div>
   );
 }

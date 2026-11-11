@@ -1,156 +1,36 @@
-import { Calculator, LayoutGrid } from 'lucide-react';
-import { keyToTile } from '../../core/tiles';
-import type { BonusTileRule, ScoringBasis } from '../../core/types';
-import { BONUS_INK_CUE } from '../labels';
-import { TileView } from './TileView';
+import { ArrowRight } from 'lucide-react';
 
 export interface MainMenuProps {
   difficultyLabel: string;
   lastResult: string | null;
   onPractice: () => void;
-  onCalculator: () => void;
-  /** Pregame Kim choice; the control only renders when both props are supplied. */
   kimEnabled?: boolean;
   onKimChange?: (enabled: boolean) => void;
-  /** Scoring rules for the next practice match; the summary renders with the Kim choice when supplied. */
-  scoringBasis?: ScoringBasis;
-  bonusTileRule?: BonusTileRule;
-  onBonusTileRuleChange?: (rule: BonusTileRule) => void;
 }
 
-function tableLine(kimEnabled: boolean, basis: ScoringBasis): string {
-  if (basis === 'hand_kim_usage') {
-    return 'Kolom dipilih per hand menurut Kim di tangan pemenang (pembacaan lama, dari Pengaturan).';
-  }
-  return kimEnabled
-    ? 'Setiap Hu dihitung dengan tabel Ada Kim, juga hand yang tidak memegang Kim.'
-    : 'Setiap Hu dihitung dengan tabel Tanpa Kim.';
-}
-
-/** One teaching row of the tile legend: example tiles plus a plain-language reading. */
-const LEGEND: readonly { title: string; keys: readonly string[]; text: string }[] = [
-  { title: 'Tong (bulatan)', keys: ['1T', '5T', '9T'], text: 'Hitung bulatannya: jumlah bulatan = angka tile.' },
-  { title: 'Sok (bambu)', keys: ['1S', '4S', '8S'], text: 'Hitung batang bambunya. 1 Sok bergambar burung.' },
-  { title: 'Ban (karakter)', keys: ['1B', '5B', '9B'], text: 'Angka Tionghoa di atas 萬 merah; angka kecil di pojok membantu membaca.' },
-  { title: 'Angin', keys: ['WD', 'WN', 'WX', 'WB'], text: '東 Timur · 南 Selatan · 西 Barat · 北 Utara. Huruf pojok T/S/B/U menunjukkan arahnya.' },
-  { title: 'Naga', keys: ['DZ', 'DF', 'DP'], text: '中 Zhong merah, 發 Fat hijau, Pat = bingkai kosong (naga putih).' },
-  {
-    title: 'Bunga & Musim',
-    keys: ['M1', 'M2', 'F3', 'F4'],
-    text: `${BONUS_INK_CUE.season} (1 春 Semi, 2 夏 Panas, 3 秋 Gugur, 4 冬 Dingin). ${BONUS_INK_CUE.flower} (1 梅 Plum, 2 蘭 Anggrek, 3 竹 Bambu, 4 菊 Krisan). Angka 1–4 = posisi duduk (1 Timur, 2 Selatan, 3 Barat, 4 Utara): tile yang angkanya sama dengan posisi duduk dapat bonus posisi +1 Tay. Masing-masing ada satu tile per angka.`,
-  },
-];
-
-export function MainMenu({
-  difficultyLabel,
-  lastResult,
-  onPractice,
-  onCalculator,
-  kimEnabled,
-  onKimChange,
-  scoringBasis,
-  bonusTileRule,
-  onBonusTileRuleChange,
-}: MainMenuProps) {
-  const showKim = kimEnabled !== undefined && onKimChange !== undefined;
+export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, onKimChange }: MainMenuProps) {
   return (
     <main className="main-menu">
       <section className="menu-card" aria-label="Menu utama">
-        <p className="menu-eyebrow">Meja latihan</p>
-        <h2>Mahjong Tradisional Indonesia</h2>
-        <p>Latihan melawan tiga bot, aturan Bandung Mahjong Cup ver06. Anda duduk sebagai Timur.</p>
+        <p className="menu-eyebrow">Mahjong Tradisional Indonesia</p>
+        <h2>Waktunya bermain.</h2>
+        <p className="muted">Anda dan tiga lawan. Satu meja.</p>
         {lastResult !== null && <p className="menu-last">Terakhir: {lastResult}</p>}
-        {showKim && (
+        {kimEnabled !== undefined && onKimChange && (
           <fieldset className="menu-kim">
-            <legend>Kim untuk latihan berikutnya</legend>
+            <legend>Pilihan Kim</legend>
             <div className="segmented" role="group" aria-label="Pilihan Kim">
-              <button type="button" className={kimEnabled ? 'is-on' : ''} aria-pressed={kimEnabled} onClick={() => onKimChange(true)}>
-                Ada Kim
-              </button>
-              <button type="button" className={kimEnabled ? '' : 'is-on'} aria-pressed={!kimEnabled} onClick={() => onKimChange(false)}>
-                Tanpa Kim
-              </button>
+              <button type="button" className={kimEnabled ? 'is-on' : ''} aria-pressed={kimEnabled} onClick={() => onKimChange(true)}>Ada Kim</button>
+              <button type="button" className={kimEnabled ? '' : 'is-on'} aria-pressed={!kimEnabled} onClick={() => onKimChange(false)}>Tanpa Kim</button>
             </div>
-            <p className="muted small">
-              Mode Kim di sini adalah model lama: empat tile Kim tetap ikut di tembok dan berlaku sebagai joker. Penentuan Kim lewat
-              indikator lemparan dadu belum diterapkan karena prosedurnya masih menunggu konfirmasi.
-            </p>
-            {scoringBasis && bonusTileRule && (
-              <div className="menu-rules" aria-label="Ringkasan aturan">
-                <p className="small">
-                  <strong>Tabel:</strong> {tableLine(kimEnabled, scoringBasis)}
-                </p>
-                {onBonusTileRuleChange && (
-                  <div className="segmented" role="group" aria-label="Bunga dan Musim">
-                    <button
-                      type="button"
-                      className={bonusTileRule === 'own_seat_only' ? 'is-on' : ''}
-                      aria-pressed={bonusTileRule === 'own_seat_only'}
-                      onClick={() => onBonusTileRuleChange('own_seat_only')}
-                    >
-                      Bunga: posisi sendiri
-                    </button>
-                    <button
-                      type="button"
-                      className={bonusTileRule === 'rulebook_per_tile' ? 'is-on' : ''}
-                      aria-pressed={bonusTileRule === 'rulebook_per_tile'}
-                      onClick={() => onBonusTileRuleChange('rulebook_per_tile')}
-                    >
-                      Bunga: per tile (PDF)
-                    </button>
-                  </div>
-                )}
-                <p className="small">
-                  <strong>Bunga/Musim:</strong>{' '}
-                  {bonusTileRule === 'own_seat_only'
-                    ? 'hanya tile bernomor posisi Anda +1; tile posisi lain 0 (aturan rumah). Koleksi 4 Bunga, 4 Musim dan 7 tile tetap dihitung.'
-                    : 'Bunga 0 dan Musim 1 per tile, posisi sendiri +1 (nilai PDF).'}
-                </p>
-                <p className="muted small">Timur selalu dealer di latihan; giliran berjalan berlawanan arah jarum jam.</p>
-              </div>
-            )}
           </fieldset>
         )}
         <div className="menu-choices">
           <button type="button" className="btn btn-primary menu-choice" onClick={onPractice}>
-            <LayoutGrid size={24} aria-hidden="true" />
-            <strong>Latihan</strong>
-            <span>Tiga bot: {difficultyLabel}</span>
-          </button>
-          <button type="button" className="btn menu-choice" onClick={onCalculator}>
-            <Calculator size={24} aria-hidden="true" />
-            <strong>Kalkulator Tay</strong>
-            <span>Periksa pola dan hitung Tay</span>
+            <strong>Mulai bermain <ArrowRight size={20} aria-hidden="true" /></strong>
+            <span>Tiga bot · {difficultyLabel}</span>
           </button>
         </div>
-        <details className="tile-legend">
-          <summary>Cara membaca tile</summary>
-          <dl>
-            {LEGEND.map((row) => (
-              <div className="legend-row" key={row.title}>
-                <dt>{row.title}</dt>
-                <dd>
-                  <span className="legend-tiles">
-                    {row.keys.map((k) => (
-                      <TileView key={k} tile={keyToTile(k)} size="md" />
-                    ))}
-                  </span>
-                  <span className="legend-text">{row.text}</span>
-                </dd>
-              </div>
-            ))}
-            <div className="legend-row">
-              <dt>Kim</dt>
-              <dd>
-                <span className="legend-tiles">
-                  <TileView tile={keyToTile('KIM')} size="md" />
-                </span>
-                <span className="legend-text">Tile Kim berbingkai ungu putus-putus dengan bintang dan tulisan KIM.</span>
-              </dd>
-            </div>
-          </dl>
-        </details>
-        <p className="muted small">Tingkat kesulitan dapat diubah melalui Pengaturan.</p>
       </section>
     </main>
   );

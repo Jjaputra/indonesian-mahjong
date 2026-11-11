@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import App from '@/App';
+import { version as packageVersion } from '../../package.json';
 import { keyToTile } from '@/core/tiles';
 import { MemoryStorage, getPreset, saveGameRecord, loadGameHistory, type GameSettings } from '@/storage';
 import { ActionHud, CenterArea, HumanArea, OpponentPanel, seatPositions } from '@/ui/components/GameTable';
@@ -39,12 +40,19 @@ describe('UI render smoke tests', () => {
   it('App first renders the main menu without dealing', () => {
     const html = renderToString(createElement(App));
     expect(html).toContain('Mahjong Tradisional Indonesia');
-    expect(html).toContain('Kalkulator Tay');
-    expect(html).toContain('Latihan');
-    expect(html).toContain('Bandung Mahjong Cup ver06');
-    expect(html).toContain('Timur');
+    expect(html).toContain('Mulai bermain');
+    expect(html).toContain('Ada Kim');
+    expect(html).toContain('Tanpa Kim');
+    expect(html).not.toMatch(/Kalkulator|Rulebook|ver06|PDF|aturan rumah|model lama/);
     expect(html).not.toContain('Tembok');
     expect(html).not.toContain('Permainan Baru');
+  });
+
+  it('public header renders the package release version exactly once', () => {
+    const html = renderToString(createElement(App));
+    expect(html).toContain('v' + packageVersion);
+    expect(html.match(/class="release-version"/g)).toHaveLength(1);
+    expect(html).not.toContain('undefined');
   });
 
   it('deferred controller stays undealt until practice starts', () => {
@@ -75,7 +83,7 @@ describe('UI render smoke tests', () => {
     expect(html).toContain('Selatan');
     expect(html).toContain('Timur');
     expect(html).toContain(`<b>${c.getState().wall.remainingCount}</b>`);
-    expect(html).toContain('KIM aktif');
+    expect(html).toContain('Ada Kim');
     expect((html.match(/tile-lg/g) ?? []).length).toBe(c.getState().players.dong.hand.length);
   });
 
@@ -89,10 +97,11 @@ describe('UI render smoke tests', () => {
   it('Hu result modal shows receipt sections', () => {
     const c = finishedGame();
     const html = renderToString(createElement(HuResultModal, { outcome: c.outcome!, onClose: noop, onNewGame: noop }));
-    for (const label of ['Pemenang', 'Tile menang', 'Cara menang', 'Klasifikasi', 'Ada Kim', 'Tanpa Kim', 'Total Tay', 'Salin Struk', 'Rincian perhitungan']) {
+    for (const label of ['Pemenang', 'Tile menang', 'Cara menang', 'Klasifikasi', 'Total Tay', 'Salin Struk']) {
       expect(html).toContain(label);
     }
     expect(html).toContain('Memenuhi minimum Hu');
+    expect(html).not.toMatch(/aturan rumah|PDF|rulebook|candidateCount|Rincian perhitungan/);
   });
 
   it('Seri modal renders', () => {
@@ -109,12 +118,13 @@ describe('UI render smoke tests', () => {
     expect(html).toContain('Salin hasil');
   });
 
-  it('Settings modal renders every toggle; presets keep preferences', () => {
+  it('Settings modal exposes only preferences; maintainer presets keep preferences', () => {
     const s = settings({ aiDifficulty: 'hard', soundEnabled: true });
     const html = renderToString(createElement(SettingsModal, { settings: s, onSave: noop, onClose: noop }));
-    for (const label of ['Kim aktif', 'Kim boleh dibuang', 'Kim dalam Pung', 'Kim dalam Jia', 'Kim sebagai pasangan', 'Kim dalam Tris', 'Minimum Tay', 'Angin putaran', 'Dealer awal', 'Bunga/Musim', 'tumpang tindih', 'kesulitan AI', 'animasi', 'Suara', 'Turnamen', 'Kasual']) {
+    for (const label of ['kesulitan AI', 'animasi', 'Suara', 'Simpan']) {
       expect(html).toContain(label);
     }
+    expect(html).not.toMatch(/Kim aktif|Minimum Tay|Dealer awal|Bunga.Musim|PDF|Preset|Aturan rumah/);
     const casual = withPreset(s, 'casual');
     expect(casual.allowKimInMeldClaim).toBe(getPreset('casual').allowKimInMeldClaim);
     expect(casual.aiDifficulty).toBe('hard');

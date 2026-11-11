@@ -9,10 +9,9 @@ import { describe, expect, it } from 'vitest';
 import { createCompleteTileSet, getTileIndonesianLabel, getTileUnicode, keyToTile, parseTileHand } from '@/core/tiles';
 import type { BonusTileRule, GameRules, Seat, Tile } from '@/core/types';
 import { scoringEngine, type ScoringResult } from '@/scoring';
-import { BONUS_INK_CUE, getTileFace, tileAccessibleLabel } from '@/ui/labels';
+import { getTileFace, tileAccessibleLabel } from '@/ui/labels';
 import { TileArt } from '@/ui/components/TileArt';
 import { TileView } from '@/ui/components/TileView';
-import { MainMenu } from '@/ui/components/MainMenu';
 import { OpponentPanel } from '@/ui/components/GameTable';
 import { TayCalculator } from '@/ui/components/TayCalculator';
 import { GameController } from '@/ui/game-controller';
@@ -109,15 +108,13 @@ describe('bonus tile names, order and hints', () => {
     expect(set.filter((t) => t.type === 'season').map((t) => t.id).sort()).toEqual(['season-1-1', 'season-2-1', 'season-3-1', 'season-4-1']);
   });
 
-  it('menu legend teaches Musim = bunga biru and Bunga = bunga merah with the bonus posisi +1', () => {
-    const noop = () => undefined;
-    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sedang', lastResult: null, onPractice: noop, onCalculator: noop, kimEnabled: true, onKimChange: noop }));
-    expect(html).toContain('Musim = bunga biru: angka &amp; huruf biru (1 春 Semi, 2 夏 Panas, 3 秋 Gugur, 4 冬 Dingin)');
-    expect(html).toContain('Bunga = bunga merah: angka &amp; huruf merah (1 梅 Plum, 2 蘭 Anggrek, 3 竹 Bambu, 4 菊 Krisan)');
-    expect(html).toContain('bonus posisi +1 Tay');
-    expect(html).toContain('aria-label="Musim 1, bunga biru 春 Semi, angka &amp; huruf biru"');
-    expect(html).toContain('aria-label="Bunga 4, bunga merah 菊 Krisan, angka &amp; huruf merah"');
-    expect(html).not.toMatch(/kembang merah|hitam\/biru|biru tua/);
+  it('public bonus tiles retain readable artwork and accessible names', () => {
+    const season = view('M1', 'sm');
+    const flower = view('F4', 'sm');
+    expect(season).toContain('aria-label="Musim 1, bunga biru 春 Semi, angka &amp; huruf biru"');
+    expect(flower).toContain('aria-label="Bunga 4, bunga merah 菊 Krisan, angka &amp; huruf merah"');
+    expect(numberInk(season, 1)).toBe(BLUE);
+    expect(numberInk(flower, 4)).toBe(RED);
   });
 
   it('calculator keeps the rulebook wording but adds the tile-sheet ink beside it', () => {
@@ -126,7 +123,7 @@ describe('bonus tile names, order and hints', () => {
     expect(html).toContain('Kembang merah (sesuai posisi duduk +1) (istilah rulebook; di tile: Musim = bunga biru: angka &amp; huruf biru)');
   });
 
-  it('table bonus rack names the ink of the families it holds and the seat bonus', () => {
+  it('table bonus rack keeps tiles and own seat number without instructional paragraphs', () => {
     const c = new GameController({ settings: { ...getPreset('tournament'), soundEnabled: false }, seed: 11, saveHistory: false });
     const real = c.getState();
     const withRack = (flowers: Tile[]) => {
@@ -135,8 +132,11 @@ describe('bonus tile names, order and hints', () => {
       return renderToStaticMarkup(createElement(OpponentPanel, { seat: 'nan', position: 'right', controller: stub }));
     };
     const both = withRack([keyToTile('M2'), keyToTile('F3')]);
-    expect(both).toContain(`<small>${BONUS_INK_CUE.season.replace('&', '&amp;')} · ${BONUS_INK_CUE.flower.replace('&', '&amp;')} · Ada nomor sesuai posisi duduk (bonus posisi +1)</small>`);
-    expect(withRack([keyToTile('F1')])).toContain(`<small>${BONUS_INK_CUE.flower.replace('&', '&amp;')}</small>`);
+    expect(both).toContain('<small>Nomor sendiri: 2</small>');
+    expect(both).toContain('aria-label="Musim 2,');
+    expect(both).toContain('aria-label="Bunga 3,');
+    expect(both).not.toContain('bonus posisi +1');
+    expect(withRack([keyToTile('F1')])).toContain('<small>Nomor sendiri: 2</small>');
     expect(withRack([])).toContain('Belum ada Bunga / Musim</span>');
   });
 });

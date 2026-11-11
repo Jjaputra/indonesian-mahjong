@@ -32,11 +32,7 @@ export function PlayProgress({ controller, paused, blocked, pace, onPaceChange, 
       <span role="status">{finished ? 'Permainan selesai' : controller.isPresenting ? 'Transisi meja · aksi berikutnya setelah tile selesai' : blocked ? 'Bot dijeda selama dialog terbuka' : waiting
         ? `Menunggu pilihan Anda${paused ? ' · bot dijeda' : ''}` : paused ? 'Bot dijeda · gunakan satu langkah atau lanjutkan' : 'Bot berjalan otomatis'}</span>
     </div>
-    <p className="turn-order" aria-label="Urutan giliran berlawanan arah jarum jam">
-      Berlawanan arah jarum jam: {(['dong', 'nan', 'xi', 'bei'] as const).map((seat, i) =>
-        <span key={seat}>{i > 0 && ' → '}<strong aria-current={state.currentTurn === seat ? 'step' : undefined}>{SEAT_SHORT[seat]}</strong></span>)} → Timur
-    </p>
-    <p>{SEAT_SHORT[state.currentTurn]} · {PHASE[state.phase] ?? (finished ? 'Selesai' : 'Persiapan meja')} · Buangan ke-{controller.discardCount} · Sisa tembok {state.wall.remainingCount}/{controller.initialWallCount}</p>
+    <p>{SEAT_SHORT[state.currentTurn]} · {PHASE[state.phase] ?? (finished ? 'Selesai' : 'Persiapan meja')} · Buangan ke-{controller.discardCount}</p>
     <progress aria-label="Sisa tile tembok sejak pembagian" value={state.wall.remainingCount} max={Math.max(controller.initialWallCount, 1)} />
     {controller.botExplanation && <p className="bot-explanation"><strong>Keputusan bot terakhir:</strong> {controller.botExplanation}</p>}
   </div>;

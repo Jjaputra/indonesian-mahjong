@@ -57,3 +57,7 @@ Open the address Vite prints (port 3000). `npm test` runs the suite. `npm run bu
 ## What this is not
 
 This is a casual practice table for the ver06 rulebook. It is not an official Bandung Mahjong Cup product, and it does not play online against other people. Two browsers do not share a game or a history.
+
+## Release version
+
+The single release version source is package.json. The public header imports its typed version through src/ui/release.ts; Vite resolves it in production and Vitest uses the same value. Keep the root and root-package versions in package-lock.json synchronized when releasing.

@@ -177,32 +177,29 @@ describe('Round 2 · results and history explain the column vs actual Kim usage'
     expect(bad).not.toHaveProperty('tableColumn');
     expect(bad).not.toHaveProperty('handKimCount');
     const html = renderToStaticMarkup(createElement(HistoryModal, { history: [fresh!, legacy!], onDelete: noop, onClear: noop, onClose: noop }));
-    expect(html).toContain('Tabel Ada Kim · 0 Kim di tangan');
+    expect(html).toContain('Ada Kim');
     expect(html).toContain('Tanpa Kim');
   });
 });
 
-describe('Round 2 · user-facing controls state the active rules', () => {
-  it('main menu summarises the table and flower rule only alongside the Kim choice', () => {
-    const props = { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, onCalculator: noop, kimEnabled: true, onKimChange: noop, scoringBasis: 'match_table' as const, bonusTileRule: 'own_seat_only' as const, onBonusTileRuleChange: noop };
-    const html = renderToStaticMarkup(createElement(MainMenu, props));
-    expect(html).toContain('Setiap Hu dihitung dengan tabel Ada Kim, juga hand yang tidak memegang Kim.');
-    expect(html).toContain('hanya tile bernomor posisi Anda +1; tile posisi lain 0 (aturan rumah)');
-    expect(html).toContain('Timur selalu dealer');
-    expect(html).toMatch(/aria-pressed="true">Bunga: posisi sendiri<\/button>/);
-    const off = renderToStaticMarkup(createElement(MainMenu, { ...props, kimEnabled: false, bonusTileRule: 'rulebook_per_tile' }));
-    expect(off).toContain('Setiap Hu dihitung dengan tabel Tanpa Kim.');
-    expect(off).toContain('Bunga 0 dan Musim 1 per tile');
-    const legacy = renderToStaticMarkup(createElement(MainMenu, { ...props, scoringBasis: 'hand_kim_usage' }));
-    expect(legacy).toContain('menurut Kim di tangan pemenang');
+describe('Public preferences preserve advanced scoring configuration', () => {
+  it('pregame offers only the Kim choice and game start', () => {
+    const html = renderToStaticMarkup(createElement(MainMenu, {
+      difficultyLabel: 'Normal', lastResult: null, onPractice: noop,
+      kimEnabled: true, onKimChange: noop,
+    }));
+    expect(html).toContain('Ada Kim');
+    expect(html).toContain('Tanpa Kim');
+    expect(html).not.toMatch(/PDF|aturan rumah|Bunga:|dealer|Tabel:/);
   });
 
-  it('settings label the PDF reference and the house rules separately and expose both controls', () => {
-    const html = renderToStaticMarkup(createElement(SettingsModal, { settings: { ...HOUSE_SETTINGS }, onSave: noop, onClose: noop }));
-    expect(html).toContain('Referensi PDF Turnamen (BMC ver06)');
-    expect(html).toContain('Aturan rumah (catatan Anda)');
-    expect(html).toContain('Kolom tabel (Ada Kim / Tanpa Kim)');
-    expect(html).toContain('Bunga/Musim individual');
-    expect(html).toMatch(/aria-checked="true"[^>]*>Aturan rumah/);
+  it('settings render compact preferences without mutating the full configuration', () => {
+    const settings = Object.freeze({ ...HOUSE_SETTINGS, minHuTay: 12, scoringBasis: 'hand_kim_usage' as const });
+    const before = { ...settings };
+    const html = renderToStaticMarkup(createElement(SettingsModal, { settings, onSave: noop, onClose: noop }));
+    expect(html).toContain('Simpan');
+    expect(html).toContain('Suara');
+    expect(html).not.toMatch(/PDF|Aturan rumah|Kolom tabel|Bunga.Musim individual|Minimum Tay/);
+    expect(settings).toEqual(before);
   });
 });

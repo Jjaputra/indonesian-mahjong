@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { computeHistoryStats, concealedHistoryTiles, type MatchHistoryRecord } from '../../storage';
 import { PLAYER_NAME, SEAT_SHORT, WIN_METHOD_LABEL } from '../labels';
-import { BONUS_TILE_RULE_LABEL, historyColumnLabel } from '../tay-calculator';
+import { modeLabel } from '../tay-calculator';
 import { Modal } from './Modal';
 import { MeldView, TileRow, TileView } from './TileView';
 
@@ -48,7 +48,6 @@ export function HistoryDetail({ record, onDelete }: { record: MatchHistoryRecord
           </tbody>
         </table>
       )}
-      {record.bonusTileRule && <p className="muted small">{BONUS_TILE_RULE_LABEL[record.bonusTileRule]}</p>}
       <p className="muted small">Durasi: {record.durationSeconds} detik</p>
       <button type="button" className="btn btn-danger" onClick={() => onDelete(record.id)}>
         <Trash2 size={14} /> Hapus
@@ -103,7 +102,7 @@ export function HistoryModal({ history, onDelete, onClear, onClose }: HistoryMod
                 <span className="muted">{formatDate(r.timestamp)}</span>
                 <strong>{r.winner ? `${PLAYER_NAME[r.winner]} Hu` : 'Seri'}</strong>
                 <span>{WIN_METHOD_LABEL[r.winMethod].split(' (')[0]}</span>
-                {r.winner && <span className="badge badge-kim">{historyColumnLabel(r)}</span>}
+                {r.winner && <span className="badge badge-kim">{modeLabel(r.tableColumn ?? (r.isWithKim ? 'K' : 'NK'))}</span>}
                 <span className="num">{`${r.totalTay} Tay`}</span>
               </button>
               {open && <HistoryDetail record={r} onDelete={onDelete} />}

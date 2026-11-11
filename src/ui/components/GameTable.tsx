@@ -5,7 +5,7 @@ import { sortTiles } from '../../core/tiles';
 import type { Seat, Tile } from '../../core/types';
 import { isKim } from '../../kim/wildcard-solver';
 import type { GameController, HumanActions } from '../game-controller';
-import { BONUS_INK_CUE, PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIND_GLYPH, tileText } from '../labels';
+import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIND_GLYPH, tileText } from '../labels';
 import { practiceCoachLine, type CoachEmphasis } from '../practice-coach';
 import { handReadingLine } from '../hand-reading';
 import { isFirstGoAround, isInitialDealtHand, toFullRules, toScoringOverlap } from '../win-context';
@@ -42,8 +42,8 @@ function WindBadges({ seat, controller }: { seat: Seat; controller: GameControll
 
 function FlowerRack({ tiles, seat }: { tiles: readonly Tile[]; seat: Seat }) {
   if (!tiles.length) return <span className="rack-empty">Belum ada Bunga / Musim</span>;
-  const cues = [tiles.some(t => t.type === 'season') && BONUS_INK_CUE.season, tiles.some(t => t.type === 'flower') && BONUS_INK_CUE.flower].filter(Boolean).join(' · ');
-  return <span className="bonus-rack"><TileRow tiles={tiles} size="sm" /><small>{cues}{tiles.some(t => t.value === ['dong', 'nan', 'xi', 'bei'].indexOf(seat) + 1) ? ' · Ada nomor sesuai posisi duduk (bonus posisi +1)' : ''}</small></span>;
+  const ownNumber = ['dong', 'nan', 'xi', 'bei'].indexOf(seat) + 1;
+  return <span className="bonus-rack"><TileRow tiles={tiles} size="sm" /><small>Nomor sendiri: {ownNumber}</small></span>;
 }
 
 export function OpponentPanel({ seat, position, controller }: { seat: Seat; position: string; controller: GameController }) {
@@ -98,7 +98,7 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
           Giliran: <b>{PLAYER_NAME[s.currentTurn]}</b>
         </span>
         <span className={`stat kim-indicator${settings.kimEnabled ? '' : ' off'}`} title="Status Kim">
-          <Sparkles size={14} /> {`KIM ${settings.kimEnabled ? (settings.kimDiscardAllowed ? 'aktif · boleh dibuang' : 'aktif · tidak boleh dibuang') : 'nonaktif'}`}
+          <Sparkles size={14} /> {settings.kimEnabled ? "Ada Kim" : "Tanpa Kim"}
         </span>
       </div>
       {pending && (

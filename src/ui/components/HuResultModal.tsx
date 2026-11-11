@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { Check, ChevronDown, ChevronRight, Copy, RotateCcw } from 'lucide-react';
-import { PATTERNS, tableTay } from '../../scoring';
+import { Check, Copy, RotateCcw } from 'lucide-react';
 import type { GameOutcome } from '../game-controller';
-import { PLAYER_NAME, SEAT_LABEL, WIN_METHOD_LABEL, tileText } from '../labels';
-import { BONUS_TILE_RULE_LABEL, buildHuReceipt, classifyHand, formatTay, modeLabel, scoringColumnSummary } from '../tay-calculator';
+import { PLAYER_NAME, SEAT_LABEL, WIN_METHOD_LABEL } from '../labels';
+import { classifyHand, modeLabel } from '../tay-calculator';
 import { Modal } from './Modal';
 import { MeldView, TileRow, TileView } from './TileView';
 
@@ -23,7 +22,6 @@ interface HuResultModalProps {
 }
 
 export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProps) {
-  const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const footer = (
@@ -33,7 +31,12 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
           type="button"
           className="btn"
           onClick={async () => {
-            setCopied(await copyText(buildHuReceipt(outcome)));
+            setCopied(await copyText([
+              'Pemenang: ' + PLAYER_NAME[outcome.winner],
+              modeLabel(outcome.scoring.mode),
+              ...outcome.scoring.patterns.map(p => p.name + ': ' + p.tay + ' Tay'),
+              'Total Tay: ' + outcome.scoring.totalTay,
+            ].join('\n')));
           }}
         >
           {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Struk disalin' : 'Salin Struk'}
@@ -78,10 +81,8 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
           <dt>Tabel</dt>
           <dd>
             <span className={`badge ${r.mode === 'K' ? 'badge-kim' : 'badge-seat'}`}>{modeLabel(r.mode)}</span>{' '}
-            <span className="muted small">{scoringColumnSummary(r)}</span>
+
           </dd>
-          <dt>Bunga/Musim</dt>
-          <dd className="muted small">{BONUS_TILE_RULE_LABEL[r.bonusTileRule]}</dd>
         </dl>
 
         <div className="receipt-hand">
@@ -101,23 +102,17 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
             <tr>
               <th>#</th>
               <th>Pola</th>
-              <th className={r.mode === 'K' ? 'col-active' : ''}>Ada Kim</th>
-              <th className={r.mode === 'NK' ? 'col-active' : ''}>Tanpa Kim</th>
               <th>Tay</th>
             </tr>
           </thead>
           <tbody>
             {r.patterns.map((p) => {
-              const def = PATTERNS.get(p.id);
               return (
                 <tr key={p.id}>
                   <td>{p.id}</td>
                   <td>
                     <strong>{p.name}</strong>
-                    <div className="muted small">{p.description}</div>
                   </td>
-                  <td className={r.mode === 'K' ? 'col-active' : ''}>{formatTay(def ? tableTay(p.id, 'K', r.scoringBasis) : null)}</td>
-                  <td className={r.mode === 'NK' ? 'col-active' : ''}>{formatTay(def ? tableTay(p.id, 'NK', r.scoringBasis) : null)}</td>
                   <td className="num">{p.tay}</td>
                 </tr>
               );
@@ -125,42 +120,17 @@ export function HuResultModal({ outcome, onClose, onNewGame }: HuResultModalProp
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={4}>Total Tay</td>
+              <td colSpan={2}>Total Tay</td>
               <td className="num total">{r.totalTay}</td>
             </tr>
           </tfoot>
         </table>
 
-        {r.notes.map((note) => (
-          <p key={note} className="muted small">
-            {note}
-          </p>
-        ))}
         <p className={`status-line ${valid ? 'ok' : 'bad'}`}>
           {valid ? `✓ Memenuhi minimum Hu: ${r.totalTay} ≥ ${r.minHuTay} Tay` : `✗ ${r.rejectionReason ?? `Kurang dari ${r.minHuTay} Tay`}`}
         </p>
 
-        <button type="button" className="link-btn" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Rincian perhitungan
-        </button>
-        {expanded && (
-          <div className="breakdown">
-            <p>
-              Pola diperiksa terhadap {r.candidateCount} kemungkinan susunan Kim; dipilih susunan dengan Tay total tertinggi
-              {r.decomposition ? ` (bentuk: ${r.decomposition.shape}, Kim: ${r.decomposition.totalKims})` : ''}.
-            </p>
-            {r.decomposition?.wildcardAssignments.length ? (
-              <ul>
-                {r.decomposition.wildcardAssignments.map((w, i) => (
-                  <li key={i}>
-                    KIM → {tileText(w.representedTile)} (peran: {w.role})
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <pre className="receipt-text">{buildHuReceipt(outcome)}</pre>
-          </div>
-        )}
+
       </div>
     </Modal>
   );

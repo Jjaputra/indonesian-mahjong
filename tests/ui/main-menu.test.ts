@@ -11,21 +11,16 @@ function renderMenu(lastResult: string | null = null) {
     difficultyLabel: 'Sulit',
     lastResult,
     onPractice: noop,
-    onCalculator: noop,
   }));
 }
 
 describe('MainMenu', () => {
-  it('renders the title, both choices, difficulty and Indonesian guidance', () => {
+  it('renders a focused game start with current difficulty', () => {
     const html = renderMenu();
     expect(html).toContain('aria-label="Menu utama"');
-    expect(html).toContain('>Mahjong Tradisional Indonesia</h2>');
-    expect(html).toContain('Latihan melawan tiga bot, aturan Bandung Mahjong Cup ver06. Anda duduk sebagai Timur.');
-    expect(html).toContain('>Latihan</strong>');
-    expect(html).toContain('>Tiga bot: Sulit</span>');
-    expect(html).toContain('>Kalkulator Tay</strong>');
-    expect(html).toContain('>Periksa pola dan hitung Tay</span>');
-    expect(html).toContain('Tingkat kesulitan dapat diubah melalui Pengaturan.');
+    expect(html).toContain('Mulai bermain');
+    expect(html).toContain('Tiga bot · Sulit');
+    expect(html).not.toMatch(/Rulebook|Kalkulator|PDF|ver06|tile-legend|aturan rumah/);
   });
 
   it('renders the supplied last result on its own line', () => {
@@ -47,32 +42,21 @@ describe('MainMenu', () => {
 
   it('omits the Kim choice unless both kimEnabled and onKimChange are supplied', () => {
     expect(renderMenu()).not.toContain('Ada Kim');
-    const partial = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, onCalculator: noop, kimEnabled: true }));
+    const partial = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: true }));
     expect(partial).not.toContain('Ada Kim');
   });
 
-  it('renders the pregame Ada Kim / Tanpa Kim choice with honest legacy-model wording', () => {
-    const on = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, onCalculator: noop, kimEnabled: true, onKimChange: noop }));
+  it('renders the pregame Ada Kim / Tanpa Kim choice without development explanations', () => {
+    const on = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: true, onKimChange: noop }));
     expect(on).toMatch(/aria-pressed="true">Ada Kim<\/button>/);
     expect(on).toMatch(/aria-pressed="false">Tanpa Kim<\/button>/);
-    expect(on).toContain('model lama');
-    expect(on).toContain('belum diterapkan');
-    expect(on).toContain('menunggu konfirmasi');
-    const off = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, onCalculator: noop, kimEnabled: false, onKimChange: noop }));
+    expect(on).not.toMatch(/model lama|belum diterapkan|menunggu konfirmasi/);
+    const off = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: false, onKimChange: noop }));
     expect(off).toMatch(/aria-pressed="false">Ada Kim<\/button>/);
     expect(off).toMatch(/aria-pressed="true">Tanpa Kim<\/button>/);
   });
 
-  it('includes a collapsible tile legend covering suits, honours, bonus positions and Kim', () => {
-    const html = renderMenu();
-    expect(html).toContain('<details class="tile-legend">');
-    for (const text of ['Tong (bulatan)', 'Sok (bambu)', 'Ban (karakter)', 'Angin', 'Naga', 'Bunga &amp; Musim', '1 Timur, 2 Selatan, 3 Barat, 4 Utara', 'Kim']) {
-      expect(html).toContain(text);
-    }
-    expect(html).toContain('aria-label="Musim 1, bunga biru 春 Semi, angka &amp; huruf biru"');
-    expect(html).toContain('aria-label="Bunga 4, bunga merah 菊 Krisan, angka &amp; huruf merah"');
-    expect(html).toContain('class="tile-art art-white"');
-  });
+
 });
 
 describe('AbandonMatchDialog', () => {
