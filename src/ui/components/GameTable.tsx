@@ -78,19 +78,67 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
   );
 }
 
+/** Stacks of the remaining wall, dealt around the four sides of the square inside the table. */
+function WallRing({ remaining }: { remaining: number }) {
+  const stacks = Math.ceil(remaining / 2);
+  const sides = (['bottom', 'right', 'top', 'left'] as const).map((side, i) => ({ side, count: Math.floor(stacks / 4) + (i < stacks % 4 ? 1 : 0) }));
+  return (
+    <div data-wall-anchor className="wall-ring" aria-hidden="true">
+      {sides.map(({ side, count }) => (
+        <span key={side} className={`wall-side wall-${side}`}>
+          {Array.from({ length: Math.min(count, 18) }, (_, i) => <span key={i} className="wall-stack" />)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function CenterArea({ controller, progress }: { controller: GameController; progress?: ReactNode }) {
   const s = controller.getState();
   const settings = controller.getSettings();
   const pending = s.discardPending;
   const trail = controller.discardTrail;
-  const source = (seat: Seat) => Object.entries(seatPositions(controller.humanSeat)).find(([, s]) => s === seat)?.[0];
+  const positions = seatPositions(controller.humanSeat);
+  const source = (seat: Seat) => Object.entries(positions).find(([, s]) => s === seat)?.[0];
   const freshId = controller.lastDiscard?.tile.id;
+  const won = controller.outcome?.kind === 'hu' ? controller.outcome : null;
   return (
+    <>
     <section className="center-area" aria-label="Area buangan">
+      <div className="board-plane">
+        <WallRing remaining={s.wall.remainingCount} />
+        {(Object.entries(positions) as ['bottom' | 'right' | 'top' | 'left', Seat][]).map(([position, seat]) => {
+          const wind = seatWindOf(s, seat);
+          return (
+            <span key={position} className={`felt-wind felt-${position}${s.currentTurn === seat ? ' is-turn' : ''}`} aria-hidden="true">
+              {SEAT_SHORT[wind]} <b>{WIND_GLYPH[wind]}</b>{s.dealerSeat === seat && <small> · Dealer</small>}
+            </span>
+          );
+        })}
+        <div className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
+          {trail.length === 0 && !pending && <span className="muted">Belum ada buangan.</span>}
+          {trail.map((d, i) => (
+            <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d.tile.id === freshId ? ' is-fresh' : ''}`} data-from={source(d.seat)} data-seat={d.seat} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
+              <TileView tile={d.tile} size="sm" highlight={d.tile.id === freshId} />
+            </span>
+          ))}
+        </div>
+      </div>
+      {pending && (
+        <div key={pending.tile.id} className="pending-discard" data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${PLAYER_NAME[pending.discarder]} ke area buangan tengah`}>
+          <span>
+            {pending.isPromotedKong ? 'Kakan oleh' : 'Buangan'} {PLAYER_NAME[pending.discarder]}:
+          </span>
+          <TileView tile={pending.tile} size="lg" highlight={freshId === pending.tile.id} />
+        </div>
+      )}
+      {won && <p className={`hu-burst${won.scoring.isValidHu ? '' : ' is-lew-fit'}`} role="status">{won.scoring.isValidHu ? 'HU' : 'LEW FIT'}<small>{PLAYER_NAME[won.winner]}</small></p>}
+    </section>
+    <aside className="table-hud" aria-label="Info meja">
       <TableMotion controller={controller} />
       {progress}
       <div className="center-stats">
-        <span data-wall-anchor className="stat" title="Sisa tile di tembok">
+        <span className="stat" title="Sisa tile di tembok">
           <Layers size={14} /> Tembok: <b>{s.wall.remainingCount}</b>
         </span>
         <span className="stat" title="Angin putaran">
@@ -103,29 +151,14 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
           <Sparkles size={14} /> {settings.kimEnabled ? "Ada Kim" : "Tanpa Kim"}
         </span>
       </div>
-      {pending && (
-        <div key={pending.tile.id} className="pending-discard" data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${PLAYER_NAME[pending.discarder]} ke area buangan tengah`}>
-          <span>
-            {pending.isPromotedKong ? 'Kakan oleh' : 'Buangan'} {PLAYER_NAME[pending.discarder]}:
-          </span>
-          <TileView tile={pending.tile} size="lg" highlight={freshId === pending.tile.id} />
-        </div>
-      )}
-      <div className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
-        {trail.length === 0 && !pending && <span className="muted">Belum ada buangan.</span>}
-        {trail.map((d, i) => (
-          <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d.tile.id === freshId ? ' is-fresh' : ''}`} data-from={source(d.seat)} data-seat={d.seat} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
-            <TileView tile={d.tile} size="sm" highlight={d.tile.id === freshId} />
-          </span>
-        ))}
-      </div>
       <details className="activity-history" open><summary>Aktivitas terbaru</summary>
       <ol className="game-log" aria-label="Log permainan" start={Math.max(1, controller.log.length - 11)}>
         {controller.log.slice(-12).map((l) => (
           <li key={l.id}>{l.text}</li>
         ))}
       </ol></details>
-    </section>
+    </aside>
+    </>
   );
 }
 
@@ -195,16 +228,18 @@ interface HudButtonProps {
   coached?: boolean;
   enabled: boolean;
   onClick: () => void;
-  tone?: 'primary' | 'gold' | 'danger' | 'plain';
+  tone?: 'primary' | 'gold' | 'danger' | 'call' | 'plain';
   icon?: ReactNode;
   title?: string;
+  /** Tiles the call would expose, previewed beside the label */
+  tiles?: readonly Tile[];
 }
 
-function HudButton({ label, enabled, onClick, tone = 'plain', icon, title, coached }: HudButtonProps) {
+function HudButton({ label, enabled, onClick, tone = 'plain', icon, title, coached, tiles }: HudButtonProps) {
   return (
-    <button type="button" className={`hud-btn hud-${tone}${coached ? ' is-coached' : ''}`} disabled={!enabled} onClick={onClick} title={title}>
-      {icon}
-      {label}
+    <button type="button" className={`hud-btn hud-${tone}${coached ? ' is-coached' : ''}${tiles ? ' has-preview' : ''}`} disabled={!enabled} onClick={onClick} title={title}>
+      <span className="hud-label">{icon}{label}</span>
+      {tiles && <span className="hud-preview" aria-hidden="true">{tiles.map((t, i) => <TileView key={`${t.id}-${i}`} tile={t} size="sm" />)}</span>}
     </button>
   );
 }
@@ -276,14 +311,16 @@ export function ActionHud({
             <HudButton
               key={i}
               coached={coached('jia')} label={`Jia ${sortTiles([...opt, claim.tile]).map((t) => t.value).join('-')}`}
+              tone="call"
+              tiles={sortTiles([...opt, claim.tile])}
               enabled
               onClick={() => controller.humanClaim('jia', i)}
             />
           ))
         : null}
-      {claim?.canPung && <HudButton coached={coached('pung')} label="Pung" enabled onClick={() => controller.humanClaim('pung')} />}
+      {claim?.canPung && <HudButton coached={coached('pung')} label="Pung" tone="call" tiles={[claim.tile, claim.tile, claim.tile]} enabled onClick={() => controller.humanClaim('pung')} />}
       {claim ? (
-        claim.canKong && <HudButton coached={coached('kong')} label="Kong" enabled onClick={() => controller.humanClaim('kong')} />
+        claim.canKong && <HudButton coached={coached('kong')} label="Kong" tone="call" tiles={[claim.tile, claim.tile, claim.tile, claim.tile]} enabled onClick={() => controller.humanClaim('kong')} />
       ) : (
         <>
           {actions.ankongOptions.length > 0 ? (

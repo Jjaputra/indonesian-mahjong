@@ -18,7 +18,7 @@ import { AbandonMatchDialog } from './ui/components/AbandonMatchDialog';
 import { GameController, type GameEventType } from './ui/game-controller';
 import { PlayProgress } from './ui/components/PlayProgress';
 import { MatchResultNote, MatchStandingsModal } from './ui/components/MatchBoard';
-import { loadMatchLength, saveMatchLength, loadDealerWinRule, saveDealerWinRule, type MatchLength, type DealerWinRule } from './ui/match';
+import { loadMatchLength, saveMatchLength, loadDealerWinRule, saveDealerWinRule, loadMatchTimeLimit, saveMatchTimeLimit, watchMatchClock, type MatchTimeLimit, type MatchLength, type DealerWinRule } from './ui/match';
 import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsForPace, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
 import { DIFFICULTY_LABEL, tileText } from './ui/labels';
 import { releaseVersion } from './ui/release';
@@ -49,7 +49,10 @@ function persistSettings(current: GameSettings, patch: Partial<GameSettings>): G
 
 function useGameController(initial: GameSettings): GameController {
   const ref = useRef<GameController | null>(null);
-  if (!ref.current) ref.current = new GameController({ settings: initial, autoStart: false });
+  // Dev screenshot hook (?demo=…) seeds the deal; production builds never read the URL here.
+  const demo = import.meta.env.DEV && typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const seed = demo?.has('demo') ? Number(demo.get('seed') ?? 7) || 7 : undefined;
+  if (!ref.current) ref.current = new GameController({ settings: initial, autoStart: false, seed });
   return ref.current;
 }
 
@@ -73,6 +76,7 @@ export function App() {
   const [standingsOpen, setStandingsOpen] = useState(false);
   const [matchLength, setMatchLength] = useState<MatchLength>(loadMatchLength);
   const [dealerWinRule, setDealerWinRule] = useState<DealerWinRule>(loadDealerWinRule);
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState<MatchTimeLimit>(loadMatchTimeLimit);
   const [history, setHistory] = useState(() => loadGameHistory());
 
   // Sound effects follow the live "Suara" setting.
@@ -92,6 +96,9 @@ export function App() {
   useEffect(() => scheduleAutomation(controller, practiceDelay(pace),
     view !== 'table' || !matchStarted || paused || automationBlocked),
     [controller, version, pace, view, matchStarted, paused, automationBlocked]);
+
+  // Match time is independent of bot pauses, dialogs and tab visibility.
+  useEffect(() => matchStarted ? watchMatchClock(controller) : undefined, [controller, matchStarted]);
 
   const outcome = controller.outcome;
   useEffect(() => {
@@ -119,16 +126,14 @@ export function App() {
     setSelectedId(null);
     setPaused(false);
     controller.setSettings({ ...settings, startingSeatWind: 'dong' });
-    controller.startMatch(matchLength, dealerWinRule);
+    controller.startMatch(matchLength, dealerWinRule, timeLimitMinutes);
     setMatchStarted(true);
     setView('table');
   };
 
   // Continuous match: the next hand keeps the bot pause choice and the match's Kim mode.
   const nextHand = () => {
-    setResultOpen(false);
-    setSelectedId(null);
-    controller.nextHand();
+    if (controller.nextHand()) { setResultOpen(false); setSelectedId(null); }
   };
   const openStandings = () => {
     setResultOpen(false);
@@ -172,6 +177,20 @@ export function App() {
     controller.setSettings(stored);
   };
 
+  // Dev-only: `?demo=table|claim|hu` opens a seeded table state for reproducible screenshots.
+  const demoStarted = useRef(false);
+  useEffect(() => {
+    if (!import.meta.env.DEV || demoStarted.current) return;
+    demoStarted.current = true;
+    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo }) => {
+      const demo = demoFromUrl(window.location.search);
+      if (!demo) return;
+      startPractice();
+      setPaused(true);
+      driveDemo(controller, demo.mode);
+    });
+  }, []);
+
   const pos = seatPositions(controller.humanSeat);
   return (
     <div className="app">
@@ -213,6 +232,7 @@ export function App() {
           setSettings(stored);
           controller.setSettings(stored);
         }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
+          timeLimitMinutes={timeLimitMinutes} onTimeLimitChange={limit => { setTimeLimitMinutes(limit); saveMatchTimeLimit(limit); }}
           dealerWinRule={dealerWinRule} onDealerWinRuleChange={rule => { setDealerWinRule(rule); saveDealerWinRule(rule); }}
           matchLength={matchLength} onMatchLengthChange={(length) => { setMatchLength(length); saveMatchLength(length); }}
           lastResult={history[0] ? history[0].winner === null ? 'Seri' : `${history[0].totalTay} Tay` : null} />

@@ -89,12 +89,12 @@ export function TableMotion({ controller }: { controller: GameController }) {
   const active = flight?.serial === serial ? flight : null;
   const state = controller.getState();
   const actor = PLAYER_NAME[state.currentTurn];
-  const cue = active ? `${PLAYER_NAME[active.motion.seat]} Â· ${active.motion.kind === 'draw'
-    ? moving ? 'mengambil tile dari tembok' : 'mengambil tile dari tembok Â· tiba di tangan, memilih buangan'
-    : active.motion.kind === 'claim' ? `${active.motion.call} ${tileText(active.motion.tile!)} Â· mengambil ke meld terbuka`
-    : moving ? `membuang ${tileText(active.motion.tile!)}` : `${tileText(active.motion.tile!)} di tengah Â· menunggu klaim`}`
-    : state.phase === 'CLAIM_WINDOW' ? `${PLAYER_NAME[state.discardPending!.discarder]} Â· menunggu klaim`
-    : `${actor} Â· ${state.phase === 'TURN_DRAW' ? 'giliran berikutnya Â· mengambil tile' : state.phase === 'ACTION_DECISION' ? 'memilih buangan' : 'persiapan / akhir giliran'}`;
+  const cue = active ? `${PLAYER_NAME[active.motion.seat]} · ${active.motion.kind === 'draw'
+    ? moving ? 'mengambil tile dari tembok' : 'mengambil tile dari tembok · tiba di tangan, memilih buangan'
+    : active.motion.kind === 'claim' ? `${active.motion.call} ${tileText(active.motion.tile!)} · mengambil ke meld terbuka`
+    : moving ? `membuang ${tileText(active.motion.tile!)}` : `${tileText(active.motion.tile!)} di tengah · menunggu klaim`}`
+    : state.phase === 'CLAIM_WINDOW' ? `${PLAYER_NAME[state.discardPending!.discarder]} · menunggu klaim`
+    : `${actor} · ${state.phase === 'TURN_DRAW' ? 'giliran berikutnya · mengambil tile' : state.phase === 'ACTION_DECISION' ? 'memilih buangan' : 'persiapan / akhir giliran'}`;
   return <>
     <p className={`table-stage${active ? ' is-transition' : ''}`} role="status" aria-live="polite" data-stage={active ? moving ? 'moving' : 'reading' : 'selecting'}>
       <strong>{cue}</strong>{active && <small>{speed === 'off' || reduced ? 'Aksi meja' : moving ? 'Tile bergerak' : 'Tile tiba'}</small>}

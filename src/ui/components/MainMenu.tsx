@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { MATCH_LENGTHS, type DealerWinRule, type MatchLength } from '../match';
+import { MATCH_LENGTHS, type DealerWinRule, type MatchTimeLimit, type MatchLength } from '../match';
 import { matchLengthLabel } from '../labels';
 
 export interface MainMenuProps {
@@ -10,12 +10,14 @@ export interface MainMenuProps {
   onKimChange?: (enabled: boolean) => void;
   /** Hands per match (null = endless practice) */
   matchLength?: MatchLength;
+  timeLimitMinutes?: MatchTimeLimit;
+  onTimeLimitChange?: (limit: MatchTimeLimit) => void;
   dealerWinRule?: DealerWinRule;
   onDealerWinRuleChange?: (rule: DealerWinRule) => void;
   onMatchLengthChange?: (length: MatchLength) => void;
 }
 
-export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, onKimChange, matchLength, onMatchLengthChange, dealerWinRule, onDealerWinRuleChange }: MainMenuProps) {
+export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, onKimChange, matchLength, onMatchLengthChange, dealerWinRule, onDealerWinRuleChange, timeLimitMinutes, onTimeLimitChange }: MainMenuProps) {
   return (
     <main className="main-menu">
       <section className="menu-card" aria-label="Menu utama">
@@ -50,6 +52,14 @@ export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, 
             <option value="stay">Tetap jadi dealer (default)</option>
             <option value="rotate">Tetap berputar</option>
           </select>
+        </label>}
+        {timeLimitMinutes !== undefined && onTimeLimitChange && <label className="field">
+          Waktu
+          <select aria-label="Waktu" value={timeLimitMinutes ?? 'unlimited'} onChange={e => onTimeLimitChange(e.target.value === '90' ? 90 : null)}>
+            <option value="unlimited">Tanpa batas (default)</option>
+            <option value="90">90 menit</option>
+          </select>
+          <small>Waktu tetap berjalan saat jeda atau dialog terbuka. Setelah waktu habis, selesaikan game yang sedang berjalan.</small>
         </label>}
         <div className="menu-choices">
           <button type="button" className="btn btn-primary menu-choice" onClick={onPractice}>

@@ -27,6 +27,7 @@ export function TileView({ tile, size = 'md', selected, highlight, disabled, dra
     highlight ? 'is-highlight' : '',
     disabled ? 'is-disabled' : '',
     drawn ? 'is-drawn' : '',
+    tile.isKim && tile.type !== 'kim' ? 'is-kim' : '',
     onClick ? 'is-clickable' : '',
   ]
     .filter(Boolean)
