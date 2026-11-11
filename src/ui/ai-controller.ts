@@ -6,6 +6,7 @@
  * information every player at a real table can see (discards, exposed melds, flowers, tile counts).
  * Every decision below is a pure function of that observation and a seeded RNG.
  */
+import { tileText } from './labels';
 import type { GameEngineState } from '../core/game-engine';
 import { SEAT_ORDER, isHonor, isSameKind, isSuited, isTerminal } from '../core/tiles';
 import type { ClaimDeclaration, LegalActions, Meld, Seat, Suit, Tile, Wind } from '../core/types';
@@ -313,3 +314,24 @@ export interface AIStrategy {
 }
 
 export const builtInStrategy: AIStrategy = { decideTurnAction, decideClaim };
+
+/** Public explanation after a built-in discard; never enumerates concealed tiles or candidates.
+ * Reads the same heuristic inputs without drawing RNG, so seeded decisions stay unchanged.
+ */
+export function explainDiscardChoice(obs: AIObservation, tileId: string): string | null {
+  const tile = obs.hand.find(t => t.id === tileId);
+  if (!tile || !obs.legal.discardableTileIds.includes(tileId)) return null;
+  const visible = visibleKindCounts(obs);
+  const allowed = new Set(obs.legal.discardableTileIds);
+  const candidates = obs.hand.filter(t => allowed.has(t.id) && (obs.rules.kimDiscardAllowed || !isKim(t)));
+  if (!candidates.some(t => t.id === tileId)) return null;
+  const value = tileKeepValue(tile, obs, visible);
+  const lowest = candidates.every(t => value <= tileKeepValue(t, obs, visible));
+  const choice = lowest ? 'termasuk nilai retensi terendah' : 'terpilih setelah variasi acak pada nilai retensi';
+  const random = obs.difficulty === 'easy' ? ' Mode Mudah menambahkan variasi acak besar; pilihan ini bukan jaminan terbaik.'
+    : obs.difficulty === 'normal' ? ' Mode Normal memakai variasi acak kecil.' : ' Mode Sulit tidak menambahkan variasi acak.';
+  // Only the now-public discarded tile is named. No scores or hand composition are exposed.
+  const publicFactor = isTerminal(tile) ? ' Tile ujung mendapat pengurang nilai retensi dalam strategi ini.'
+    : isHonor(tile) && isValuableHonor(tile, obs) ? ' Honor ini memiliki potensi Tay jika menjadi Tris; faktor itu ikut dihitung.' : '';
+  return `${tileText(tile)} ${choice}.${publicFactor} Penilaian mempertimbangkan kecocokan kelompok, potensi Tay, dan tile yang terlihat.${random}`;
+}

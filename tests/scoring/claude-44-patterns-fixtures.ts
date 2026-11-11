@@ -475,13 +475,15 @@ export const PATTERN_FIXTURES: Readonly<Record<PatternId, PatternFixture>> = {
     name: 'Thi Fu',
     category: 'first-turn',
     values: { K: 40, NK: 60 },
-    definition: 'Hu on the first-round draw ("lew") or first discard, which must be preceded by a Pao Chin declaration.',
+    // The rulebook says "hasil lew atau discard pertama"; the meaning of "lew" is unconfirmed (RULES.md).
+    // The engine scores only the first-round discard win, so a first-round self-draw is a negative here.
+    definition: 'Hu on a first-round discard, which must be preceded by a Pao Chin declaration.',
     definitionConfidence: 'authoritative',
     positive: [
       {
-        label: 'Pao Chin declared, wins on first draw',
+        label: 'Pao Chin declared, Ron on the first discard (NK)',
         mode: 'NK',
-        hand: withCtx(BASE, { ...SELF_DRAW, isInitialDeal: true, isPaoChin: true }),
+        hand: withCtx(BASE, { isInitialDeal: true, isPaoChin: true, discarderSeat: 'dong' }),
         expectDetected: true,
         expectedTay: 60,
       },
@@ -501,6 +503,12 @@ export const PATTERN_FIXTURES: Readonly<Record<PatternId, PatternFixture>> = {
         expectDetected: false,
       },
       { label: 'Pao Chin declared but win is not first-round', mode: 'NK', hand: withCtx(BASE, { isPaoChin: true }), expectDetected: false },
+      {
+        label: 'Pao Chin declared, first-round self-draw (Pao Chin stays, no Thi Fu)',
+        mode: 'NK',
+        hand: withCtx(BASE, { ...SELF_DRAW, isInitialDeal: true, isPaoChin: true }),
+        expectDetected: false,
+      },
     ],
   },
 

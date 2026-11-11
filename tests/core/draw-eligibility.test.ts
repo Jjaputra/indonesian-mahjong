@@ -242,8 +242,10 @@ describe('Thien Fu: posisi Dong winning on the hand from the first deal', () => 
     const human = c.getHumanActions().selfHuScore!;
     expect(human.patterns.map((p) => p.id)).not.toContain(11);
 
-    // The broader first-go-around window still drives Thi Fu after a Pao Chin declaration.
+    // A declared Pao Chin keeps scoring on this first-go-around self-draw, but Thi Fu is a discard win only (RULES.md #12).
     s.players.dong.isPaoChin = true;
-    expect(c.getHumanActions().selfHuScore!.patterns.map((p) => p.id)).toContain(12);
+    const paoChin = c.getHumanActions().selfHuScore!.patterns.map((p) => p.id);
+    expect(paoChin).toContain(10);
+    expect(paoChin).not.toContain(12);
   });
 });

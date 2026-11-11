@@ -1,20 +1,21 @@
-/* Table motion: call toast and freshly discarded pool tiles. */
+/* Table motion: call toast, the pending discard flying in from its seat, and the freshest pool tile. */
 
 .call-toast {
   display: inline-block;
   margin: 0;
   padding: 6px 14px;
-  border: 1px solid #e3a52a;
+  border: 1px solid var(--accent, #2f6f6a);
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fdfbf3;
+  background: var(--surface, #fbfaf6);
+  color: var(--text, #1f2a30);
   font-weight: 700;
   letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(31, 42, 48, 0.12);
   animation: call-toast-in 200ms ease-out both;
 }
 
 .call-toast::first-letter {
-  color: #e3a52a;
+  color: var(--accent-strong, #235652);
 }
 
 @keyframes call-toast-in {
@@ -26,7 +27,40 @@
   }
 }
 
+/* Pending discard: travels from the discarder's side of the table into the centre. */
+.discard-flight {
+  --flight-x: 0px;
+  --flight-y: 0px;
+  display: inline-flex;
+  animation: discard-flight-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.discard-flight[data-from='bottom'] {
+  --flight-y: 90px;
+}
+.discard-flight[data-from='top'] {
+  --flight-y: -90px;
+}
+.discard-flight[data-from='right'] {
+  --flight-x: 120px;
+}
+.discard-flight[data-from='left'] {
+  --flight-x: -120px;
+}
+
+@keyframes discard-flight-in {
+  from {
+    transform: translate(var(--flight-x), var(--flight-y)) scale(0.85);
+    opacity: 0.2;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
 .pool-tile.is-fresh {
+  position: relative;
+  box-shadow: 0 0 0 2px var(--accent, #2f6f6a);
   animation: pool-tile-settle 250ms ease-out both;
 }
 
@@ -41,8 +75,24 @@
   }
 }
 
+@media (max-width: 560px) {
+  .discard-flight[data-from='bottom'] {
+    --flight-y: 60px;
+  }
+  .discard-flight[data-from='top'] {
+    --flight-y: -60px;
+  }
+  .discard-flight[data-from='right'] {
+    --flight-x: 70px;
+  }
+  .discard-flight[data-from='left'] {
+    --flight-x: -70px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .call-toast,
+  .discard-flight,
   .pool-tile.is-fresh {
     animation: none;
   }

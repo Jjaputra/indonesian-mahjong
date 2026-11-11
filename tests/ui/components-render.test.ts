@@ -79,10 +79,11 @@ describe('UI render smoke tests', () => {
     expect((html.match(/tile-lg/g) ?? []).length).toBe(c.getState().players.dong.hand.length);
   });
 
-  it('Kim tile shows the gold KIM badge', () => {
+  it('Kim tile shows its KIM badge and drawn Kim face', () => {
     const html = renderToString(createElement(TileView, { tile: keyToTile('KIM') }));
     expect(html).toContain('kim-badge');
     expect(html).toContain('tone-kim');
+    expect(html).toContain('class="tile-art art-kim"');
   });
 
   it('Hu result modal shows receipt sections', () => {

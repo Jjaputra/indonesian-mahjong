@@ -5,7 +5,6 @@ import {
   clearGameHistory,
   deleteGameRecord,
   loadGameHistory,
-  loadSettings,
   updateSettings,
   type GameSettings,
 } from './storage';
@@ -17,10 +16,10 @@ import { SettingsModal } from './ui/components/SettingsModal';
 import { TayCalculator } from './ui/components/TayCalculator';
 import { MainMenu } from './ui/components/MainMenu';
 import { AbandonMatchDialog } from './ui/components/AbandonMatchDialog';
-import { CallToast, type CallEvent } from './ui/components/CallToast';
-import { tileText } from './ui/labels';
 import { GameController, type GameEventType } from './ui/game-controller';
-import { ANIMATION_DELAY_MS, DIFFICULTY_LABEL } from './ui/labels';
+import { PlayProgress } from './ui/components/PlayProgress';
+import { loadPracticePace, loadPracticeSettings, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
+import { DIFFICULTY_LABEL } from './ui/labels';
 
 type View = 'menu' | 'table' | 'calculator';
 type ModalName = 'settings' | 'history' | 'rulebook' | null;
@@ -42,21 +41,22 @@ function useGameController(initial: GameSettings): GameController {
 }
 
 export function App() {
-  const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
+  const [settings, setSettings] = useState<GameSettings>(() => loadPracticeSettings());
   const controller = useGameController(settings);
   const version = useSyncExternalStore(
     useCallback((cb: () => void) => controller.subscribe(cb), [controller]),
     () => controller.version,
     () => controller.version
   );
+  const [paused, setPaused] = useState(false);
+  const [pace, setPace] = useState(loadPracticePace);
+  useEffect(() => savePracticePace(pace), [pace]);
   const [view, setView] = useState<View>('menu');
   const [matchStarted, setMatchStarted] = useState(false);
   const [modal, setModal] = useState<ModalName>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
   const [abandonOpen, setAbandonOpen] = useState(false);
-  const [callEvent, setCallEvent] = useState<(CallEvent & { id: number }) | null>(null);
-  const callId = useRef(0);
   const [history, setHistory] = useState(() => loadGameHistory());
 
   // Sound effects follow the live "Suara" setting.
@@ -65,20 +65,17 @@ export function App() {
   useEffect(
     () =>
       controller.onEvent((e) => {
-        const tile = controller.getState().discardPending?.tile ?? controller.discardTrail.at(-1)?.tile;
-        setCallEvent({ ...e, id: ++callId.current, tileLabel: e.type === 'discard' && tile ? tileText(tile) : undefined });
         const name = e.type === 'draw' ? (e.seat === controller.humanSeat ? 'draw' : undefined) : EVENT_SOUND[e.type];
         if (name) playSound(name, { soundEnabled: soundRef.current });
       }),
     [controller]
   );
 
-  // Drive AI seats one step at a time, paced by the animation speed.
-  useEffect(() => {
-    if (view !== 'table' || !matchStarted || controller.outcome || controller.isWaitingForHuman()) return;
-    const t = window.setTimeout(() => controller.step(), ANIMATION_DELAY_MS[settings.animationSpeed]);
-    return () => window.clearTimeout(t);
-  }, [controller, version, settings.animationSpeed, view, matchStarted]);
+  // Each effect owns one timer; dialogs, views, pause, and new games dispose it.
+  const automationBlocked = modal !== null || abandonOpen;
+  useEffect(() => scheduleAutomation(controller, practiceDelay(pace),
+    view !== 'table' || !matchStarted || paused || automationBlocked),
+    [controller, version, pace, view, matchStarted, paused, automationBlocked]);
 
   const outcome = controller.outcome;
   useEffect(() => {
@@ -94,7 +91,6 @@ export function App() {
 
   const newGame = () => {
     setAbandonOpen(false);
-    setCallEvent(null);
     setView('menu');
     setMatchStarted(false);
     setResultOpen(false);
@@ -103,16 +99,29 @@ export function App() {
   const startPractice = () => {
     setResultOpen(false);
     setSelectedId(null);
+    setPaused(false);
+    controller.setSettings({ ...settings, startingSeatWind: 'dong' });
     controller.newGame();
     setMatchStarted(true);
     setView('table');
   };
 
   const saveSettings = (draft: GameSettings) => {
+    if (draft.animationSpeed !== settings.animationSpeed) setPace(draft.animationSpeed);
     const stored = updateSettings(draft);
     setSettings(stored);
     controller.setSettings(stored);
     setModal(null);
+  };
+
+  const changePace = (choice: PracticePace) => {
+    setPace(choice);
+    savePracticePace(choice);
+    if (choice !== 'learn') {
+      const stored = updateSettings({ ...settings, animationSpeed: choice });
+      setSettings(stored);
+      controller.setSettings(stored);
+    }
   };
 
   const toggleSound = () => {
@@ -163,15 +172,19 @@ export function App() {
       </header>
 
       {view === 'menu' ? (
-        <MainMenu difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
+        <MainMenu kimEnabled={settings.kimEnabled} onKimChange={(enabled: boolean) => {
+          const stored = updateSettings({ ...settings, kimEnabled: enabled });
+          setSettings(stored);
+          controller.setSettings(stored);
+        }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
           onCalculator={() => setView('calculator')}
           lastResult={history[0] ? history[0].winner === null ? 'Seri' : `${history[0].totalTay} Tay` : null} />
       ) : view === 'table' ? (
         <main className="table-felt">
           <OpponentPanel seat={pos.top} position="top" controller={controller} />
           <OpponentPanel seat={pos.left} position="left" controller={controller} />
-          <CenterArea controller={controller} />
-          {callEvent && <CallToast key={callEvent.id} event={callEvent} />}
+          <CenterArea controller={controller} progress={<PlayProgress controller={controller} paused={paused} blocked={automationBlocked} pace={pace} onPaceChange={changePace}
+            onPause={() => setPaused(p => !p)} onStep={() => singleAutomationStep(controller, automationBlocked || !paused)} />} />
           <OpponentPanel seat={pos.right} position="right" controller={controller} />
           <div className="seat-bottom">
             <ActionHud controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId} />

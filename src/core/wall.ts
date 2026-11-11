@@ -49,7 +49,8 @@ export class Wall {
 
   /**
    * Initializes a new Wall.
-   * @param tiles Optional predefined tile array (for testing/replay). If omitted, generates the complete 148 tiles.
+   * @param tiles Optional predefined tile array (for testing/replay). If omitted, generates the legacy 148-tile set
+   * (including the 4 dedicated Kim tiles); use createGameWall to honour the Kim toggle.
    * @param seed Optional numeric seed for deterministic Mulberry32 shuffle. If null, tiles are not reshuffled.
    */
   constructor(tiles?: Tile[], seed?: number | null) {
@@ -80,7 +81,7 @@ export class Wall {
   }
 
   /**
-   * Total number of tiles originally in the wall (148 for standard set).
+   * Total number of tiles originally in the wall (148 for the legacy Kim set, 144 with Kim disabled).
    */
   get totalCount(): number {
     return this.initialCount;
@@ -205,4 +206,21 @@ export class Wall {
     (wall as any).initialCount = state.initialCount;
     return wall;
   }
+}
+
+/**
+ * Builds the shuffled wall for a new hand.
+ *
+ * Kim enabled: the legacy 148-tile set with 4 dedicated Kim joker tiles. This is the app's existing model;
+ * the rulebook PDF does not establish it. The proposed (user-described) dice-selected Kim has unconfirmed
+ * details and is not implemented (see RULES.md).
+ * Kim disabled: the 4 dedicated Kim tiles are removed BEFORE the shuffle and deal, leaving 144 tiles
+ * (136 playing tiles + 8 bonus tiles), so no joker can ever reach a hand.
+ *
+ * With a seed the shuffle is deterministic (Mulberry32); without one it uses Math.random.
+ */
+export function createGameWall(kimEnabled: boolean, seed?: number): Wall {
+  if (kimEnabled) return seed === undefined ? new Wall() : new Wall(undefined, seed);
+  const tiles = createCompleteTileSet().filter((t) => t.type !== 'kim' && !t.isKim);
+  return seed === undefined ? new Wall(shuffleTiles(tiles, Math.random), null) : new Wall(tiles, seed);
 }

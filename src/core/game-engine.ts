@@ -25,7 +25,7 @@ import {
   TurnPhase,
   Wind,
 } from './types';
-import { Wall } from './wall';
+import { Wall, createGameWall } from './wall';
 import { isKimAllowedInClaim } from '../kim/kim-validator';
 
 export const DEFAULT_RULES: GameRules = {
@@ -301,7 +301,7 @@ export class GameEngine {
     const dealerSeat: Seat = options?.dealerSeat ?? 'dong';
     const roundWind: Wind = options?.roundWind ?? 'dong';
     this.initialCustomWall = customWall ?? options?.wall;
-    const wall = this.initialCustomWall ?? new Wall();
+    const wall = this.initialCustomWall ?? createGameWall(mergedRules.kimEnabled);
 
     const players: Record<Seat, PlayerState> = {
       dong: {
@@ -401,7 +401,7 @@ export class GameEngine {
       this.state.wall = this.initialCustomWall;
       this.customWallConsumed = true;
     } else {
-      this.state.wall = new Wall();
+      this.state.wall = createGameWall(this.state.rules.kimEnabled);
     }
 
     // Reset player state

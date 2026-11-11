@@ -6,11 +6,11 @@
 import { GameEngine, canFormWinningHand, type GameEngineState } from '../core/game-engine';
 import { SEAT_ORDER, isSameKind } from '../core/tiles';
 import type { ClaimDeclaration, LegalActions, Meld, Seat, Tile } from '../core/types';
-import { Wall, createMulberry32 } from '../core/wall';
+import { createGameWall, createMulberry32 } from '../core/wall';
 import { canFormWinningHandWithKim } from '../kim/wildcard-solver';
 import type { ScoringResult } from '../scoring';
 import { saveGameRecord, type GameSettings, type StorageLike, type WinMethod } from '../storage';
-import { buildObservation, builtInStrategy, chooseDiscard, isFirstGoAround, type AIStrategy } from './ai-controller';
+import { buildObservation, builtInStrategy, chooseDiscard, isFirstGoAround, explainDiscardChoice, type AIStrategy } from './ai-controller';
 import { MELD_LABEL, PLAYER_NAME, SEAT_SHORT, tileText } from './labels';
 import { isInitialDealtHand, scoreHu, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
 
@@ -142,6 +142,10 @@ export class GameController {
   lastDiscard: { seat: Seat; tile: Tile } | null = null;
   /** Committed (unclaimed) discards in table order */
   discardTrail: { seat: Seat; tile: Tile }[] = [];
+  /** Latest completed public bot decision, including the acting seat. */
+  botExplanation: string | null = null;
+  discardCount = 0;
+  initialWallCount = 0;
   /** Bumped on every change so React can re-render */
   version = 0;
 
@@ -179,6 +183,7 @@ export class GameController {
   }
 
   private emit(type: GameEventType, seat?: Seat): void {
+    if (type !== 'discard') this.lastDiscard = null;
     for (const l of this.eventListeners) l({ type, seat });
   }
 
@@ -229,8 +234,11 @@ export class GameController {
       },
     });
     const auto = this.settings.flowerReplacementMode === 'auto';
-    const wall = seed === undefined ? new Wall() : new Wall(undefined, seed);
+    const wall = createGameWall(rules.kimEnabled, seed);
     const records = this.engine.startNewGame(auto, wall);
+    this.initialWallCount = this.getState().wall.remainingCount;
+    this.discardCount = 0;
+    this.botExplanation = null;
     this.outcome = null;
     this.log = [];
     this.aiClaimsFor = '';
@@ -558,6 +566,7 @@ export class GameController {
     const r = this.engine.startTurnDraw(seat);
     this.logNewFlowers(before);
     if (r.drawnTile) {
+      this.addLog(`${PLAYER_NAME[seat]} menarik satu tile dari tembok.`, seat);
       this.emit('draw', seat);
       if (seat === this.humanSeat) this.humanDrawnTileId = r.drawnTile.id;
     }
@@ -567,6 +576,7 @@ export class GameController {
   private discardFor(seat: Seat, tileId: string): void {
     const r = this.engine.discard(seat, tileId);
     this.lastDiscard = { seat, tile: r.discardedTile };
+    this.discardCount++;
     if (seat === this.humanSeat) this.humanDrawnTileId = null;
     this.addLog(`${PLAYER_NAME[seat]} buang ${tileText(r.discardedTile)}.`, seat);
     this.emit('discard', seat);
@@ -612,7 +622,8 @@ export class GameController {
       this.drawFor(seat);
       return;
     }
-    const action = this.strategy.decideTurnAction(this.aiObservation(seat), this.rng);
+    const observation = this.aiObservation(seat);
+    const action = this.strategy.decideTurnAction(observation, this.rng);
     switch (action.type) {
       case 'hu': {
         const scoring = this.legal(seat).canSelfDrawHu ? this.scoreSelfDraw(seat) : null;
@@ -632,9 +643,13 @@ export class GameController {
       case 'kakan':
         this.kakanFor(seat, action.tileId, action.meldIndex);
         return;
-      case 'discard':
+      case 'discard': {
         this.discardFor(seat, action.tileId);
+        const explanation = this.strategy === builtInStrategy ? explainDiscardChoice(observation, action.tileId) : 'Strategi tambahan; alasan pilihan tidak tersedia.';
+        this.botExplanation = explanation ? `${PLAYER_NAME[seat]}: ${explanation}` : null;
+        if (this.botExplanation) this.addLog(this.botExplanation, seat);
         return;
+      }
     }
   }
 
@@ -644,10 +659,14 @@ export class GameController {
     for (const seat of SEAT_ORDER) {
       if (seat === this.humanSeat || seat === pending.discarder) continue;
       const decl = this.strategy.decideClaim(this.aiObservation(seat), this.rng);
-      if (decl.action === 'pass') continue;
+      if (decl.action === 'pass') {
+        this.addLog(`${PLAYER_NAME[seat]} Lew (melewati klaim).`, seat);
+        continue;
+      }
       if (decl.action === 'hu' && !this.scoreDiscard(seat)?.isValidHu) continue; // Tay gate
       try {
         this.engine.submitClaim({ ...decl, seat });
+        this.addLog(`${PLAYER_NAME[seat]} mengajukan ${decl.action === 'hu' ? 'Hu' : MELD_LABEL[decl.action]} atas ${tileText(pending.tile)}; menunggu resolusi klaim.`, seat);
       } catch {
         // Illegal claim from a strategy is treated as a pass.
       }
@@ -680,6 +699,10 @@ export class GameController {
       const claimant = result.nextTurn;
       this.lastDiscard = null;
       this.addLog(`${PLAYER_NAME[claimant]} ${MELD_LABEL[result.winningAction]} ${tileText(pending.tile)} dari ${PLAYER_NAME[pending.discarder]}.`, claimant);
+      if (claimant !== this.humanSeat) {
+        const shape = result.winningAction === 'jia' ? 'urutan tiga tile' : result.winningAction === 'pung' ? 'Tris (tiga tile sama)' : 'Kong (empat tile sama)';
+        this.botExplanation = `${PLAYER_NAME[claimant]} mengambil ${tileText(pending.tile)} dari ${PLAYER_NAME[pending.discarder]} untuk membentuk ${shape} terbuka. Klaim ini memenangkan resolusi prioritas klaim.`;
+      }
       this.emit(result.winningAction, claimant);
       if (claimant === this.humanSeat) {
         const hand = this.getState().players[claimant].hand;
@@ -697,6 +720,7 @@ export class GameController {
     if (result.winningAction === 'pass' && !pending.isPromotedKong && this.getState().phase === 'ACTION_DECISION') {
       // All passed: the engine committed the discard and drew for the next seat.
       const next = result.nextTurn;
+      this.addLog(`Semua Lew; ${PLAYER_NAME[next]} menarik satu tile dari tembok.`, next);
       this.emit('draw', next);
       if (next === this.humanSeat) {
         const hand = this.getState().players[next].hand;
@@ -712,7 +736,7 @@ export class GameController {
    * Returns false when nothing can happen without the human, or the game is over.
    */
   step(): boolean {
-    if (this.outcome) return false;
+    if (this.outcome || this.isWaitingForHuman()) return false;
     const s = this.getState();
     let progressed = false;
     switch (s.phase) {

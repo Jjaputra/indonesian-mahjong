@@ -71,13 +71,28 @@ export interface TileFace {
   /** Small caption below the symbol */
   sub: string;
   tone: TileTone;
-  /** Accessible Indonesian name */
+  /** Accessible Indonesian name (canonical scoring name, used in logs and receipts) */
   title: string;
+  /** Extra learner cue read with the tile, e.g. the seat a wind points at or the ink of a bonus number */
+  hint?: string;
+}
+
+/** Indonesian direction and letter printed on wind tiles. */
+export const WIND_CUE: Record<number, { letter: string; word: string }> = {
+  1: { letter: 'T', word: 'Timur' },
+  2: { letter: 'S', word: 'Selatan' },
+  3: { letter: 'B', word: 'Barat' },
+  4: { letter: 'U', word: 'Utara' },
+};
+
+/** Spoken tile name plus its learner cue. */
+export function tileAccessibleLabel(face: TileFace): string {
+  return face.hint ? `${face.title}, ${face.hint}` : face.title;
 }
 
 export function getTileFace(tile: Tile): TileFace {
   if (tile.type === 'kim' || tile.isKim) {
-    return { main: '金', sub: 'KIM', tone: 'kim', title: 'KIM (Joker)' };
+    return { main: '金', sub: 'KIM', tone: 'kim', title: 'KIM (Joker)', hint: 'tile Kim tetap, mode joker lama' };
   }
   switch (tile.type) {
     case 'tong':
@@ -88,17 +103,18 @@ export function getTileFace(tile: Tile): TileFace {
     }
     case 'wind': {
       const f = WIND_FACE[tile.value] ?? { glyph: '?', name: '?' };
-      return { main: f.glyph, sub: f.name, tone: 'wind', title: `Angin ${f.name}` };
+      return { main: f.glyph, sub: f.name, tone: 'wind', title: `Angin ${f.name}`, hint: WIND_CUE[tile.value]?.word };
     }
     case 'dragon': {
       const f = DRAGON_FACE[tile.value] ?? { glyph: '?', name: '?' };
       const tone: TileTone = tile.value === 1 ? 'red' : tile.value === 2 ? 'green' : 'white';
-      return { main: f.glyph, sub: f.name, tone, title: `Naga ${f.name}` };
+      const hint = tone === 'red' ? 'naga merah' : tone === 'green' ? 'naga hijau' : 'naga putih, bingkai kosong';
+      return { main: f.glyph, sub: f.name, tone, title: `Naga ${f.name}`, hint };
     }
     case 'flower':
-      return { main: FLOWER_GLYPH[tile.value] ?? '花', sub: `Bunga ${tile.value}`, tone: 'flower', title: `Bunga ${tile.value}` };
+      return { main: FLOWER_GLYPH[tile.value] ?? '花', sub: `Bunga ${tile.value}`, tone: 'flower', title: `Bunga ${tile.value}`, hint: 'bunga hitam/biru, angka biru tua' };
     case 'season':
-      return { main: SEASON_GLYPH[tile.value] ?? '季', sub: `Musim ${tile.value}`, tone: 'season', title: `Musim ${tile.value}` };
+      return { main: SEASON_GLYPH[tile.value] ?? '季', sub: `Musim ${tile.value}`, tone: 'season', title: `Musim ${tile.value}`, hint: 'musim/kembang merah, angka merah' };
     default:
       return { main: '?', sub: '', tone: 'white', title: 'Tile' };
   }

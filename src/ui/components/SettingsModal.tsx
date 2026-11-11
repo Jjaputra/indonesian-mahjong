@@ -99,6 +99,11 @@ export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps)
 
         <section>
           <h3>Kim (Joker)</h3>
+          <p className="muted small">
+            Mode Kim di aplikasi ini memakai 4 tile Kim khusus (set 148 tile), model lama yang tidak ditetapkan oleh rulebook.
+            Usulan Kim yang dipilih lewat dadu belum diterapkan karena detailnya belum terkonfirmasi. Kim nonaktif mengeluarkan
+            keempat tile Kim sebelum dikocok (144 tile).
+          </p>
           <Toggle label="Kim aktif" checked={draft.kimEnabled} onChange={(v) => set('kimEnabled', v)} />
           <Toggle label="Kim boleh dibuang" hint="Turnamen: tidak boleh" checked={draft.kimDiscardAllowed} disabled={kimOff} onChange={(v) => set('kimDiscardAllowed', v)} />
           <Toggle label="Kim dalam Pung" checked={draft.allowKimInPung} disabled={kimOff} onChange={(v) => set('allowKimInPung', v)} />
@@ -152,7 +157,7 @@ export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps)
           </Field>
           <Field label="Kebijakan pola tumpang tindih">
             <select value={draft.overlapPolicy} onChange={(e) => set('overlapPolicy', e.target.value as GameSettings['overlapPolicy'])}>
-              <option value="rulebook_exclusive">Eksklusif rulebook (pola lebih tinggi menggantikan)</option>
+              <option value="rulebook_exclusive">Eksklusif (pola lebih tinggi menggantikan; hanya Thi Fu → Pao Chin tertulis di rulebook)</option>
               <option value="cumulative">Kumulatif (semua pola dijumlah)</option>
             </select>
           </Field>

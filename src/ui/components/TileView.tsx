@@ -1,5 +1,6 @@
 import type { Meld, Tile } from '../../core/types';
-import { MELD_LABEL, getTileFace, type TileFace, type TileTone } from '../labels';
+import { MELD_LABEL, getTileFace, tileAccessibleLabel } from '../labels';
+import { TileArt } from './TileArt';
 
 export type TileSize = 'sm' | 'md' | 'lg';
 
@@ -15,19 +16,9 @@ interface TileViewProps {
   onDoubleClick?: () => void;
 }
 
-const SUIT_MARK: Partial<Record<TileTone, string>> = { tong: '筒', sok: '索', ban: '萬' };
-
-/** Suit tiles keep the Indonesian name under the number, and a glyph that stays visible when the caption is hidden. */
-function suitCaption(face: TileFace): { mark?: string; caption: string } {
-  const mark = SUIT_MARK[face.tone];
-  if (!mark) return { caption: face.sub };
-  const name = face.sub.split(' ').pop();
-  return { mark, caption: name && name.length > 0 ? name : face.sub };
-}
-
 export function TileView({ tile, size = 'md', selected, highlight, disabled, drawn, onClick, onDoubleClick }: TileViewProps) {
   const face = getTileFace(tile);
-  const { mark, caption } = suitCaption(face);
+  const label = tileAccessibleLabel(face);
   const cls = [
     'tile',
     `tile-${size}`,
@@ -42,19 +33,13 @@ export function TileView({ tile, size = 'md', selected, highlight, disabled, dra
     .join(' ');
   const content = (
     <>
-      {mark && (
-        <span className="tile-mark" aria-hidden="true">
-          {mark}
-        </span>
-      )}
-      <span className="tile-main">{face.main}</span>
-      <span className="tile-sub">{caption}</span>
-      {face.tone === 'kim' && <span className="kim-badge">KIM</span>}
+      <TileArt tile={tile} face={face} />
+      {face.tone === 'kim' && <span className="kim-badge" aria-hidden="true">KIM</span>}
     </>
   );
   if (!onClick) {
     return (
-      <span className={cls} title={face.title} aria-label={face.title}>
+      <span className={cls} role="img" title={label} aria-label={label}>
         {content}
       </span>
     );
@@ -63,8 +48,8 @@ export function TileView({ tile, size = 'md', selected, highlight, disabled, dra
     <button
       type="button"
       className={cls}
-      title={disabled ? `${face.title} (tidak bisa dibuang)` : face.title}
-      aria-label={face.title}
+      title={disabled ? `${label} (tidak bisa dibuang)` : label}
+      aria-label={label}
       aria-pressed={selected}
       onClick={onClick}
       onDoubleClick={onDoubleClick}

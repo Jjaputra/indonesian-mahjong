@@ -139,3 +139,53 @@ describe('GameController full-game loop', () => {
     expect(c.version).toBe(before);
   });
 });
+
+describe('practice automation boundaries and public activity', () => {
+  it('single automation steps stop at every human choice and reset public progress for a new game', () => {
+    const c = new GameController({ settings: settings(), seed: 42, saveHistory: false });
+    expect(c.discardCount).toBe(0);
+    expect(c.initialWallCount).toBe(c.getState().wall.remainingCount);
+    let automated = 0;
+    for (let n = 0; n < 160 && !c.outcome; n++) {
+      if (c.isWaitingForHuman()) {
+        const before = c.version;
+        expect(c.step()).toBe(false);
+        expect(c.version).toBe(before);
+        autoplayHuman(c);
+      } else {
+        expect(c.step()).toBe(true);
+        automated++;
+      }
+    }
+    expect(automated).toBeGreaterThan(0);
+    expect(c.discardCount).toBeGreaterThan(0);
+    expect(c.log.some(l => l.text.includes('menarik satu tile'))).toBe(true);
+    expect(c.botExplanation).toMatch(/^Bot (Selatan|Barat|Utara)/);
+    c.newGame();
+    expect(c.discardCount).toBe(0);
+    expect(c.botExplanation).toBeNull();
+    expect(c.lastDiscard).toBeNull();
+    expect(c.discardTrail).toEqual([]);
+  });
+  it('latest-discard highlight ends on the next emitted game event', () => {
+    const c = new GameController({ settings: settings(), seed: 10, saveHistory: false });
+    const a = c.getHumanActions();
+    c.humanDiscard(a.discardableTileIds[0]!);
+    expect(c.lastDiscard).not.toBeNull();
+    const discarded = c.lastDiscard!.tile.id;
+    let nextEvent = false;
+    const stop = c.onEvent(e => {
+      if (e.type !== 'discard') {
+        expect(c.lastDiscard).toBeNull();
+        nextEvent = true;
+      }
+    });
+    for (let n = 0; n < 30 && !nextEvent; n++) {
+      if (c.isWaitingForHuman()) autoplayHuman(c);
+      else c.step();
+    }
+    stop();
+    expect(nextEvent).toBe(true);
+    expect(c.discardTrail.some(d => d.tile.id === discarded) || c.getState().players.dong.discards.some(t => t.id === discarded)).toBe(true);
+  });
+});

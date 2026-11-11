@@ -332,7 +332,7 @@ describe('Tier 4 · Opening-hand scenarios', () => {
     expect(r.isValidHu).toBe(true);
   });
 
-  it('Thi Fu: Pao Chin declared then Hu on the first-round draw (supersedes Pao Chin)', () => {
+  it('Thi Fu: Pao Chin declared then Ron on a first-round discard (supersedes Pao Chin); a first draw keeps only Pao Chin', () => {
     // Dealer discards WB; nan draws its winning 5B as its first draw.
     const engine = new GameEngine(
       RULES,
@@ -346,10 +346,25 @@ describe('Tier 4 · Opening-hand scenarios', () => {
     expect(engine.declarePaoChin('nan')).toBe(true);
     expect(engine.getLegalActions('nan').canSelfDrawHu).toBe(true);
     engine.declareSelfDrawHu('nan');
-    const r = scoreSelfDraw(engine, 'nan', flags({ isFirstGoAround: true, isPaoChin: true }));
+    // Thi Fu is scored on a first-round discard only (RULES.md #12): this self-draw keeps Pao Chin.
+    const drawn = scoreSelfDraw(engine, 'nan', flags({ isFirstGoAround: true, isPaoChin: true }));
+    expect(ids(drawn)).toContain(10);
+    expect(ids(drawn)).not.toContain(12);
+    expect(ids(drawn)).not.toContain(11); // Thien Fu is dealer-only
+
+    const p = engine.getState().players.nan;
+    const winningTile = engine.getState().winningTile ?? p.hand[p.hand.length - 1]!;
+    const r = scoreHu(
+      { hand: p.hand.filter((t) => t.id !== winningTile.id), melds: p.melds, flowers: p.flowers, winningTile },
+      'nan',
+      'dong',
+      flags({ isSelfDraw: false, isFirstGoAround: true, isPaoChin: true, discarderSeat: 'dong' }),
+      RULES,
+      SUPERSEDE
+    );
     expect(ids(r)).toContain(12);
     expect(ids(r)).not.toContain(10); // rulebook: Pao Chin drops once it turns into Thi Fu
-    expect(ids(r)).not.toContain(11); // Thien Fu is dealer-only
+    expect(ids(r)).not.toContain(11);
   });
 });
 
@@ -690,7 +705,7 @@ describe('Tier 4 · First go-around window (Thien Fu / Thi Fu)', () => {
     expect(isFirstGoAround(s)).toBe(false);
   });
 
-  it('a non-dealer Pao Chin + first-draw Hu is scored as Thi Fu from live table state', () => {
+  it('a non-dealer Pao Chin + first-draw Hu keeps Pao Chin but is not Thi Fu from live table state', () => {
     const engine = new GameEngine(
       RULES,
       riggedWall({ hands: { dong: '1S 1S 1S 9S 9S 9S 7B 7B 7B DZ DZ DF DF WB', nan: '1T 2T 3T 4T 5T 6T 7T 8T 9T 2S 3S 4S 5B' }, draws: '5B' })
@@ -700,7 +715,9 @@ describe('Tier 4 · First go-around window (Thien Fu / Thi Fu)', () => {
     engine.resolveClaimWindow();
     engine.declarePaoChin('nan');
     const r = scoreSelfDraw(engine, 'nan', flags({ isFirstGoAround: isFirstGoAround(engine.getState()), isPaoChin: true }));
-    expect(ids(r)).toContain(12);
+    expect(isFirstGoAround(engine.getState())).toBe(true);
+    expect(ids(r)).toContain(10);
+    expect(ids(r)).not.toContain(12); // Thi Fu is a first-round discard win (RULES.md #12)
   });
 });
 

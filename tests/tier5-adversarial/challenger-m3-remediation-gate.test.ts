@@ -141,7 +141,29 @@ describe('Challenger 2 M3 Remediation Verification Gate', () => {
     const validHand = parseTileHand('1T 2T 3T 4T 5T 6T 2S 3S 4S 6B 7B 8B 5S');
     const winTile = keyToTile('5S', 2);
 
-    it('non-dealer wins on first turn WITH Pao Chin declared -> scores #12 Thi Fu (40 Tay K / 60 Tay NK)', () => {
+    it('non-dealer wins on a first-round discard WITH Pao Chin declared -> scores #12 Thi Fu (40 Tay K / 60 Tay NK)', () => {
+      const res = scoringEngine.evaluateHand(
+        validHand,
+        [],
+        [],
+        makeContext({
+          winningTile: winTile,
+          seatWind: 'nan',
+          isInitialDeal: true,
+          isPaoChin: true,
+          isSelfDraw: false,
+          discarderSeat: 'dong',
+        }),
+        TOURNAMENT_RULES
+      );
+      expect(res.isValidHu).toBe(true);
+      expect(hasPattern(res, 10)).toBe(true); // Pao Chin
+      expect(hasPattern(res, 12)).toBe(true); // Thi Fu
+      expect(hasPattern(res, 11)).toBe(false); // Thien Fu (East only)
+      expect(tayOf(res, 12)).toBe(60); // 60 NK
+    });
+
+    it('non-dealer first-round self-draw WITH Pao Chin keeps #10 but is NOT #12 Thi Fu (discard-only, RULES.md)', () => {
       const res = scoringEngine.evaluateHand(
         validHand,
         [],
@@ -156,10 +178,9 @@ describe('Challenger 2 M3 Remediation Verification Gate', () => {
         TOURNAMENT_RULES
       );
       expect(res.isValidHu).toBe(true);
-      expect(hasPattern(res, 10)).toBe(true); // Pao Chin
-      expect(hasPattern(res, 12)).toBe(true); // Thi Fu
-      expect(hasPattern(res, 11)).toBe(false); // Thien Fu (East only)
-      expect(tayOf(res, 12)).toBe(60); // 60 NK
+      expect(hasPattern(res, 10)).toBe(true);
+      expect(hasPattern(res, 12)).toBe(false);
+      expect(hasPattern(res, 11)).toBe(false);
     });
 
     it('non-dealer wins on first turn WITHOUT Pao Chin -> must NOT score #12 Thi Fu', () => {

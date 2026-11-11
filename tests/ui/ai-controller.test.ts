@@ -8,6 +8,7 @@ import { getPreset } from '@/storage';
 import {
   buildObservation,
   chooseDiscard,
+  explainDiscardChoice,
   decideClaim,
   decideTurnAction,
   dominantSuit,
@@ -181,5 +182,35 @@ describe('Claim decisions', () => {
       legal: legal({ canPass: true, canJia: true, jiaOptions: [kimOption] }),
     });
     expect(decideClaim(o, rng()).action).toBe('pass');
+  });
+});
+
+describe('public bot discard explanation', () => {
+  it('derives explanation from the selected tile and difficulty without consuming RNG or listing candidates', () => {
+    const hand = parseTileHand('1T 2T 3T 4S 5S 6S 7B 8B 9B WD WD WN WN');
+    const observation = obs(hand, { difficulty: 'easy', legal: legal({ canDiscard: true, discardableTileIds: hand.map(t => t.id) }) });
+    const random = rng();
+    const choice = decideTurnAction(observation, random);
+    expect(choice.type).toBe('discard');
+    if (choice.type !== 'discard') return;
+    const before = JSON.stringify(observation);
+    const explanation = explainDiscardChoice(observation, choice.tileId)!;
+    expect(explanation).toContain('variasi acak besar');
+    expect(JSON.stringify(observation)).toBe(before);
+    for (const t of hand) expect(explanation).not.toContain(t.id);
+    expect(explainDiscardChoice(observation, 'concealed-unknown')).toBeNull();
+    const nextWithExplanation = decideTurnAction(observation, random);
+    const reference = rng();
+    decideTurnAction(observation, reference);
+    expect(nextWithExplanation).toEqual(decideTurnAction(observation, reference));
+  });
+  it('reports deterministic hard selection honestly', () => {
+    const hand = parseTileHand('1T 2T 3T 4S 5S 6S 7B 8B 9B WD WD WN WN');
+    const observation = obs(hand, { legal: legal({ canDiscard: true, discardableTileIds: hand.map(t => t.id) }) });
+    const action = decideTurnAction(observation, rng());
+    if (action.type !== 'discard') throw new Error('expected discard');
+    const explanation = explainDiscardChoice(observation, action.tileId)!;
+    expect(explanation).toContain('termasuk nilai retensi terendah');
+    expect(explanation).toContain('tidak menambahkan variasi acak');
   });
 });

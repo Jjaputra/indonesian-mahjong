@@ -7,6 +7,7 @@ import type { GameController, HumanActions } from '../game-controller';
 import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIND_GLYPH, tileText } from '../labels';
 import { practiceCoachLine, type CoachEmphasis } from '../practice-coach';
 import { handReadingLine } from '../hand-reading';
+import { isFirstGoAround, isInitialDealtHand, toFullRules, toScoringOverlap } from '../win-context';
 import { MeldView, TileBack, TileRow, TileView } from './TileView';
 
 /** Screen position of each seat relative to the human at the bottom (turn order runs counter-clockwise). */
@@ -73,14 +74,16 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
   );
 }
 
-export function CenterArea({ controller }: { controller: GameController }) {
+export function CenterArea({ controller, progress }: { controller: GameController; progress?: ReactNode }) {
   const s = controller.getState();
   const settings = controller.getSettings();
   const pending = s.discardPending;
   const trail = controller.discardTrail;
-  const lastCommitted = trail[trail.length - 1];
+  const source = (seat: Seat) => Object.entries(seatPositions(controller.humanSeat)).find(([, s]) => s === seat)?.[0];
+  const freshId = controller.lastDiscard?.tile.id;
   return (
     <section className="center-area" aria-label="Area buangan">
+      {progress}
       <div className="center-stats">
         <span className="stat" title="Sisa tile di tembok">
           <Layers size={14} /> Tembok: <b>{s.wall.remainingCount}</b>
@@ -96,26 +99,27 @@ export function CenterArea({ controller }: { controller: GameController }) {
         </span>
       </div>
       {pending && (
-        <div className="pending-discard">
+        <div key={pending.tile.id} className={`pending-discard${!pending.isPromotedKong && freshId === pending.tile.id ? ' discard-flight' : ''}`} data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${PLAYER_NAME[pending.discarder]} ke area buangan tengah`}>
           <span>
             {pending.isPromotedKong ? 'Kakan oleh' : 'Buangan'} {PLAYER_NAME[pending.discarder]}:
           </span>
-          <TileView tile={pending.tile} size="lg" highlight />
+          <TileView tile={pending.tile} size="lg" highlight={freshId === pending.tile.id} />
         </div>
       )}
       <div className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
         {trail.length === 0 && !pending && <span className="muted">Belum ada buangan.</span>}
         {trail.map((d, i) => (
-          <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d === lastCommitted ? ' is-fresh' : ''}`} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
-            <TileView tile={d.tile} size="sm" highlight={!pending && d === lastCommitted} />
+          <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d.tile.id === freshId ? ' is-fresh' : ''}`} data-from={source(d.seat)} data-seat={d.seat} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
+            <TileView tile={d.tile} size="sm" highlight={d.tile.id === freshId} />
           </span>
         ))}
       </div>
-      <ol className="game-log" aria-label="Log permainan">
-        {controller.log.slice(-6).map((l) => (
+      <details className="activity-history" open><summary>Aktivitas terbaru</summary>
+      <ol className="game-log" aria-label="Log permainan" start={Math.max(1, controller.log.length - 11)}>
+        {controller.log.slice(-12).map((l) => (
           <li key={l.id}>{l.text}</li>
         ))}
-      </ol>
+      </ol></details>
     </section>
   );
 }
@@ -219,7 +223,18 @@ export function ActionHud({
   const coached = (action: CoachEmphasis) => coach.emphasis === action;
   const reading = selected ? handReadingLine({ hand: player.hand.filter(t => t.id !== selected.id), winningTile: selected,
     melds: player.melds, flowers: player.flowers, seat: controller.humanSeat, roundWind: state.roundWind,
-    flags: { isSelfDraw: !claim }, minHuTay: controller.getSettings().minHuTay }) : null;
+    flags: {
+      isSelfDraw: !claim,
+      isRobbingKong: !!claim?.isPromotedKong,
+      consecutiveKongs: state.consecutiveKongs,
+      isFirstGoAround: isFirstGoAround(state),
+      isInitialDealtHand: !claim && isInitialDealtHand(state, controller.humanSeat),
+      isPaoChin: player.isPaoChin,
+      discarderSeat: claim?.discarder,
+    },
+    rules: toFullRules(controller.getSettings()),
+    overlapPolicy: toScoringOverlap(controller.getSettings().overlapPolicy),
+    minHuTay: controller.getSettings().minHuTay }) : null;
   const huScore = claim ? claim.huScore : actions.selfHuScore;
   const canHu = claim ? claim.canHu : actions.canSelfDrawHu;
   const huTitle = huScore
