@@ -13,7 +13,7 @@ This game does **not** claim full conformity with ITM/YDSP. Kim is chosen as a r
 | Variant: ITM / YDSP rules, with the tournament changes below | p. 7 §4, p. 8 §5.1, p. 11 §5.3–5.4 | Tournament preset |
 | Minimum Hu is 5 Tay | p. 7 §4, p. 8 §5.1 | `minHuTay: 5` (editable) |
 | Kim / joker may not be discarded | p. 7 §4, p. 11 §5.3 | `kimDiscardAllowed: false` in the tournament preset |
-| No dead wall: the wall is played until it is empty | p. 7 §4 | `Wall` has no dead wall; replacements come from the tail |
+| No dead wall: the wall is played until it is empty | p. 7 §4 | Default: no dead wall; optional practice reserve of 14 tiles, including replacement draws |
 | Empty wall = Seri (draw); the game still counts and seat winds do not rotate | p. 7 §4 | Seri outcome, `DRAW_SERI` phase |
 | Table winner = most Hu (each at least 5 Tay); a tie goes to whoever reached that count first | p. 7 §4, p. 12 §6 | Continuous match standings in `src/ui/match.ts`; practice may lower the minimum |
 | A replacement player cannot Hu | p. 5 §3.2, p. 11 §5.2 | Tournament admin, not modelled |
@@ -172,11 +172,11 @@ Natural Kim cannot be discarded or used to claim Jia/Pung/Kong, even if a casual
 Code: `src/ui/match.ts`, `GameController.startMatch` / `nextHand`.
 
 From the PDF (section 4):
-- A match is 8 games (hands) or 90 minutes, whichever comes first. The app offers 4, 8 (default), 16 or endless practice; the optional 90-minute limit is available in the pregame Waktu choice (default: tanpa batas).
+- A match is 8 games (hands) or 90 minutes, whichever comes first. Player feedback (2026-11-12): the app offers 8, 16 (default), 16 game ++ or endless practice; the optional 90-minute limit is available in the pregame Waktu choice (default: tanpa batas).
 - Tournament table winner = most Hu that meet the 5-Tay minimum. A tie goes to whoever reached that Hu count first. A Lew Fit credits no Hu. Total Tay is shown, not used for ranking.
 - Wall runs out: the hand is Seri, still counts as a game, and seat winds do not rotate.
 
-Dealer-win policy: the PDF is silent on dealer wins. The default follows the user's [PlayLeh table practice (Game Setup)](https://playleh.com/mahjongleh-rules.html): the dealer keeps the deal after winning; after another player wins, the dealer moves to the next chair. The pregame option **Dealer menang: tetap jadi dealer (default) / tetap berputar** also supports rotating after a dealer win. This choice is fixed for the match and saved in `itm.match-dealer-win.v1`, next to `itm.match-length.v1`. PlayLeh's other Singapore rules are not adopted: in particular, all wall-exhausted draws here keep the seat winds under PDF section 4, regardless of Kongs.
+Dealer-win policy (player feedback 2026-11-12): the dealer always keeps the deal after a valid dealer Hu ("kocok lagi"); the rotate-after-dealer-Hu choice is removed. Its legacy preference `itm.match-dealer-win.v1` is discarded on load. Another player's valid Hu rotates the dealer. In **16 game ++**, valid dealer wins are recorded and credited but do not advance the 16-game count; Seri **does count**, following PDF section 4, and keeps seating. Lew Fit counts with zero Hu/Tay and rotates as described below. The other lengths count every finished hand. Physical hand numbers remain unique for history and the ranking tie-break.
 
 Implementation conventions and practice choices (**not stated in the PDF**; seating policy is in `nextSeating`):
 - The dealer always sits posisi Dong (Timur). Seat winds are relative to the dealer, so Tris Angin Duduk, own Bunga/Musim number, Ping Fu and Thien Fu use the rotated seat wind each hand. Thien Fu belongs to the dealer.
@@ -188,3 +188,10 @@ Implementation conventions and practice choices (**not stated in the PDF**; seat
 
 
 **Optional match clock (PDF section 4).** `Waktu: tanpa batas (default) / 90 menit` is saved next to match-length preferences in `itm.match-time-limit.v1`, outside the settings module. With a limit, the hand-count limit or the 90-minute limit ends the match, whichever is reached first. Reaching time during a hand never interrupts it: that hand finishes and its result counts before final standings show “berakhir karena batas waktu”. If time expires between hands, no new hand is dealt. The clock includes bot pauses, hidden-tab time, dialogs and between-hand results. Only the preference is persisted; active matches and clocks remain in memory as before, so closing the app abandons that match and does not charge closed-app time to a later match. Finishing the current hand on expiry is the user-approved app policy; section 4 does not define that cutoff detail.
+
+### v0.4.2 match choices (player feedback 2026-11-12)
+
+- At match start all four chairs roll two dice; the highest sum becomes the dealer (Timur). Tied highest chairs alone re-roll until one wins. Opening dice use seeded Mulberry32 when a seed is supplied, independently of wall shuffling and AI randomness. Every chair keeps its screen position; scoring and AI derive seat winds from the elected dealer.
+- Cumulative Tay credits only valid Hu; Seri and Lew Fit add zero. Tay appears beside Hu in the scoreboard, hand results and final standings. Ranking remains PDF section 4: valid Hu count, then first to reach that count; Tay never breaks ties.
+- **Akhir tembok** defaults to **Sampai habis (turnamen)**, per PDF section 4 (no dead wall). **Sisa 14 tile (dead wall)** is an optional practice deviation: no head or replacement draw can use the final 14 tiles. A bunga or Kong needing another replacement at that boundary ends the hand Seri; it counts as a game and keeps seating. The final drawable tile may still complete Hu; once a further draw is required, the hand ends. Wall serialization and cloning retain the reserve.
+- **Pilihan Kim** is the single pregame control: **Kim dari tile** (`natural`, default), **Kim tambahan (pemula)** (`dedicated`), **Tanpa Kim** (`off`). Settings persistence retains the mode; legacy boolean-only settings migrate enabled to natural and disabled to off. Kim has no player-facing tail-draw action; internal bunga/Kong replacements are engine details.

@@ -16,6 +16,7 @@ const noop = () => {};
 const freshController = () => new GameController({ settings: { ...getPreset('tournament'), kimMode: 'off', kimEnabled: false, soundEnabled: false }, autoStart: false, saveHistory: false, seed: 7 });
 function finishDealerHu(c: GameController) {
   const s = (c as unknown as { engine: GameEngine }).engine.getState() as GameEngineState;
+  s.phase = 'ACTION_DECISION'; s.currentTurn = 'dong'; s.selfDrawSeat = 'dong';
   s.players.dong.hand = parseTileHand('1T 2T 3T 4T 5T 6T 7B 8B 9B 2S 3S 4S 9T 9T');
   s.players.dong.melds = []; s.players.dong.flowers = [];
   expect(c.getHumanActions().canSelfDrawHu).toBe(true);

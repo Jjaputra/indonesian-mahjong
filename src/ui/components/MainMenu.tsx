@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { MATCH_LENGTHS, type DealerWinRule, type MatchTimeLimit, type MatchLength } from '../match';
+import { MATCH_LENGTHS, type DeadWallOption, type DealerWinRule, type MatchTimeLimit, type MatchLength } from '../match';
 import { matchLengthLabel } from '../labels';
 
 export interface MainMenuProps {
@@ -7,6 +7,10 @@ export interface MainMenuProps {
   lastResult: string | null;
   onPractice: () => void;
   kimEnabled?: boolean;
+  kimMode?: 'natural' | 'dedicated' | 'off';
+  onKimModeChange?: (mode: 'natural' | 'dedicated' | 'off') => void;
+  deadWall?: DeadWallOption;
+  onDeadWallChange?: (option: DeadWallOption) => void;
   onKimChange?: (enabled: boolean) => void;
   /** Hands per match (null = endless practice) */
   matchLength?: MatchLength;
@@ -17,7 +21,7 @@ export interface MainMenuProps {
   onMatchLengthChange?: (length: MatchLength) => void;
 }
 
-export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, onKimChange, matchLength, onMatchLengthChange, dealerWinRule, onDealerWinRuleChange, timeLimitMinutes, onTimeLimitChange }: MainMenuProps) {
+export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, onKimChange, matchLength, onMatchLengthChange, kimMode, onKimModeChange, deadWall, onDeadWallChange, timeLimitMinutes, onTimeLimitChange }: MainMenuProps) {
   return (
     <main className="main-menu">
       <section className="menu-card" aria-label="Menu utama">
@@ -25,15 +29,22 @@ export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, 
         <h2>Waktunya bermain.</h2>
         <p className="muted">Anda dan tiga lawan. Satu meja.</p>
         {lastResult !== null && <p className="menu-last">Terakhir: {lastResult}</p>}
-        {kimEnabled !== undefined && onKimChange && (
-          <fieldset className="menu-kim">
-            <legend>Pilihan Kim</legend>
-            <div className="segmented" role="group" aria-label="Pilihan Kim">
-              <button type="button" className={kimEnabled ? 'is-on' : ''} aria-pressed={kimEnabled} onClick={() => onKimChange(true)}>Ada Kim</button>
-              <button type="button" className={kimEnabled ? '' : 'is-on'} aria-pressed={!kimEnabled} onClick={() => onKimChange(false)}>Tanpa Kim</button>
-            </div>
-          </fieldset>
-        )}
+        {(onKimModeChange || onKimChange) && <label className="field">Pilihan Kim
+          <select aria-label="Pilihan Kim" value={kimMode ?? (kimEnabled ? 'natural' : 'off')} onChange={e => {
+            const mode = e.target.value as 'natural' | 'dedicated' | 'off';
+            if (onKimModeChange) onKimModeChange(mode); else onKimChange?.(mode !== 'off');
+          }}>
+            <option value="natural">Kim dari tile</option>
+            <option value="dedicated">Kim tambahan (pemula)</option>
+            <option value="off">Tanpa Kim</option>
+          </select>
+        </label>}
+        {onDeadWallChange && <label className="field">Akhir tembok
+          <select aria-label="Akhir tembok" value={deadWall ?? 'none'} onChange={e => onDeadWallChange(e.target.value as DeadWallOption)}>
+            <option value="none">Sampai habis (turnamen)</option>
+            <option value="14">Sisa 14 tile (dead wall)</option>
+          </select>
+        </label>}
         {matchLength !== undefined && onMatchLengthChange && (
           <fieldset className="menu-kim menu-length">
             <legend>Panjang pertandingan</legend>
@@ -46,13 +57,6 @@ export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, 
             </div>
           </fieldset>
         )}
-        {dealerWinRule !== undefined && onDealerWinRuleChange && <label className="field">
-          Dealer menang
-          <select aria-label="Dealer menang" value={dealerWinRule} onChange={e => onDealerWinRuleChange(e.target.value as DealerWinRule)}>
-            <option value="stay">Tetap jadi dealer (default)</option>
-            <option value="rotate">Tetap berputar</option>
-          </select>
-        </label>}
         {timeLimitMinutes !== undefined && onTimeLimitChange && <label className="field">
           Waktu
           <select aria-label="Waktu" value={timeLimitMinutes ?? 'unlimited'} onChange={e => onTimeLimitChange(e.target.value === '90' ? 90 : null)}>

@@ -188,7 +188,7 @@ describe('Public preferences preserve advanced scoring configuration', () => {
       difficultyLabel: 'Normal', lastResult: null, onPractice: noop,
       kimEnabled: true, onKimChange: noop,
     }));
-    expect(html).toContain('Ada Kim');
+    expect(html).toContain('Kim dari tile');
     expect(html).toContain('Tanpa Kim');
     expect(html).not.toMatch(/PDF|aturan rumah|Bunga:|dealer|Tabel:/);
   });

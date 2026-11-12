@@ -15,10 +15,10 @@ import { SEAT_ORDER } from '../core/tiles';
 import type { Seat, Wind } from '../core/types';
 import { getStorage, type StorageLike } from '../storage';
 
-/** Number of hands in a match (menu offers 4 / 8 / 16); `null` = endless practice. */
-export type MatchLength = number | null;
-export const MATCH_LENGTHS: readonly MatchLength[] = [4, 8, 16, null];
-export const DEFAULT_MATCH_LENGTH: MatchLength = 8;
+/** Number of counted games (8 / 16 / 16++); numeric practice callers remain supported; `null` = endless practice. */
+export type MatchLength = number | '16++' | null;
+export const MATCH_LENGTHS: readonly MatchLength[] = [8, 16, '16++', null];
+export const DEFAULT_MATCH_LENGTH: MatchLength = 16;
 export type DealerWinRule = 'stay' | 'rotate';
 export const DEFAULT_DEALER_WIN_RULE: DealerWinRule = 'stay';
 
@@ -36,12 +36,12 @@ export interface Seating {
 /**
  * PDF section 4: Seri keeps the seating. Lew Fit rotates (user-approved inference
  * from PlayLeh, where False Win is distinct from dealer Hu and stalemate).
- * PlayLeh practice: a dealer win retains the deal by default; optionally rotate anyway.
+ * Player feedback: a dealer win always retains the deal; legacy rotate arguments are ignored.
  * https://playleh.com/mahjongleh-rules.html (Game Setup).
  * The prevailing wind advances after four dealer changes (implementation convention).
  */
-export function nextSeating(current: Seating, result: HandResult, dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE): Seating {
-  if (result.kind === 'none' || (result.kind === 'hu' && result.winner === current.dealer && dealerWinRule === 'stay')) return { ...current };
+export function nextSeating(current: Seating, result: HandResult, _dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE): Seating {
+  if (result.kind === 'none' || (result.kind === 'hu' && result.winner === current.dealer)) return { ...current };
   const dealer = SEAT_ORDER[(SEAT_ORDER.indexOf(current.dealer) + 1) % 4]!;
   const passes = current.dealerPasses + 1;
   if (passes < 4) return { dealer, prevailingWind: current.prevailingWind, dealerPasses: passes };
@@ -63,6 +63,8 @@ export interface MatchHandRecord {
 
 export interface MatchState {
   length: MatchLength;
+  openingRoll: OpeningRoll | null;
+  deadWall: DeadWallOption;
   /** Practice minimum fixed for the match; tournament default is 5. */
   minHuTay: number;
   dealerWinRule: DealerWinRule;
@@ -83,8 +85,8 @@ export interface MatchState {
 
 const zero = (): Record<Seat, number> => ({ dong: 0, nan: 0, xi: 0, bei: 0 });
 
-export function createMatch(length: MatchLength, dealer: Seat = 'dong', prevailingWind: Wind = 'dong', minHuTay = 5, dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE, timeLimitMinutes: MatchTimeLimit = null, now = Date.now()): MatchState {
-  return { length, minHuTay, dealerWinRule, timeLimitMinutes, startedAt: now, finishedAt: null, endedBy: null, seating: { dealer, prevailingWind, dealerPasses: 0 }, hands: [], huCount: zero(), tayTotal: zero(), reachedAt: zero() };
+export function createMatch(length: MatchLength, dealer: Seat = 'dong', prevailingWind: Wind = 'dong', minHuTay = 5, _dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE, timeLimitMinutes: MatchTimeLimit = null, now = Date.now()): MatchState {
+  return { length, openingRoll: null, deadWall: 'none', minHuTay, dealerWinRule: 'stay', timeLimitMinutes, startedAt: now, finishedAt: null, endedBy: null, seating: { dealer, prevailingWind, dealerPasses: 0 }, hands: [], huCount: zero(), tayTotal: zero(), reachedAt: zero() };
 }
 
 /** 1-based number of the hand being played (or about to be dealt). */
@@ -93,7 +95,7 @@ export function currentHandNumber(match: MatchState): number {
 }
 
 export function isMatchOver(match: MatchState): boolean {
-  return match.endedBy !== null || (match.length !== null && match.hands.length >= match.length);
+  return match.endedBy !== null || (match.length !== null && countedGames(match) >= matchTarget(match));
 }
 
 /**
@@ -157,32 +159,32 @@ export function standings(match: MatchState): Standing[] {
 
 const LENGTH_KEY = 'itm.match-length.v1';
 
-export function loadMatchLength(): MatchLength {
+export function loadMatchLength(storage?: StorageLike): MatchLength {
   try {
-    const saved = getStorage().getItem(LENGTH_KEY);
+    const saved = (storage ?? getStorage()).getItem(LENGTH_KEY);
     if (saved === 'endless') return null;
+    if (saved === '16++') return '16++';
     const n = Number(saved);
     if (MATCH_LENGTHS.includes(n as MatchLength)) return n as MatchLength;
   } catch { /* Storage may be unavailable. */ }
   return DEFAULT_MATCH_LENGTH;
 }
 
-export function saveMatchLength(length: MatchLength): void {
-  try { getStorage().setItem(LENGTH_KEY, length === null ? 'endless' : String(length)); } catch { /* Keep the live choice. */ }
+export function saveMatchLength(length: MatchLength, storage?: StorageLike): void {
+  try { (storage ?? getStorage()).setItem(LENGTH_KEY, length === null ? 'endless' : String(length)); } catch { /* Keep the live choice. */ }
 }
 
 
 const DEALER_WIN_KEY = 'itm.match-dealer-win.v1';
 
+/** Legacy compatibility: discard the removed dealer-rotation preference. */
 export function loadDealerWinRule(storage?: StorageLike): DealerWinRule {
-  try { return (storage ?? getStorage()).getItem(DEALER_WIN_KEY) === 'rotate' ? 'rotate' : DEFAULT_DEALER_WIN_RULE; }
-  catch { return DEFAULT_DEALER_WIN_RULE; }
+  try { (storage ?? getStorage()).removeItem(DEALER_WIN_KEY); } catch { /* Storage unavailable. */ }
+  return 'stay';
 }
-
-export function saveDealerWinRule(rule: DealerWinRule, storage?: StorageLike): void {
-  try { (storage ?? getStorage()).setItem(DEALER_WIN_KEY, rule); } catch { /* Keep the live choice. */ }
+export function saveDealerWinRule(_rule: DealerWinRule, storage?: StorageLike): void {
+  loadDealerWinRule(storage);
 }
-
 
 /** Elapsed real time includes hidden tabs, bot pauses, dialogs and between-hand results. */
 export function remainingMatchMs(match: MatchState, now = Date.now()): number | null {
@@ -193,7 +195,7 @@ export function remainingMatchMs(match: MatchState, now = Date.now()): number | 
 export function finishMatchAtBoundary(match: MatchState, now = Date.now()): MatchState {
   if (match.endedBy !== null) return match;
   const byTime = remainingMatchMs(match, now) === 0;
-  const byHands = match.length !== null && match.hands.length >= match.length;
+  const byHands = match.length !== null && countedGames(match) >= matchTarget(match);
   return byTime || byHands ? { ...match, endedBy: byTime ? 'time' : 'hands', finishedAt: now } : match;
 }
 
@@ -210,4 +212,36 @@ export function saveMatchTimeLimit(limit: MatchTimeLimit, storage?: StorageLike)
 export function watchMatchClock(target: { tickMatchClock(): void }): () => void {
   const timer = setInterval(() => target.tickMatchClock(), 1000);
   return () => clearInterval(timer);
+}
+
+/** Dealer wins in 16++ are replayed; Seri and Lew Fit count as games. */
+export function countedGames(match: MatchState): number {
+  return match.hands.filter(h => match.length !== '16++' || h.winner !== h.dealer).length;
+}
+export function matchTarget(match: MatchState): number {
+  return match.length === '16++' ? 16 : match.length ?? Infinity;
+}
+export interface OpeningRoll {
+  rounds: Array<Array<{ seat: Seat; dice: [number, number] }>>;
+  dealer: Seat;
+}
+export function rollOpeningDealer(rng: () => number = Math.random): OpeningRoll {
+  const rounds: OpeningRoll['rounds'] = [];
+  let tied: Seat[] = [...SEAT_ORDER];
+  while (true) {
+    const round = tied.map(seat => ({ seat, dice: [1 + Math.floor(rng() * 6), 1 + Math.floor(rng() * 6)] as [number, number] }));
+    rounds.push(round);
+    const high = Math.max(...round.map(r => r.dice[0] + r.dice[1]));
+    tied = round.filter(r => r.dice[0] + r.dice[1] === high).map(r => r.seat);
+    if (tied.length === 1) return { rounds, dealer: tied[0]! };
+  }
+}
+export type DeadWallOption = 'none' | '14';
+const DEAD_WALL_KEY = 'itm.dead-wall.v1';
+export function loadDeadWall(storage?: StorageLike): DeadWallOption {
+  try { return (storage ?? getStorage()).getItem(DEAD_WALL_KEY) === '14' ? '14' : 'none'; }
+  catch { return 'none'; }
+}
+export function saveDeadWall(option: DeadWallOption, storage?: StorageLike): void {
+  try { (storage ?? getStorage()).setItem(DEAD_WALL_KEY, option); } catch { /* Keep live choice. */ }
 }

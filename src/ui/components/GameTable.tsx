@@ -1,5 +1,5 @@
 import { TableMotion } from './TableMotion';
-import { Hand, Layers, Sparkles, Trophy, Undo2, Flower2, ArrowDownToLine, MoveDownRight, Crown } from 'lucide-react';
+import { Hand, Sparkles, Trophy, Undo2, Flower2, ArrowDownToLine, MoveDownRight, Crown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { sortTiles } from '../../core/tiles';
 import type { Seat, Tile } from '../../core/types';
@@ -10,7 +10,6 @@ import { practiceCoachLine, type CoachEmphasis } from '../practice-coach';
 import { handReadingLine } from '../hand-reading';
 import { isFirstGoAround, isInitialDealtHand, seatWindOf, toFullRules, toScoringOverlap } from '../win-context';
 import { MeldView, TileBack, TileRow, TileView } from './TileView';
-import { wallLayout, type WallSide } from '../wall-layout';
 
 /** Screen position of each seat relative to the human at the bottom (turn order runs counter-clockwise). */
 export function seatPositions(human: Seat): Record<'bottom' | 'right' | 'top' | 'left', Seat> {
@@ -79,27 +78,6 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
   );
 }
 
-/** The wall as 2-high stacks around the square: normal draws go clockwise from the break, replacements from the tail. */
-function WallRing({ wall, breakSide }: { wall: { serialize(): { initialCount: number; headIndex: number; tailIndex: number } }; breakSide: WallSide }) {
-  const { initialCount, headIndex, tailIndex } = wall.serialize();
-  const layout = wallLayout({ initialCount, headIndex, tailIndex, breakSide });
-  const next = Math.floor(headIndex / 2);
-  const empty = headIndex > tailIndex;
-  // The next stack a draw takes is the motion anchor; an exhausted wall falls back to the ring.
-  return (
-    <div data-wall-anchor={empty ? '' : undefined} className="wall-ring" aria-hidden="true">
-      {(Object.keys(layout) as WallSide[]).map((side) => (
-        <span key={side} className={`wall-side wall-${side}`}>
-          {layout[side].map((slot) => (
-            <span key={slot.order} data-wall-anchor={!empty && slot.order === next ? '' : undefined}
-              className={`wall-stack${slot.tiles === 1 ? ' is-single' : slot.tiles === 0 ? ' is-empty' : ''}`} />
-          ))}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 export function CenterArea({ controller, progress }: { controller: GameController; progress?: ReactNode }) {
   const s = controller.getState();
   const settings = controller.getSettings();
@@ -109,11 +87,12 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
   const source = (seat: Seat) => Object.entries(positions).find(([, s]) => s === seat)?.[0];
   const freshId = controller.lastDiscard?.tile.id;
   const won = controller.outcome?.kind === 'hu' ? controller.outcome : null;
+  // Drawable tiles: excludes the optional 14-tile dead wall.
+  const left = controller.remainingDrawable;
   return (
     <>
     <section className="center-area" aria-label="Area buangan">
       <div className="board-plane">
-        <WallRing wall={s.wall} breakSide={source(s.dealerSeat) as WallSide} />
         {(Object.entries(positions) as ['bottom' | 'right' | 'top' | 'left', Seat][]).map(([position, seat]) => {
           const wind = seatWindOf(s, seat);
           return (
@@ -131,6 +110,10 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
           ))}
         </div>
       </div>
+      {/* No wall on the felt: this counter is also where a draw's tile flies from. */}
+      <p data-wall-anchor="" className={`wall-counter${left <= 20 ? ' is-low' : ''}`} aria-label={`Sisa ${left} tile di tembok`}>
+        Sisa <b>{left}</b> tile
+      </p>
       {pending && (
         <div key={pending.tile.id} className="pending-discard" data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${PLAYER_NAME[pending.discarder]} ke area buangan tengah`}>
           <span>
@@ -145,9 +128,6 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
       <TableMotion controller={controller} />
       {progress}
       <div className="center-stats">
-        <span className="stat" title="Sisa tile di tembok">
-          <Layers size={14} /> Tembok: <b>{s.wall.remainingCount}</b>
-        </span>
         <span className="stat" title="Angin putaran">
           Putaran: <b>{WIND_GLYPH[s.roundWind]} {SEAT_SHORT[s.roundWind]}</b>
         </span>

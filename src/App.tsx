@@ -17,8 +17,9 @@ import { MainMenu } from './ui/components/MainMenu';
 import { AbandonMatchDialog } from './ui/components/AbandonMatchDialog';
 import { GameController, type GameEventType } from './ui/game-controller';
 import { PlayProgress } from './ui/components/PlayProgress';
+import { DiceRoll, openingRollOf, type OpeningRoll } from './ui/components/DiceRoll';
 import { MatchResultNote, MatchStandingsModal } from './ui/components/MatchBoard';
-import { loadMatchLength, saveMatchLength, loadDealerWinRule, saveDealerWinRule, loadMatchTimeLimit, saveMatchTimeLimit, watchMatchClock, type MatchTimeLimit, type MatchLength, type DealerWinRule } from './ui/match';
+import { loadMatchLength, saveMatchLength, loadDealerWinRule, loadDeadWall, saveDeadWall, loadMatchTimeLimit, saveMatchTimeLimit, watchMatchClock, type MatchTimeLimit, type MatchLength, type DeadWallOption } from './ui/match';
 import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsForPace, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
 import { DIFFICULTY_LABEL, tileText } from './ui/labels';
 import { releaseVersion } from './ui/release';
@@ -74,8 +75,9 @@ export function App() {
   const [resultOpen, setResultOpen] = useState(false);
   const [abandonOpen, setAbandonOpen] = useState(false);
   const [standingsOpen, setStandingsOpen] = useState(false);
+  const [dice, setDice] = useState<{ roll: OpeningRoll; autoClose: boolean } | null>(null);
   const [matchLength, setMatchLength] = useState<MatchLength>(loadMatchLength);
-  const [dealerWinRule, setDealerWinRule] = useState<DealerWinRule>(loadDealerWinRule);
+  const [deadWall, setDeadWall] = useState<DeadWallOption>(() => { loadDealerWinRule(); return loadDeadWall(); });
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<MatchTimeLimit>(loadMatchTimeLimit);
   const [history, setHistory] = useState(() => loadGameHistory());
 
@@ -92,7 +94,7 @@ export function App() {
   );
 
   // Each effect owns one timer; dialogs, views, pause, and new games dispose it.
-  const automationBlocked = modal !== null || abandonOpen;
+  const automationBlocked = modal !== null || abandonOpen || dice !== null;
   useEffect(() => scheduleAutomation(controller, practiceDelay(pace),
     view !== 'table' || !matchStarted || paused || automationBlocked),
     [controller, version, pace, view, matchStarted, paused, automationBlocked]);
@@ -115,6 +117,7 @@ export function App() {
   const newGame = () => {
     setAbandonOpen(false);
     setStandingsOpen(false);
+    setDice(null);
     setView('menu');
     setMatchStarted(false);
     setResultOpen(false);
@@ -126,7 +129,9 @@ export function App() {
     setSelectedId(null);
     setPaused(false);
     controller.setSettings({ ...settings, startingSeatWind: 'dong' });
-    controller.startMatch(matchLength, dealerWinRule, timeLimitMinutes);
+    controller.startMatch(matchLength, 'stay', timeLimitMinutes, deadWall);
+    const roll = openingRollOf(controller.match);
+    setDice(roll ? { roll, autoClose: true } : null);
     setMatchStarted(true);
     setView('table');
   };
@@ -177,17 +182,19 @@ export function App() {
     controller.setSettings(stored);
   };
 
-  // Dev-only: `?demo=table|claim|hu` opens a seeded table state for reproducible screenshots.
+  // Dev-only: `?demo=table|claim|hu|dice` opens a seeded table state for reproducible screenshots.
   const demoStarted = useRef(false);
   useEffect(() => {
     if (!import.meta.env.DEV || demoStarted.current) return;
     demoStarted.current = true;
-    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo }) => {
+    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, DEMO_OPENING_ROLL }) => {
       const demo = demoFromUrl(window.location.search);
       if (!demo) return;
       startPractice();
       setPaused(true);
-      driveDemo(controller, demo.mode);
+      // The dice demo holds on the announcement; before the match exposes a roll it shows a sample.
+      if (demo.mode === 'dice') setDice({ roll: openingRollOf(controller.match) ?? DEMO_OPENING_ROLL, autoClose: false });
+      else { setDice(null); driveDemo(controller, demo.mode); }
     });
   }, []);
 
@@ -204,13 +211,6 @@ export function App() {
         </div>
 
         <div className="header-actions">
-          {view === 'menu' && <label>Mode Kim <select aria-label="Mode Kim" value={settings.kimMode ?? (settings.kimEnabled ? 'dedicated' : 'off')} onChange={e => {
-            const kimMode = e.target.value as 'off' | 'dedicated' | 'natural';
-            const stored = persistSettings(settings, { kimMode, kimEnabled: kimMode !== 'off' });
-            setSettings(stored);
-            controller.setSettings(stored);
-          }}><option value="natural">Kim dari tile yang ada</option><option value="dedicated">Kim khusus (pemula)</option><option value="off">Tanpa Kim</option></select></label>}
-
           <button type="button" className="icon-btn" onClick={() => setModal('history')} title="Riwayat Permainan">
             <History size={18} />
           </button>
@@ -227,13 +227,13 @@ export function App() {
       </header>
 
       {view === 'menu' ? (
-        <MainMenu kimEnabled={settings.kimEnabled} onKimChange={(enabled: boolean) => {
-          const stored = persistSettings(settings, { kimEnabled: enabled, kimMode: enabled ? (settings.kimMode === 'dedicated' ? 'dedicated' : 'natural') : 'off' });
+        <MainMenu kimMode={settings.kimMode ?? (settings.kimEnabled ? 'natural' : 'off')} onKimModeChange={kimMode => {
+          const stored = persistSettings(settings, { kimEnabled: kimMode !== 'off', kimMode });
           setSettings(stored);
           controller.setSettings(stored);
         }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
           timeLimitMinutes={timeLimitMinutes} onTimeLimitChange={limit => { setTimeLimitMinutes(limit); saveMatchTimeLimit(limit); }}
-          dealerWinRule={dealerWinRule} onDealerWinRuleChange={rule => { setDealerWinRule(rule); saveDealerWinRule(rule); }}
+          deadWall={deadWall} onDeadWallChange={option => { setDeadWall(option); saveDeadWall(option); }}
           matchLength={matchLength} onMatchLengthChange={(length) => { setMatchLength(length); saveMatchLength(length); }}
           lastResult={history[0] ? history[0].winner === null ? 'Seri' : `${history[0].totalTay} Tay` : null} />
       ) : (
@@ -262,6 +262,7 @@ export function App() {
         onStandings={controller.matchOver ? openStandings : undefined}
         matchSummary={controller.match ? <MatchResultNote match={controller.match} /> : undefined} />}
       {view === 'table' && standingsOpen && controller.match && !modal && <MatchStandingsModal match={controller.match} onPlayAgain={startPractice} onMenu={newGame} />}
+      {view === 'table' && dice && <DiceRoll roll={dice.roll} humanSeat={controller.humanSeat} autoClose={dice.autoClose} onDone={() => setDice(null)} />}
       {abandonOpen && <AbandonMatchDialog onStay={() => setAbandonOpen(false)} onLeave={newGame} />}
       {modal === 'settings' && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setModal(null)} />}
       {modal === 'history' && (
