@@ -365,10 +365,10 @@ describe('match review regressions', () => {
     expect(rotatedScore(prefix + ' 2W 2W').score.patterns.find(p => p.id === 14)?.tay).toBe(3);
   });
 
-  it('Tuei Tuei uses the same rotated valued-pair predicate for human and AI', () => {
+  it('Tuei Tuei accepts every honor pair for human and AI (player answer B)', () => {
     const prefix = '1T 1T 1T 5S 5S 5S 9B 9B 9B 3T 3T 3T';
     for (const pair of ['DZ', 'DF', 'DP', '4W', '1W']) {
-      expect(rotatedScore(`${prefix} ${pair} ${pair}`).score.patterns.some(p => p.id === 15)).toBe(false);
+      expect(rotatedScore(`${prefix} ${pair} ${pair}`).score.patterns.find(p => p.id === 15)?.tay).toBe(10);
     }
     expect(rotatedScore(prefix + ' 2W 2W').score.patterns.find(p => p.id === 15)?.tay).toBe(10);
   });
