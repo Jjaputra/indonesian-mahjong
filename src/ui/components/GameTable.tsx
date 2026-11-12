@@ -10,6 +10,7 @@ import { practiceCoachLine, type CoachEmphasis } from '../practice-coach';
 import { handReadingLine } from '../hand-reading';
 import { isFirstGoAround, isInitialDealtHand, seatWindOf, toFullRules, toScoringOverlap } from '../win-context';
 import { MeldView, TileBack, TileRow, TileView } from './TileView';
+import { wallLayout, type WallSide } from '../wall-layout';
 
 /** Screen position of each seat relative to the human at the bottom (turn order runs counter-clockwise). */
 export function seatPositions(human: Seat): Record<'bottom' | 'right' | 'top' | 'left', Seat> {
@@ -78,15 +79,21 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
   );
 }
 
-/** Stacks of the remaining wall, dealt around the four sides of the square inside the table. */
-function WallRing({ remaining }: { remaining: number }) {
-  const stacks = Math.ceil(remaining / 2);
-  const sides = (['bottom', 'right', 'top', 'left'] as const).map((side, i) => ({ side, count: Math.floor(stacks / 4) + (i < stacks % 4 ? 1 : 0) }));
+/** The wall as 2-high stacks around the square: normal draws go clockwise from the break, replacements from the tail. */
+function WallRing({ wall, breakSide }: { wall: { serialize(): { initialCount: number; headIndex: number; tailIndex: number } }; breakSide: WallSide }) {
+  const { initialCount, headIndex, tailIndex } = wall.serialize();
+  const layout = wallLayout({ initialCount, headIndex, tailIndex, breakSide });
+  const next = Math.floor(headIndex / 2);
+  const empty = headIndex > tailIndex;
+  // The next stack a draw takes is the motion anchor; an exhausted wall falls back to the ring.
   return (
-    <div data-wall-anchor className="wall-ring" aria-hidden="true">
-      {sides.map(({ side, count }) => (
+    <div data-wall-anchor={empty ? '' : undefined} className="wall-ring" aria-hidden="true">
+      {(Object.keys(layout) as WallSide[]).map((side) => (
         <span key={side} className={`wall-side wall-${side}`}>
-          {Array.from({ length: Math.min(count, 18) }, (_, i) => <span key={i} className="wall-stack" />)}
+          {layout[side].map((slot) => (
+            <span key={slot.order} data-wall-anchor={!empty && slot.order === next ? '' : undefined}
+              className={`wall-stack${slot.tiles === 1 ? ' is-single' : slot.tiles === 0 ? ' is-empty' : ''}`} />
+          ))}
         </span>
       ))}
     </div>
@@ -106,7 +113,7 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
     <>
     <section className="center-area" aria-label="Area buangan">
       <div className="board-plane">
-        <WallRing remaining={s.wall.remainingCount} />
+        <WallRing wall={s.wall} breakSide={source(s.dealerSeat) as WallSide} />
         {(Object.entries(positions) as ['bottom' | 'right' | 'top' | 'left', Seat][]).map(([position, seat]) => {
           const wind = seatWindOf(s, seat);
           return (
@@ -151,12 +158,6 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
           <Sparkles size={14} /> {settings.kimEnabled ? "Ada Kim" : "Tanpa Kim"}
         </span>
       </div>
-      <details className="activity-history" open><summary>Aktivitas terbaru</summary>
-      <ol className="game-log" aria-label="Log permainan" start={Math.max(1, controller.log.length - 11)}>
-        {controller.log.slice(-12).map((l) => (
-          <li key={l.id}>{l.text}</li>
-        ))}
-      </ol></details>
     </aside>
     </>
   );

@@ -88,8 +88,10 @@ export const PRINTED_PLACEMENT: ReadonlyMap<number, { readonly K: number | null;
   [39, { K: 40, NK: null }],
 ]);
 
-/** Tay of a pattern in a table column for the given scoring basis; null when that cell is blank. */
+/** Effective Tay, including house-rule overrides; null when an unoverridden cell is blank. */
 export function tableTay(id: number, column: KimMode, basis: ScoringBasis = 'hand_kim_usage'): number | null {
+  // Player feedback 2026-11-12: Bo KIM is +3 in either column, overriding the PDF blank.
+  if (id === 8) return 3;
   const printed = basis === 'match_table' ? PRINTED_PLACEMENT.get(id) : undefined;
   return printed ? printed[column] : baseTay(id, column);
 }

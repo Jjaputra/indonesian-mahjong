@@ -70,7 +70,7 @@ export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps)
               <option value="dedicated">Kim khusus — pemula (148 tile)</option>
               <option value="off">Tanpa Kim</option>
             </select>
-            <small>Kim natural: satu jenis tile dipilih acak tiap hand (144 tile). Ini penyederhanaan; prosedur dadu belum dikonfirmasi. Semua Kim yang dipakai sesuai nomer/jenis mendapat Bo KIM.</small>
+            <small>Kim natural: Kim dipilih acak dari tile yang ada setiap game (144 tile). Semua Kim yang dipakai sesuai nomer/jenis mendapat Bo KIM.</small>
           </label>
           <div className="field">
             <span>Tingkat kesulitan AI</span>

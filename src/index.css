@@ -1649,217 +1649,818 @@ select {
 
 .action-hud:empty { display: none; }
 
-/* Dimensional table: explicit HUD track keeps every child out of implicit grid rows. */
-.table-felt {
-  --felt-ink: #f0edce;
-  position: relative;
-  grid-template-columns: 112px minmax(280px, 1fr) 112px 300px;
-  grid-template-rows: auto minmax(320px, 1fr) auto;
-  grid-template-areas: 'top top top hud' 'left center right hud' 'bottom bottom bottom hud';
-  gap: 12px;
-  padding: 24px;
-  margin: 14px;
-  border: 12px solid #755035;
-  border-radius: 32px;
-  background:
-    radial-gradient(ellipse at 45% 35%, #3f947442, transparent 65%),
-    repeating-conic-gradient(#ffffff03 0% 25%, #00000003 0% 50%) 0 0 / 4px 4px,
-    #176047;
-  box-shadow: inset 0 0 0 3px #c39760, inset 0 0 40px #05291eb0, 0 7px 0 #442e21, 0 12px 24px #29211635;
+/* ==========================================================================
+   3D table: the felt is one tilted plane seen from the player's seat.
+   Presentation only. TableMotion measures getBoundingClientRect(), which
+   already returns each anchor's projected (post-transform) box.
+   ========================================================================== */
+:root {
+  --tile-back: #263c8e;
+  --tile-back-edge: #16245e;
+  --tile-side: #e9e1ca;
+  --felt-green: #1f7a3d;
+  --felt-deep: #145a2b;
+  --rim-wood: #6a3d18;
+  --rim-dark: #2f1707;
+  --scene: #7d0e13;
+  --scene-deep: #4c070b;
+  --felt-ink: #f3e7c9;
+  --felt-gold: #f0a63a;
+  --call-ink: #1d2240;
+  --call-red: #c8141c;
+  --hud-rail: 290px;
+  --felt-tilt: 30deg;
+  --felt-persp: 1000px;
+  --board-tilt: 30deg;
+}
+
+/* The table view owns the viewport; nothing scrolls sideways. */
+.app.is-table {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--scene-deep);
+}
+.app.is-table .app-header {
+  padding: 5px 14px;
+  background: linear-gradient(#3d070b, #260406);
+  border-bottom: 1px solid #000;
   color: var(--felt-ink);
 }
-.table-felt > .kim-indicator { position: absolute; top: 6px; left: 16px; color: #f7d998; font-size: 11px; }
-.table-hud { grid-area: hud; align-self: start; min-width: 0; padding: 14px; border-radius: 16px; background: #fbf8ef; color: #233e34; box-shadow: 0 5px 18px #002b224d; border: 1px solid #d0bf9f; }
-.table-hud .table-stage { font-size: 12px; line-height: 1.5; background: #e7efe6; border-color: #c2d1bc; }
-.table-hud .match-board { display: flex; flex-direction: column; align-items: stretch; padding: 12px; background: #193e32; color: #ffedbf; border: 1px solid #a27d42; gap: 8px; }
-.table-hud .match-board .muted { color: #e3d9bd; }
-.table-hud .match-scores { display: grid; grid-template-columns: 1fr 1fr; color: #e1eadd; gap: 8px; }
-.table-hud .match-score { padding: 5px; background: #ffffff0b; border-radius: 4px; }
-.table-hud .match-score.is-dealer { color: #ffe3a3; }
-.table-hud [aria-label='Waktu pertandingan'] { font-size: 17px; font-weight: 750; font-variant-numeric: tabular-nums; }
-.table-hud .play-progress { gap: 10px; }
-.table-hud .play-controls { gap: 6px; }
-.table-hud .play-controls > label { width: 100%; }
-.table-hud .play-controls select { max-width: 100%; }
-.table-hud .play-controls > .btn { padding: 6px 8px; font-size: 11px; min-height: 34px; }
-.table-hud .play-controls > span { font-size: 11px; }
-.table-hud .bot-explanation { max-height: 100px; overflow: auto; font-size: 11px; }
-.table-hud .center-stats { margin: 12px 0; }
-.table-hud .stat { font-size: 11px; padding: 3px 5px; }
-.table-hud .activity-history .game-log { max-height: 100px; font-size: 11px; }
-.table-felt .seat-panel, .table-felt .human-area, .table-felt .center-area { background: transparent; border-color: transparent; box-shadow: none; }
-.table-felt .seat-panel { padding: 6px 2px; align-self: center; position: relative; }
-.table-felt .seat-panel.is-active .seat-head, .table-felt .human-area.is-active .seat-head { color: #ffe5a2; }
-.table-felt .seat-head { gap: 4px 7px; font-size: 12px; }
-.table-felt .seat-head strong { letter-spacing: .3px; }
-.table-felt .rack, .table-felt .rack-empty, .table-felt .concealed .count { color: #d1e0ca; }
-.table-felt .badge { font-size: 9px; padding: 1px 5px; }
-.table-felt .seat-top { max-width: 100%; justify-self: center; align-items: center; }
-.table-felt .concealed { flex-wrap: nowrap; gap: 2px; padding: 3px 4px 8px; overflow: visible; }
-.table-felt .concealed .tile-back { --w: 19px; --h: 28px; }
-.table-felt .seat-left, .table-felt .seat-right { align-items: center; gap: 8px; }
-.table-felt .seat-left .seat-head, .table-felt .seat-right .seat-head { justify-content: center; }
-.table-felt .seat-left .concealed, .table-felt .seat-right .concealed { flex-direction: column; gap: 0; }
-.table-felt .seat-left .concealed .tile, .table-felt .seat-right .concealed .tile { --w: 27px; --h: 16px; margin: 0; border-radius: 3px; box-shadow: 3px 1px 0 #d1c8ac, 5px 3px 4px #002d2370; }
-.table-felt .seat-right .concealed .tile { box-shadow: -3px 1px 0 #d1c8ac, -5px 3px 4px #002d2370; }
-.table-felt .seat-panel .melds { justify-content: center; gap: 4px; }
-.table-felt .seat-panel .rack { justify-content: center; font-size: 10px; }
-.table-felt .seat-panel .bonus-rack { justify-content: center; }
-.table-felt .bonus-rack small { font-size: 9px; }
-.table-felt .center-area { position: relative; justify-content: center; padding: 0; overflow: visible; }
-.board-plane { position: relative; width: 100%; min-height: 340px; aspect-ratio: 1.12; transform: perspective(1100px) rotateX(9deg); transform-origin: center; }
-.wall-ring { position: absolute; inset: 25px 12px; pointer-events: none; }
-.wall-side { position: absolute; display: flex; justify-content: center; gap: 2px; }
-.wall-bottom, .wall-top { left: 20px; right: 20px; height: 21px; }
+.app.is-table .brand h1 { font-size: 16px; }
+.app.is-table .brand-tile { width: 24px; height: 32px; font-size: 16px; }
+.app.is-table .brand > div { display: flex; align-items: center; gap: 10px; }
+.app.is-table .release-version { margin-top: 0; background: transparent; border-color: rgba(243, 231, 201, 0.35); color: var(--felt-ink); }
+.app.is-table .header-actions .icon-btn { color: var(--felt-ink); }
+.app.is-table .header-actions .icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.app.is-table .header-actions .btn-primary { background: var(--felt-ink); border-color: var(--felt-ink); color: #3d070b; font-weight: 700; }
+
+.table-felt {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 8px 12px 8px;
+  gap: 4px 10px;
+  border: 0;
+  border-radius: 0;
+  overflow: clip;
+  display: grid;
+  grid-template-columns: minmax(110px, 0.75fr) minmax(0, 3fr) minmax(110px, 0.75fr) var(--hud-rail);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'top  top    top   hud'
+    'left center right hud'
+    'hand hand   hand  coach';
+  color: var(--felt-ink);
+  box-shadow: none;
+  /* ornamental lattice behind the table */
+  background:
+    radial-gradient(circle at 40% 110%, rgba(0, 0, 0, 0.4), transparent 60%),
+    radial-gradient(circle, transparent 0 11px, rgba(255, 196, 120, 0.07) 12px 13px, transparent 14px) 0 0 / 36px 36px,
+    radial-gradient(circle, rgba(255, 196, 120, 0.06) 0 4px, transparent 5px) 18px 18px / 36px 36px,
+    var(--scene);
+}
+/* Felt and wooden rim: one plane, tilted away from the player. */
+.table-felt::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 4px;
+  right: calc(var(--hud-rail) + 18px);
+  top: -64%;
+  bottom: 4px;
+  border-radius: 28px;
+  border: 20px solid var(--rim-wood);
+  border-top-width: 26px;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, 0.08), transparent 62%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.03) 0 2px, transparent 2px 4px),
+    linear-gradient(var(--felt-deep), var(--felt-green) 40%);
+  box-shadow:
+    inset 0 0 0 2px var(--rim-dark),
+    inset 0 0 0 14px rgba(255, 255, 255, 0.035),
+    inset 0 0 0 16px rgba(0, 0, 0, 0.12),
+    inset 0 20px 40px rgba(0, 0, 0, 0.35),
+    0 0 0 3px var(--rim-dark),
+    0 24px 50px rgba(0, 0, 0, 0.55);
+  transform: perspective(var(--felt-persp)) rotateX(var(--felt-tilt));
+  transform-origin: 50% 100%;
+}
+
+/* Grid items never widen the table past the viewport (the hand row scrolls instead). */
+.table-felt > *,
+.table-felt .seat-bottom > * { min-width: 0; }
+
+/* App's wrapper dissolves so hand, actions and coach each take their own grid cell. */
+.table-felt .seat-bottom { display: contents; }
+.table-felt > .kim-indicator {
+  grid-area: top;
+  justify-self: start;
+  align-self: start;
+  z-index: 3;
+  margin: 18px 0 0 34px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 2px solid #c9b2f0;
+  background: var(--kim);
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  box-shadow: 0 0 0 3px rgba(91, 58, 140, 0.35), 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Opponent seats ---------- */
+.table-felt .seat-panel,
+.table-felt .human-area,
+.table-felt .center-area {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.table-felt .seat-panel {
+  z-index: 1;
+  gap: 4px;
+  align-items: center;
+  color: var(--felt-ink);
+}
+.table-felt .seat-head {
+  justify-content: center;
+  gap: 4px 6px;
+  font-size: 12px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.table-felt .is-active > .seat-head strong { color: #ffd56b; }
+.table-felt .is-active > .seat-head strong::before { content: '▶ '; font-size: 0.8em; }
+.table-felt .badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(243, 231, 201, 0.3);
+  color: var(--felt-ink);
+  text-shadow: none;
+}
+.table-felt .badge-dealer { background: #f2c14e; border-color: #f7da8e; color: #4a2a00; font-weight: 700; }
+.table-felt .badge-kim,
+.table-felt .badge-pao { background: var(--kim); border-color: #c9b2f0; color: #fff; }
+.table-felt .rack,
+.table-felt .rack-empty,
+.table-felt .bonus-rack small { color: rgba(243, 231, 201, 0.8); font-size: 10px; }
+.table-felt .seat-panel .rack:has(.rack-empty) { display: none; }
+.table-felt .concealed .count { color: var(--felt-ink); font-weight: 700; font-size: 11px; margin-left: 6px; }
+.table-felt .melds { justify-content: center; gap: 6px; }
+.table-felt .meld { padding: 0 0 10px; gap: 0; background: none; border: 0; }
+.table-felt .meld-label { color: rgba(243, 231, 201, 0.8); font-size: 8px; letter-spacing: 0.06em; }
+
+/* Concealed hands: standing tile backs (navy back, ivory face edge). */
+.table-felt .tile-back {
+  border: 0;
+  border-radius: 3px 3px 2px 2px;
+  background: linear-gradient(var(--tile-back) 0 78%, var(--tile-side) 78%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 0 var(--tile-back-edge), 0 4px 6px rgba(0, 0, 0, 0.35);
+}
+.table-felt .tile-back::after { display: none; }
+.table-felt .seat-panel .tile-back { --w: 21px; --h: 29px; }
+.table-felt .concealed { flex-wrap: nowrap; gap: 1px; padding: 0; overflow: visible; }
+.table-felt .concealed .tile + .tile { margin-left: 0; }
+
+.table-felt .seat-top {
+  grid-area: top;
+  justify-self: center;
+  align-self: start;
+  display: grid;
+  grid-template-columns: auto auto auto;
+  grid-template-areas: 'rack hand melds' '. head .';
+  align-items: end;
+  column-gap: 12px;
+  row-gap: 3px;
+  padding-top: 10px;
+}
+.table-felt .seat-top .concealed { grid-area: hand; }
+.table-felt .seat-top .seat-head { grid-area: head; }
+.table-felt .seat-top .melds { grid-area: melds; justify-content: flex-start; }
+.table-felt .seat-top .rack { grid-area: rack; justify-content: flex-end; }
+
+/* Side seats: a slab of tile backs receding along the table edge. */
+.table-felt .seat-left,
+.table-felt .seat-right {
+  align-self: center;
+  justify-content: center;
+  gap: 6px;
+}
+.table-felt .seat-left { grid-area: left; margin-left: 44px; }
+.table-felt .seat-right { grid-area: right; margin-right: 44px; }
+@media (min-width: 901px) {
+  .table-felt :is(.seat-left, .seat-right) { align-self: end; margin-bottom: 18px; }
+}
+.table-felt :is(.seat-left, .seat-right) .seat-head { flex-direction: column; gap: 3px; }
+.table-felt :is(.seat-left, .seat-right) .concealed {
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 0;
+}
+.table-felt :is(.seat-left, .seat-right) .concealed .tile-back {
+  --w: 26px;
+  --h: 13px;
+  margin: 0 0 1px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--tile-back) 0 72%, var(--tile-side) 72%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 0 var(--tile-back-edge), 0 3px 5px rgba(0, 0, 0, 0.3);
+}
+.table-felt .seat-right .concealed .tile-back {
+  background: linear-gradient(90deg, var(--tile-side) 0 28%, var(--tile-back) 28%);
+}
+.table-felt .seat-left .concealed { transform: perspective(520px) rotateX(26deg) skewX(-14deg); }
+.table-felt .seat-right .concealed { transform: perspective(520px) rotateX(26deg) skewX(14deg); }
+.table-felt :is(.seat-left, .seat-right) .concealed .count { margin: 4px 0 0; }
+.table-felt :is(.seat-left, .seat-right) .melds { flex-direction: column; align-items: center; gap: 3px; }
+.table-felt :is(.seat-left, .seat-right) .rack { justify-content: center; }
+.table-felt :is(.seat-left, .seat-right) .bonus-rack { justify-content: center; }
+
+/* Face-up tiles keep their thickness: ivory face over a navy back layer. */
+.table-felt .tile:not(.tile-back) {
+  border-color: #cfc4a6;
+  background: linear-gradient(#fffef8, #f6f0de);
+  box-shadow: 0 2px 0 var(--tile-side), 0 4px 0 var(--tile-back), 0 5px 6px rgba(0, 0, 0, 0.35);
+}
+.table-felt .tile-sm:not(.tile-back) {
+  box-shadow: 0 1px 0 var(--tile-side), 0 3px 0 var(--tile-back), 0 4px 4px rgba(0, 0, 0, 0.3);
+}
+.table-felt .tile.is-highlight:not(.tile-back) {
+  box-shadow: 0 0 0 2px #ffd56b, 0 3px 0 var(--tile-back), 0 0 12px 2px rgba(255, 213, 107, 0.7);
+}
+
+/* Kim (natural or dedicated) stays unmistakable at every size and angle. */
+.tile.is-kim,
+.tile.tone-kim,
+.table-felt .tile.is-kim:not(.tile-back),
+.table-felt .tile.tone-kim:not(.tile-back) {
+  border-color: #8e6cc9;
+  outline: 2px solid #a07be0;
+  outline-offset: 1px;
+  background: linear-gradient(#fffdf6 62%, #ece0fb);
+}
+.tile.is-kim .kim-badge,
+.tile.tone-kim .kim-badge { z-index: 2; }
+.tile-sm.is-kim .kim-badge {
+  display: block;
+  top: -5px;
+  right: -5px;
+  font-size: 6px;
+  padding: 0 2px;
+}
+
+/* ---------- Centre: wall square and discards, lying in perspective ---------- */
+.table-felt .center-area {
+  grid-area: center;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: visible;
+}
+.board-plane {
+  position: relative;
+  width: min(100%, 600px);
+  aspect-ratio: 1.25;
+  max-height: 128%;
+  transform: perspective(1100px) rotateX(var(--board-tilt));
+  transform-origin: 50% 62%;
+  /* faint ornamental medallion printed on the felt */
+  background:
+    radial-gradient(circle, transparent 0 21%, rgba(255, 255, 255, 0.06) 21.5% 22.5%, transparent 23% 29%, rgba(255, 255, 255, 0.05) 29.5% 30%, transparent 30.5% 44%, rgba(255, 255, 255, 0.045) 44.5% 45.5%, transparent 46%),
+    repeating-conic-gradient(rgba(255, 255, 255, 0.03) 0 3deg, transparent 3deg 10deg);
+  border-radius: 50%;
+}
+.wall-ring {
+  --stack-depth: 30px;
+  --stack-gap: 2px;
+  position: absolute;
+  inset: 2% 4%;
+  pointer-events: none;
+}
+.wall-side {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  gap: var(--stack-gap);
+}
+/* Sides are as long as the square; each stack takes an equal share of its side. */
+.wall-bottom,
+.wall-top { left: calc(var(--stack-depth) + 6px); right: calc(var(--stack-depth) + 6px); height: var(--stack-depth); }
 .wall-bottom { bottom: 0; }
-.wall-top { top: 0; transform: rotate(180deg); }
-.wall-left, .wall-right { top: 24px; bottom: 24px; width: 20px; flex-direction: column; }
+.wall-top { top: 0; }
+.wall-left,
+.wall-right { top: 0; bottom: 0; width: calc(var(--stack-depth) * 0.9); flex-direction: column; }
 .wall-left { left: 0; }
 .wall-right { right: 0; }
-.wall-stack { flex: 0 1 18px; min-width: 5px; height: 22px; border: 1px solid #eee6c8; border-radius: 2px; background: linear-gradient(#65b99c 0 55%, #248166 55% 70%, #fff2ce 70%); box-shadow: 0 5px 0 #b9b499, 0 7px 4px #003a2a; }
-.wall-left .wall-stack, .wall-right .wall-stack { width: 21px; min-height: 5px; flex-basis: 17px; }
-.felt-wind { position: absolute; color: #b4c9a7; font-size: 10px; letter-spacing: 1px; }
-.felt-wind b { font-size: 17px; }
-.felt-wind small { font-size: 9px; letter-spacing: 0; }
-.felt-wind.is-turn { color: #ffe6a2; text-shadow: 0 0 14px #ffe29c66; }
-.felt-top { top: -4px; left: 50%; transform: translateX(-50%); }
-.felt-bottom { bottom: -4px; left: 50%; transform: translateX(-50%); }
-.felt-left { left: -8px; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
-.felt-right { right: -8px; top: 50%; transform: translate(50%, -50%) rotate(-90deg); }
-.table-felt .discard-pool { position: absolute; inset: 64px 48px; display: flex; gap: 5px 4px; min-height: 0; max-height: none; padding: 8px; background: #104c3520; border: 1px solid #abc58c26; border-radius: 5px; scrollbar-color: #d8c594 #104c35; }
-.table-felt .discard-pool .muted { color: #c1d0b7; font-size: 11px; }
-.table-felt .pool-tile { height: fit-content; }
-.table-felt .pending-discard { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); width: max-content; max-width: 100%; background: #183e32f2; color: #ffeac0; border: 1px solid #c5a567; z-index: 2; font-size: 11px; box-shadow: 0 4px 12px #00261b70; }
-.table-felt .pending-discard .tile-lg { --w: 30px; --h: 40px; }
-.hu-burst { position: absolute; inset: 20% 0 auto; margin: 0; text-align: center; font: 900 92px/1.1 Georgia, serif; color: #ffe2a0; text-shadow: 0 4px 0 #8a4a1c, 0 8px 20px #002719; pointer-events: none; z-index: 3; }
-.hu-burst small { display: block; font: 700 16px/2 'Segoe UI', sans-serif; letter-spacing: 3px; }
-.hu-burst.is-lew-fit { font-size: 50px; color: #ffd0bd; }
-.table-felt .seat-bottom { position: relative; bottom: auto; margin: 0; padding: 10px 0 0; background: transparent; box-shadow: none; border: 0; gap: 8px; }
-.table-felt .human-area { padding: 8px 10px; border-top: 1px solid #e6d4a330; border-radius: 0; }
-.table-felt .human-area .rack { margin-left: auto; }
-.table-felt .human-area .hand-row { justify-content: safe center; padding: 16px 5px 9px; }
-.table-felt .tile { background: linear-gradient(110deg, #fffef7, #f4edda); border-color: #e4d8bb; box-shadow: 0 4px 0 #c4b594, 1px 6px 0 #197a5e, 2px 8px 5px #002d2370; }
-.table-felt .tile.is-kim, .table-felt .tile.tone-kim { border-color: #ad83d9; background: linear-gradient(110deg, #fffef7, #eee2fc); }
-.table-felt .tile.tone-flower, .table-felt .tile.tone-season { background: linear-gradient(110deg, #fffdf2, #f7e8cc); }
-.table-felt .tile.tile-back { background: linear-gradient(90deg, #22846b, #3ba488 50%, #227a60); border: 2px solid #ece5c9; box-shadow: 0 4px 0 #c2b799, 1px 6px 6px #002d2370; }
-.table-felt .tile.tile-back::after { border-color: #a2d7bf77; }
-.table-felt .tile.is-selected { transform: translateY(-10px); border-color: #ffe3a4; box-shadow: 0 0 0 2px #ffe3a4, 0 5px 0 #b79e6b, 0 9px 14px #002d23; }
-.table-felt .tile.is-drawn { outline-color: #ffe3a4; }
-.table-felt .tile.is-highlight { box-shadow: 0 0 0 2px #ffe3a4, 0 4px 0 #c4b594; }
-.table-felt .action-hud { justify-content: center; background: #103f32d9; border-color: #bbcb9c33; padding: 10px; gap: 9px; }
-.table-felt .hud-btn { min-height: 44px; padding: 9px 18px; border-radius: 8px; background: linear-gradient(#faf6e8, #ded1b3); border: 1px solid #fff2cf; color: #273e31; font-weight: 800; box-shadow: 0 3px 0 #897b60, 0 5px 7px #002d2366; }
-.table-felt .hud-primary, .table-felt .hud-call { background: linear-gradient(#408bd0, #245c97); border-color: #84b7da; color: white; box-shadow: 0 3px 0 #153f6b, 0 5px 7px #002d2366; }
-.table-felt .hud-gold { background: linear-gradient(#ffe7a0, #dda64a); border-color: #ffecae; color: #513915; }
-.table-felt .hud-danger { background: linear-gradient(#c5644e, #953f32); border-color: #e4967c; color: #fff4e8; }
-.table-felt .hud-btn:hover:not(:disabled) { filter: brightness(1.12); }
-.table-felt .hud-btn.is-coached { outline-color: #f5d88d; outline-offset: 3px; }
-.hud-label { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.hud-preview { display: flex; gap: 2px; padding-bottom: 4px; }
-.table-felt .hud-btn.has-preview { flex-direction: column; gap: 6px; }
-.table-felt .hud-preview .tile-sm { --w: 18px; --h: 25px; }
-.table-felt .claim-banner { color: #ffe2a0; }
-.table-felt .practice-coach { padding: 6px 12px; background: transparent; border: 0; color: #f0e3c2; font-size: 12px; text-align: center; }
-.table-felt .hand-reading { color: #d4e1ca; }
-.table-felt .meld { background: #113f3155; border-color: #c0d2a744; }
-.table-felt .meld-label { color: #e2e4c9; }
-@media (min-width: 1500px) { .table-felt { max-width: 1560px; width: calc(100% - 28px); align-self: center; } }
-@media (max-width: 1150px) {
-  .table-felt { grid-template-columns: 78px minmax(240px, 1fr) 78px 260px; gap: 8px; padding: 18px; margin: 8px; border-width: 9px; }
-  .table-hud { padding: 10px; }
-  .table-felt .hand-row .tile-lg { --w: 36px; --h: 50px; }
-  .table-felt .human-area .rack { margin-left: 0; }
+/* A 2-high stack seen from the player's side: two navy backs, each over an ivory face edge. */
+.wall-stack {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  max-width: 26px;
+  border-radius: 3px;
+  background: linear-gradient(var(--tile-back) 0 34%, var(--tile-side) 34% 48%, var(--tile-back) 48% 84%, var(--tile-side) 84%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 1px var(--tile-back-edge), 0 3px 4px rgba(0, 0, 0, 0.35);
+}
+/* Side walls run away from the player: the slabs show their long edge. */
+.wall-left .wall-stack,
+.wall-right .wall-stack {
+  max-width: none;
+  max-height: 22px;
+  background: linear-gradient(90deg, var(--tile-back) 0 34%, var(--tile-side) 34% 48%, var(--tile-back) 48% 84%, var(--tile-side) 84%);
+}
+.wall-right .wall-stack {
+  background: linear-gradient(90deg, var(--tile-side) 0 16%, var(--tile-back) 16% 52%, var(--tile-side) 52% 66%, var(--tile-back) 66%);
+}
+/* Top tile taken: a single tile is left, half the height of a stack. */
+.wall-stack.is-single {
+  background: linear-gradient(transparent 0 48%, var(--tile-back) 48% 84%, var(--tile-side) 84%);
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.3);
+}
+.wall-left .wall-stack.is-single {
+  background: linear-gradient(90deg, transparent 0 48%, var(--tile-back) 48% 84%, var(--tile-side) 84%);
+}
+.wall-right .wall-stack.is-single {
+  background: linear-gradient(90deg, var(--tile-side) 0 16%, var(--tile-back) 16% 52%, transparent 52%);
+}
+/* Taken stacks keep a faint outline so each side visibly empties in order. */
+.wall-stack.is-empty,
+.wall-left .wall-stack.is-empty,
+.wall-right .wall-stack.is-empty {
+  background: rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(243, 231, 201, 0.16);
+}
+.felt-wind {
+  position: absolute;
+  color: var(--felt-gold);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+.felt-wind b { font-size: 1.1em; font-weight: 700; color: #ffcf7d; }
+.felt-wind small { font-size: 11px; color: var(--felt-ink); }
+.felt-wind.is-turn { color: #ffe08a; text-shadow: 0 0 10px rgba(255, 213, 107, 0.8), 0 1px 0 rgba(0, 0, 0, 0.5); }
+.felt-bottom { bottom: 12%; left: 50%; transform: translateX(-50%); }
+.felt-top { top: 12%; left: 50%; transform: translateX(-50%); }
+.felt-left { left: 14%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+.felt-right { right: 14%; top: 50%; transform: translate(50%, -50%) rotate(-90deg); }
+.table-felt .discard-pool {
+  position: absolute;
+  inset: 20% 19%;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 5px 1px;
+  min-height: 0;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.table-felt .discard-pool .muted { color: rgba(243, 231, 201, 0.55); }
+.table-felt .pool-tile {
+  height: fit-content;
+  border-bottom: 0;
+  border-radius: 3px;
+  box-shadow: 0 7px 0 -4px var(--pool-mark, transparent);
+}
+.table-felt .pool-tile.seat-mark-dong { --pool-mark: #6f9ef0; }
+.table-felt .pool-tile.seat-mark-nan { --pool-mark: #f07a6c; }
+.table-felt .pool-tile.seat-mark-xi { --pool-mark: #f0c060; }
+.table-felt .pool-tile.seat-mark-bei { --pool-mark: #c0a4f0; }
+.table-felt .pool-tile.is-fresh { box-shadow: none; }
+/* The claimable discard is raised off the felt, upright and readable. */
+.table-felt .center-area > .pending-discard {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  top: 48%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  width: max-content;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 14px 12px;
+  border: 2px solid #ffd56b;
+  border-radius: 14px;
+  background: rgba(14, 30, 20, 0.86);
+  color: var(--felt-ink);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  animation: pending-rise 0.18s ease-out;
+}
+.table-felt .center-area > .pending-discard .tile { --w: 46px; --h: 62px; }
+@keyframes pending-rise {
+  from { opacity: 0; transform: translate(-50%, -38%); }
+}
+.hu-burst {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  top: 46%;
+  inset: auto;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  padding: 4px 46px 10px;
+  border: 4px solid var(--call-ink);
+  border-radius: 18px;
+  background: #fffdf6;
+  color: var(--call-red);
+  font: 900 68px/1 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-shadow: 3px 3px 0 var(--call-ink);
+  box-shadow: 0 8px 0 var(--call-ink), 0 18px 40px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  animation: hu-pop 0.35s cubic-bezier(.2, 1.6, .4, 1);
+}
+.hu-burst { left: 50%; top: 46%; }
+.hu-burst small { font: 700 14px/1.6 'Segoe UI', sans-serif; letter-spacing: 0; color: var(--call-ink); text-shadow: none; }
+.hu-burst.is-lew-fit { font-size: 40px; color: #6b4a12; }
+@keyframes hu-pop {
+  from { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+}
+
+/* ---------- HUD rail: match board, clock, pace, log ---------- */
+.table-hud {
+  grid-area: hud;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px;
+  color: var(--text);
+  font-size: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(243, 231, 201, 0.4) transparent;
+}
+.table-hud > *,
+.table-hud .play-progress > :not(progress) {
+  margin: 0;
+  border-radius: 10px;
+  background: #fbf5e6;
+  border: 1px solid #e3d5b4;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+}
+.table-hud .play-progress { display: contents; }
+.table-hud .play-progress > .match-board {
+  order: -10;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 8px 10px;
+  border: 2px solid #d9a441;
+  background: linear-gradient(#fff8e4, #f4e3bb);
+  color: var(--text);
+}
+.table-hud .match-board > strong { flex-basis: 100%; font-size: 14px; color: #4a1206; }
+.table-hud .match-board .muted { color: var(--muted); }
+.table-hud [aria-label='Waktu pertandingan'] { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; color: #7d0e13; }
+.table-hud .match-scores { display: flex; flex-wrap: wrap; gap: 2px 10px; color: var(--muted); }
+.table-hud .match-score { padding: 0; background: none; }
+.table-hud .match-score.is-dealer { color: #7d0e13; font-weight: 700; }
+.table-hud .table-stage { order: -9; padding: 6px 10px; font-size: 12px; line-height: 1.4; }
+/* Tempo, bot reasoning and the log live in a drawer that starts closed. */
+.table-hud .table-tools { order: 8; padding: 0; }
+.table-hud .table-tools > summary {
+  padding: 7px 10px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+}
+.table-hud .table-tools[open] > summary { border-bottom: 1px solid #e3d5b4; }
+.table-hud .table-tools > :not(summary) { margin: 6px 8px; }
+.table-hud .play-controls { gap: 4px 6px; }
+.table-hud .play-controls label { font-size: 12px; }
+.table-hud .play-controls select,
+.table-hud .play-controls .btn { min-height: 30px; padding: 3px 8px; font-size: 12px; }
+.table-hud .play-controls [role='status'] { flex-basis: 100%; font-size: 11px; }
+.table-hud .table-tools > p:not([class]) { color: var(--muted); font-size: 11px; }
+.table-hud .table-tools > progress { display: block; width: calc(100% - 16px); height: 6px; accent-color: #d9a441; }
+.table-hud .bot-explanation {
+  max-height: 7em;
+  overflow-y: auto;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  border-left: 3px solid #d9a441;
+}
+.table-hud .center-stats { order: -8; margin: 0; padding: 5px; gap: 4px; }
+.table-hud .stat { padding: 2px 6px; font-size: 11px; }
+.table-hud .activity-history { padding: 0; border-top: 0; }
+.table-hud .activity-history .game-log { max-height: 130px; font-size: 11px; }
+
+/* ---------- Your seat: big upright tiles at the near edge ---------- */
+.table-felt .human-area {
+  grid-area: hand;
+  z-index: 3;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  color: var(--felt-ink);
+}
+.table-felt .human-area .seat-head { gap: 6px; font-size: 12px; }
+.table-felt .human-area .rack { margin-left: 0; }
+.table-felt .human-area .melds {
+  position: absolute;
+  left: 34px;
+  bottom: calc(100% + 6px);
+  justify-content: flex-start;
+}
+.table-felt .human-area .hand-row {
+  max-width: 100%;
+  gap: 3px;
+  padding: 16px 6px 8px;
+  justify-content: safe center;
+}
+.table-felt .hand-row > .tile {
+  --w: 50px;
+  --h: 68px;
+  margin-top: 9px;
+  border: 1px solid #d8ceb3;
+  border-top-width: 0;
+  border-radius: 3px 3px 7px 7px;
+  background: linear-gradient(#fffef8, #f4eddb);
+  box-shadow: 0 -9px 0 0 var(--tile-back), 0 -10px 0 0 var(--tile-back-edge), 0 3px 0 #cdbf9c, 0 8px 12px rgba(0, 0, 0, 0.45);
+}
+.table-felt .hand-row > .tile.is-kim { background: linear-gradient(#fffef8 58%, #e9dcfa); outline-offset: 2px; }
+.table-felt .hand-row > .tile.is-clickable:hover:not(.is-disabled) { transform: translateY(-6px); }
+.table-felt .hand-row > .tile.is-selected {
+  transform: translateY(-16px);
+  border-color: #ffd56b;
+  box-shadow: 0 -9px 0 0 var(--tile-back), 0 -10px 0 0 var(--tile-back-edge), 0 0 0 3px #ffd56b, 0 14px 18px rgba(0, 0, 0, 0.5);
+}
+.table-felt .hand-row > .tile.is-drawn { outline: 2px dashed #ffd56b; outline-offset: 3px; }
+.table-felt .hand-row > .tile.is-disabled { opacity: 1; filter: brightness(0.72) saturate(0.7); }
+.table-felt .hand-row > .tile:focus-visible { outline: 3px solid #ffd56b; outline-offset: 3px; transform: translateY(-6px); }
+.table-felt .drawn-gap { width: 16px; }
+
+/* ---------- Action pills over the near edge of the felt ---------- */
+.table-felt .action-hud {
+  grid-row: 2;
+  grid-column: 1 / 4;
+  align-self: end;
+  justify-self: center;
+  z-index: 8;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 0 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.table-felt .claim-banner {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(14, 30, 20, 0.86);
+  color: var(--felt-ink);
+  font-size: 13px;
+}
+.table-felt .hud-btn {
+  min-height: 52px;
+  padding: 6px 24px;
+  gap: 0;
+  overflow: hidden;
+  border: 3px solid var(--call-ink);
+  border-radius: 14px;
+  background: #fffdf6;
+  color: var(--call-red);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  box-shadow: 0 5px 0 var(--call-ink), 0 10px 16px rgba(0, 0, 0, 0.4);
+  filter: none;
+}
+.table-felt .hud-label { display: inline-flex; align-items: center; gap: 8px; }
+.table-felt .hud-btn:hover:not(:disabled) { background: #fff3cf; filter: none; }
+.table-felt .hud-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--call-ink), 0 6px 10px rgba(0, 0, 0, 0.4); }
+.table-felt .hud-btn:disabled { opacity: 1; color: #8d8a80; background: #e6e1d3; border-color: #6f6c66; box-shadow: 0 5px 0 #6f6c66; }
+.table-felt .hud-btn:focus-visible,
+.table-felt .hud-btn.is-coached { outline: 3px solid #ffd56b; outline-offset: 3px; }
+.table-felt .hud-primary { background: var(--tile-back); color: #fff; }
+.table-felt .hud-primary:hover:not(:disabled) { background: #31489f; }
+.table-felt .hud-gold { background: linear-gradient(#ffe48a, #f2b63c); color: #a80c12; }
+.table-felt .hud-gold:hover:not(:disabled) { background: linear-gradient(#fff0b0, #f6c45a); }
+.table-felt .hud-danger { background: #fffdf6; color: var(--call-ink); }
+.table-felt .hud-call { background: #fffdf6; color: var(--call-red); }
+.table-felt .hud-btn.has-preview { flex-direction: row; padding: 0 0 0 20px; gap: 14px; }
+.table-felt .hud-preview {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 10px 0 12px;
+  background: #e07b12;
+  border-left: 3px solid var(--call-ink);
+}
+.table-felt .hud-preview .tile { --w: 24px; --h: 32px; }
+
+/* Coach and hand reading sit beside your hand, under the rail. */
+.table-felt .practice-coach,
+.table-felt .hand-reading {
+  grid-area: coach;
+  z-index: 3;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+}
+.table-felt .practice-coach {
+  align-self: end;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 8px 10px;
+  border: 1px solid #e3d5b4;
+  border-left: 4px solid #d9a441;
+  border-radius: 10px;
+  background: #fbf5e6;
+  color: var(--text);
+}
+.table-felt .hand-reading {
+  align-self: start;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--felt-ink);
+}
+.table-felt .result-reopen {
+  grid-row: 2;
+  grid-column: 1 / 4;
+  align-self: end;
+  justify-self: center;
+  z-index: 8;
+  margin-bottom: 8px;
+  padding: 10px 22px;
+  border: 3px solid var(--call-ink);
+  background: linear-gradient(#ffe48a, #f2b63c);
+  color: var(--call-ink);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* ---------- Result dialog banner ---------- */
+.hu-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 14px;
+  padding: 4px 40px 8px;
+  border: 4px solid var(--call-ink);
+  border-radius: 16px;
+  background: #fffdf6;
+  color: var(--call-red);
+  font: 900 56px/1.05 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-shadow: 3px 3px 0 var(--call-ink);
+  box-shadow: 0 6px 0 var(--call-ink);
+}
+.hu-banner small { font: 700 14px/1.5 'Segoe UI', sans-serif; letter-spacing: 0; color: var(--call-ink); text-shadow: none; }
+.hu-banner.is-lew-fit { font-size: 36px; color: #6b4a12; }
+
+/* ---------- Size steps ---------- */
+@media (min-width: 1600px) {
+  :root { --hud-rail: 340px; --felt-persp: 1500px; }
+  .table-felt .discard-pool .tile-sm { --w: 32px; --h: 43px; }
+  .table-felt .hand-row > .tile { --w: 62px; --h: 84px; }
+  .table-felt .seat-panel .tile-back { --w: 27px; --h: 37px; }
+  .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 34px; --h: 17px; }
+  .table-felt .tile-sm { --w: 28px; --h: 38px; }
+  .board-plane { width: min(100%, 800px); }
+  .wall-ring { --stack-depth: 40px; }
+  .wall-stack { max-width: 34px; }
+  .wall-left .wall-stack, .wall-right .wall-stack { max-height: 28px; }
+  .felt-wind { font-size: 19px; }
+  .table-felt .seat-head { font-size: 14px; }
+  .table-felt .hud-btn { min-height: 60px; font-size: 26px; }
+  .table-hud, .table-felt .practice-coach { font-size: 13px; }
+}
+@media (min-width: 901px) and (max-height: 760px) {
+  .table-felt .human-area .hand-row { padding-top: 12px; padding-bottom: 4px; }
+  .table-felt .hud-btn { min-height: 46px; font-size: 19px; }
+}
+@media (min-width: 901px) and (max-width: 1150px) {
+  :root { --hud-rail: 240px; }
+  .table-felt .hand-row > .tile { --w: 44px; --h: 60px; }
+}
+
+/* Tablets and phones: a flatter, stacked table that scrolls vertically only. */
+@media (max-width: 900px) {
+  :root { --felt-tilt: 14deg; --board-tilt: 26deg; }
+  .app.is-table { height: auto; min-height: 100vh; overflow: visible; }
+  .table-felt {
+    overflow: clip;
+    grid-template-columns: 64px minmax(0, 1fr) 64px;
+    grid-template-rows: auto auto auto auto auto;
+    grid-template-areas:
+      'top  top    top'
+      'left center right'
+      'hand hand   hand'
+      'coach coach coach'
+      'hud  hud    hud';
+    padding: 8px 6px;
+    gap: 6px;
+  }
+  .table-felt::before { display: none; }
+  .board-plane { width: 100%; max-height: none; aspect-ratio: 1.1; }
+  .table-felt .center-area { min-height: 0; }
+  .table-felt .human-area {
+    position: sticky;
+    bottom: 0;
+    padding: 0 0 max(4px, env(safe-area-inset-bottom));
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(rgba(20, 90, 43, 0.92), rgba(16, 70, 34, 0.98));
+    box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.35);
+  }
+  .table-felt .human-area .melds { position: static; order: 1; padding-top: 4px; }
+  .table-felt .human-area .seat-head { order: 0; padding-top: 4px; }
+  .table-felt .human-area .hand-row { order: 2; overflow-x: auto; }
+  .table-felt .action-hud { grid-row: 2; grid-column: 1 / -1; flex-wrap: wrap; }
+  .table-felt .result-reopen { grid-row: 2; grid-column: 1 / -1; }
+  .table-felt .practice-coach { align-self: stretch; }
+  .table-felt .hand-reading { align-self: stretch; grid-area: coach; margin-top: auto; }
+  .table-hud { overflow: visible; }
+  .table-felt .seat-left,
+  .table-felt .seat-right { margin: 0; z-index: 2; }
+  .table-hud .activity-history .game-log { max-height: 140px; }
 }
 @media (max-width: 900px) {
-  .table-felt { grid-template-columns: 72px minmax(0, 1fr) 72px; grid-template-rows: auto auto auto auto; grid-template-areas: 'top top top' 'left center right' 'bottom bottom bottom' 'hud hud hud'; padding: 16px 12px; }
-  .table-hud { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .table-hud .play-progress { grid-column: 2; grid-row: 1 / 4; }
-  .table-hud .center-stats { margin: 0; align-content: start; }
-  .table-hud .table-stage { margin: 0; }
-  .board-plane { min-height: 320px; }
+  /* Felt behind the first two rows only, drawn as a panel rather than a tilted plane. */
+  .table-felt > .seat-top,
+  .table-felt > .center-area { z-index: 1; }
+  .table-felt { background-color: var(--scene); }
+  .table-felt .center-area::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -4px -70px;
+    border-radius: 18px;
+    background: linear-gradient(var(--felt-deep), var(--felt-green));
+    box-shadow: 0 0 0 8px var(--rim-wood), 0 0 0 10px var(--rim-dark);
+  }
 }
 @media (max-width: 560px) {
-  .table-felt { margin: 5px; border-width: 7px; border-radius: 20px; padding: 18px 5px 8px; gap: 5px; grid-template-columns: 43px minmax(0, 1fr) 43px; grid-template-rows: auto auto auto auto; }
-  .table-felt .seat-panel { padding: 2px 0; gap: 3px; }
-  .table-felt .seat-top { align-items: center; }
-  .table-felt .seat-head { font-size: 10px; gap: 3px; }
-  .table-felt .seat-panel .seat-head strong { font-size: 10px; }
-  .table-felt .seat-left .seat-head, .table-felt .seat-right .seat-head { flex-direction: column; }
-  .table-felt .seat-panel .badges { justify-content: center; gap: 2px; }
-  .table-felt .seat-panel .badge { font-size: 8px; padding: 1px 3px; }
-  .table-felt .seat-panel .concealed .tile-back { --w: 13px; --h: 21px; }
-  .table-felt .seat-left .concealed .tile, .table-felt .seat-right .concealed .tile { --w: 21px; --h: 12px; }
-  .table-felt .seat-panel .rack-empty { font-size: 8px; overflow-wrap: anywhere; }
-  .table-felt .seat-panel .bonus-rack small { font-size: 8px; }
+  .table-felt { grid-template-columns: 46px minmax(0, 1fr) 46px; padding: 6px 4px; }
+  .table-felt .seat-head { font-size: 10px; }
+  .table-felt .badge { font-size: 8px; padding: 0 3px; }
+  .table-felt .seat-panel .tile-back { --w: 12px; --h: 19px; }
+  .table-felt .seat-top { column-gap: 6px; padding-top: 4px; }
+  .table-felt .seat-top .concealed { gap: 0; }
+  .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 20px; --h: 10px; }
   .table-felt .seat-panel .tile-sm { --w: 14px; --h: 20px; }
-  .table-felt .seat-panel .meld { flex-wrap: wrap; max-width: 40px; }
+  .table-felt .seat-panel .meld { flex-wrap: wrap; max-width: 44px; justify-content: center; }
   .table-felt .seat-top .meld { flex-wrap: nowrap; max-width: none; }
-  .board-plane { min-height: 300px; aspect-ratio: auto; }
-  .wall-ring { inset: 27px 3px; }
-  .wall-bottom, .wall-top { left: 15px; right: 15px; height: 15px; }
-  .wall-stack { height: 15px; min-width: 2px; }
-  .wall-left, .wall-right { width: 13px; }
-  .wall-left .wall-stack, .wall-right .wall-stack { width: 13px; flex-basis: 12px; }
-  .felt-wind { font-size: 8px; letter-spacing: 0; white-space: nowrap; }
-  .felt-wind b { font-size: 14px; }
-  .felt-left { left: -3px; }
-  .felt-right { right: -3px; }
-  .table-felt .discard-pool { inset: 56px 20px; padding: 5px; gap: 5px 3px; }
-  .table-felt .discard-pool .tile-sm { --w: 20px; --h: 27px; }
-  .table-felt .pending-discard { bottom: 14px; padding: 3px 5px; gap: 5px; font-size: 9px; }
-  .table-felt .pending-discard .tile-lg { --w: 23px; --h: 31px; }
-  .table-felt .seat-bottom { padding-top: 5px; gap: 4px; }
-  .table-felt .human-area { padding: 5px 0; }
-  .table-felt .human-area .hand-row { justify-content: flex-start; gap: 2px; padding: 14px 3px 8px; }
-  .table-felt .hand-row .tile-lg { --w: clamp(20px, 5.45vw, 30px); --h: clamp(30px, 7.8vw, 43px); }
-  .table-felt .drawn-gap { width: 5px; }
-  .table-felt .human-area .rack { font-size: 10px; }
-  .table-felt .human-area .rack .tile-sm { --w: 18px; --h: 25px; }
-  .table-felt .human-area .rack-empty { font-size: 9px; }
-  .table-felt .hud-btn { min-height: 44px; padding: 6px 12px; font-size: 13px; }
-  .table-felt .action-hud { padding: 8px 5px; gap: 8px; }
-  .table-felt .claim-banner { font-size: 11px; flex-basis: 100%; justify-content: center; }
-  .table-felt .practice-coach { font-size: 11px; padding: 4px; }
-  .table-hud { display: flex; flex-direction: column; padding: 10px; gap: 8px; }
-  .table-hud .play-progress { order: -1; }
-  .table-hud .match-board { display: grid; grid-template-columns: 1fr 1fr; padding: 8px; gap: 5px; }
-  .table-hud .match-board > .match-scores { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 3px; font-size: 10px; }
-  .table-hud .match-board > .muted { font-size: 10px; }
-  .table-hud [aria-label='Waktu pertandingan'] { font-size: 14px; }
-  .hu-burst { font-size: 65px; }
+  .table-felt > .kim-indicator { margin: 0; font-size: 10px; padding: 1px 8px; }
+  .table-felt .center-area::before { inset: -4px -50px; }
+  .board-plane { aspect-ratio: 0.95; }
+  .wall-ring { --stack-depth: 17px; --stack-gap: 1px; }
+  .felt-wind { font-size: 10px; }
+  .felt-wind small { font-size: 8px; }
+  .table-felt .discard-pool { inset: 18% 16%; gap: 4px 1px; }
+  /* Side slabs stay a few px inside the felt: less lean, and room for the count. */
+  .table-felt .seat-left { padding-left: 6px; }
+  .table-felt .seat-right { padding-right: 6px; }
+  .table-felt .seat-left .concealed { transform: perspective(520px) rotateX(24deg) skewX(-7deg); }
+  .table-felt .seat-right .concealed { transform: perspective(520px) rotateX(24deg) skewX(7deg); }
+  .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 18px; }
+  .table-felt .discard-pool .tile-sm { --w: 18px; --h: 25px; }
+  .table-felt .center-area > .pending-discard { padding: 4px 8px 8px; font-size: 10px; }
+  .table-felt .center-area > .pending-discard .tile { --w: 32px; --h: 44px; }
+  /* Fourteen tiles plus the drawn gap always fit the row, down to 320px wide. */
+  .table-felt .hand-row > .tile { --w: min(25px, calc((100vw - 30px) / 14.9)); --h: calc(var(--w) * 1.38); margin-top: 6px; box-shadow: 0 -5px 0 0 var(--tile-back), 0 -6px 0 0 var(--tile-back-edge), 0 2px 0 #cdbf9c, 0 4px 6px rgba(0, 0, 0, 0.4); }
+  .table-felt .hand-row > .tile.is-selected { transform: translateY(-10px); }
+  .table-felt .human-area .hand-row { gap: 1px; padding: 12px 2px 6px; justify-content: flex-start; }
+  .table-felt .drawn-gap { width: 6px; }
+  .table-felt .hud-btn { min-height: 44px; padding: 4px 14px; font-size: 16px; border-width: 2px; box-shadow: 0 3px 0 var(--call-ink); }
+  .table-felt .hud-btn.has-preview { padding-left: 12px; gap: 8px; }
+  .table-felt .hud-preview { padding: 0 6px; }
+  .table-felt .hud-preview .tile { --w: 16px; --h: 22px; }
+  .table-felt .action-hud { gap: 8px; }
+  .table-felt .claim-banner { flex-basis: 100%; justify-content: center; font-size: 11px; }
+  .hu-burst { font-size: 48px; padding: 4px 26px 8px; }
+  .hu-banner { font-size: 40px; padding: 4px 24px 8px; }
 }
-/* Keep the playing surface within one desktop view, independent of the HUD width. */
-.board-plane { max-width: 480px; height: 400px; min-height: 0; aspect-ratio: auto; align-self: center; }
-.table-felt .concealed .tile + .tile { margin-left: 0; }
-@media (min-width: 901px) {
-  .table-felt { grid-template-rows: auto minmax(360px, 1fr) auto; }
-}
-@media (max-width: 900px) { .board-plane { height: 340px; } }
-@media (max-width: 560px) {
-  .board-plane { height: 300px; }
-  .table-felt .seat-panel .rack-empty { display: none; }
-  .table-felt .seat-panel .rack:has(.rack-empty) { display: none; }
-  .table-felt .hand-row .tile-lg { --h: 40px; }
-  .table-felt .seat-panel .concealed { padding-left: 0; padding-right: 0; }
-}
-@media (min-width: 901px) and (max-height: 820px) {
-  .table-felt { padding: 12px 18px; margin: 8px; border-width: 9px; gap: 8px; grid-template-rows: auto minmax(290px, 1fr) auto; }
-  .board-plane { height: 300px; max-width: 420px; }
-  .table-felt .seat-top { gap: 3px; }
-  .table-felt .seat-top .rack:has(.rack-empty) { display: none; }
-  .table-felt .seat-left .concealed .tile, .table-felt .seat-right .concealed .tile { --h: 13px; }
-  .table-felt .seat-panel .rack { max-height: 50px; overflow: auto; }
-  .table-felt .seat-bottom { gap: 5px; padding-top: 3px; }
-  .table-felt .human-area { padding: 4px; }
-  .table-felt .hand-row .tile-lg { --w: 36px; --h: 49px; }
-  .table-felt .human-area .hand-row { padding-top: 13px; padding-bottom: 7px; }
-  .table-hud { padding: 10px; }
-  .table-hud .play-progress { gap: 6px; }
-  .table-hud .match-board { padding: 8px; gap: 5px; }
-  .table-hud .bot-explanation { max-height: 64px; }
-  .table-hud .activity-history .game-log { max-height: 56px; }
-  .table-hud .center-stats { margin: 8px 0; }
-}
-.hu-banner { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 0 0 14px; padding: 10px 16px; border: 1px solid #c6a15f; border-radius: 10px; background: linear-gradient(110deg, #214f3b, #113c2d); color: #ffe2a0; font: 900 40px/1 Georgia, serif; text-shadow: 0 2px 0 #76502d; }
-.hu-banner small { font: 700 14px/1.4 'Segoe UI', sans-serif; text-shadow: none; }
-.hu-banner.is-lew-fit { background: #6b332b; color: #ffe2d1; font-size: 30px; }
-@media (max-width: 560px) { .hu-banner { padding: 8px 12px; font-size: 30px; margin-bottom: 10px; gap: 12px; } .hu-banner small { font-size: 12px; } }

@@ -73,7 +73,7 @@ export interface ScoringResult {
   bonusTileRule: BonusTileRule;
   /** Physical Kim tiles in the winning hand (concealed + melds); `isWithKim` is `handKimCount > 0` */
   handKimCount: number;
-  /** Plain-language notes on column choices that award nothing (e.g. Bo KIM in the Ada KIM column) */
+  /** Plain-language notes on column choices that award nothing (e.g. #39 in the NK match column) */
   notes: string[];
   lewFitReason?: LewFitReason;
   isInstantHu: boolean;

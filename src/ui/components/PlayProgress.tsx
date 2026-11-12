@@ -27,6 +27,7 @@ export function PlayProgress({ controller, paused, blocked, pace, onPaceChange, 
   const match = controller.match;
   return <div className="play-progress">
     {match && <MatchScoreboard match={match} hand={match.hands.length + (finished ? 0 : 1)} prevailingWind={state.roundWind} dealer={state.dealerSeat} />}
+    <details className="table-tools"><summary>Tempo & aktivitas</summary>
     <div className="play-controls" role="group" aria-label="Kendali tempo bot">
       <label>Tempo bot <select aria-label="Tempo bot" value={pace} onChange={e => onPaceChange(e.target.value as PracticePace)}>
         <option value="learn">Belajar · 1,8 detik</option>
@@ -50,5 +51,7 @@ export function PlayProgress({ controller, paused, blocked, pace, onPaceChange, 
     <p>{SEAT_SHORT[seatWindOf(state, state.currentTurn)]} · {PHASE[state.phase] ?? (finished ? 'Selesai' : 'Persiapan meja')} · Buangan ke-{controller.discardCount}</p>
     <progress aria-label="Sisa tile tembok sejak pembagian" value={state.wall.remainingCount} max={Math.max(controller.initialWallCount, 1)} />
     {controller.botExplanation && <p className="bot-explanation"><strong>Keputusan bot terakhir:</strong> {controller.botExplanation}</p>}
+    <details className="activity-history"><summary>Aktivitas terbaru</summary><ol className="game-log" aria-label="Log permainan" start={Math.max(1, controller.log.length - 11)}>{controller.log.slice(-12).map(l => <li key={l.id}>{l.text}</li>)}</ol></details>
+    </details>
   </div>;
 }
