@@ -20,12 +20,17 @@ function evaluate(spec: HandSpec, basis: 'match_table' | 'hand_kim_usage' = 'mat
 const tay = (r: ReturnType<typeof evaluate>, id: number) => r.patterns.find(p => p.id === id)?.tay;
 
 describe('Player-confirmed house rules, 2026-11-12', () => {
-  it('scores the reported Zhong-discard Hu as exactly 6 Tay', () => {
+  it('scores the reported Zhong-discard Hu as exactly 11 Tay (player answer B)', () => {
     const r = evaluate(live);
     expect(r.mode).toBe('K');
     expect(r.isValidHu).toBe(true);
-    expect(r.patterns.map(p => [p.id, p.tay])).toEqual([[2, 1], [8, 3], [27, 2]]);
-    expect(r.totalTay).toBe(6);
+    expect(r.patterns.map(p => [p.id, p.tay])).toEqual([[2, 1], [8, 3], [15, 5], [27, 2]]);
+    expect(r.totalTay).toBe(11);
+    const calc = calculateTay([2, 15, 27, 8], true, 5, {
+      scoringBasis: 'match_table', bonus: { seasons: 1, seasonSeatMatches: 0 },
+    });
+    expect(calc.total).toBe(11);
+    expect(calc.lines.map(p => [p.id, p.tay])).toEqual([[2, 1], [8, 3], [15, 5], [27, 2]]);
     expect(r.notes.join(' ')).toContain('+3 Tay');
   });
 
@@ -34,7 +39,7 @@ describe('Player-confirmed house rules, 2026-11-12', () => {
       const trips = evaluate({ concealed: `1T 1T 1T 5S 5S 5S 9B 9B 9B 3T 3T 3T ${pair}`, winningTile: pair });
       const sequences = evaluate({ concealed: `1T 2T 3T 4S 5S 6S 7B 8B 9B 4T 5T 6T ${pair}`, winningTile: pair });
       const valued = ['DZ', 'DF', 'DP', 'WD', 'WN'].includes(pair); // Seat Nan, prevailing Dong.
-      expect(tay(trips, 15)).toBe(valued ? undefined : 5);
+      expect(tay(trips, 15)).toBe(5); // Answer B: all pairs qualify for Tuei Tuei.
       expect(tay(sequences, 14)).toBe(valued ? undefined : 3);
       expect(tay(trips, 34)).toBe(20); // Concealed-triplet eligibility is independent.
     });
@@ -82,7 +87,7 @@ describe('Player-confirmed house rules, 2026-11-12', () => {
     const totals = candidates.map(solved => {
       const features = parseHandFeatures(solved, m.concealed, m.melds);
       const patterns = scoreDecomposition({ features, mode: 'K', flowers: m.flowers, context, basis: 'match_table' });
-      if (isDisallowedHonorPair(solved.pair, context)) expect(patterns.some(p => p.id === 14 || p.id === 15)).toBe(false);
+      if (isDisallowedHonorPair(solved.pair, context)) expect(patterns.some(p => p.id === 14)).toBe(false);
       return patterns.reduce((sum, p) => sum + p.tay, 0);
     });
     expect(candidates.some(s => s.pair?.kimCount === 1 && isDisallowedHonorPair(s.pair, context))).toBe(true);
