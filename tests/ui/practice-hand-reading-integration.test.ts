@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { getPreset } from '@/storage';
-import { ActionHud } from '@/ui/components/GameTable';
+import { PracticeCoach } from '@/ui/components/GameTable';
 import { GameController } from '@/ui/game-controller';
 import * as reading from '@/ui/hand-reading';
 import { toFullRules } from '@/ui/win-context';
@@ -14,7 +14,7 @@ function renderReading(controller: GameController) {
   const actions = controller.getHumanActions();
   const selectedId = actions.discardableTileIds[0]!;
   expect(selectedId).toBeDefined();
-  renderToString(createElement(ActionHud, { controller, actions, selectedId, onSelect: () => {} }));
+  renderToString(createElement(PracticeCoach, { controller, actions, selectedId }));
   expect(spy).toHaveBeenCalledTimes(1);
   return spy.mock.calls[0]![0];
 }

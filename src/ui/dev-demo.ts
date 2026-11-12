@@ -1,13 +1,14 @@
 import { keyToTile } from '../core/tiles';
 import type { Meld, Seat, Tile } from '../core/types';
 import type { GameController } from './game-controller';
+import { isMatchOver, recordHand } from './match';
 import type { OpeningRoll } from './components/DiceRoll';
 
 /**
- * Dev-only screenshot hook: `?demo=table|claim|hu|dice|melds[&seed=n]` deals a seeded match and plays the
+ * Dev-only screenshot hook: `?demo=table|late|claim|hu|dice|melds|final[&seed=n]` deals a seeded match and plays the
  * human seat forward to a reproducible table state. App only loads this behind import.meta.env.DEV.
  */
-export type DemoMode = 'table' | 'claim' | 'hu' | 'dice' | 'melds';
+export type DemoMode = 'table' | 'late' | 'claim' | 'hu' | 'dice' | 'melds' | 'final';
 
 /** Sample opening roll with one tie re-roll, for `?demo=dice` before a match exposes its own. */
 export const DEMO_OPENING_ROLL: OpeningRoll = {
@@ -21,7 +22,7 @@ export const DEMO_OPENING_ROLL: OpeningRoll = {
 export function demoFromUrl(search: string): { mode: DemoMode; seed: number } | null {
   const params = new URLSearchParams(search);
   const mode = params.get('demo');
-  if (mode !== 'table' && mode !== 'claim' && mode !== 'hu' && mode !== 'dice' && mode !== 'melds') return null;
+  if (mode !== 'table' && mode !== 'late' && mode !== 'claim' && mode !== 'hu' && mode !== 'dice' && mode !== 'melds' && mode !== 'final') return null;
   return { mode, seed: Number(params.get('seed') ?? 7) || 7 };
 }
 
@@ -36,6 +37,8 @@ export function driveDemo(controller: GameController, mode: DemoMode, maxHands =
       const discards = controller.discardCount;
       if (mode === 'claim' && a.claim && discards >= 6 && (a.claim.canPung || a.claim.jiaOptions.length)) return;
       if (mode === 'table' && a.canDiscard && discards >= 22) return;
+      // Late game: rivers near full, to check they still fit the felt.
+      if (mode === 'late' && a.canDiscard && discards >= 72) return;
       if (a.canReplaceFlowers) controller.humanReplaceFlowers();
       else if (a.claim) controller.humanClaim(mode === 'hu' && a.claim.canHu ? 'hu' : 'pass');
       else if (a.canSelfDrawHu && mode === 'hu') controller.humanSelfDrawHu();
@@ -72,4 +75,19 @@ export function stackDemoMelds(controller: GameController): void {
     player.hand.splice(0, Math.max(0, player.hand.length - (seat === controller.humanSeat ? 2 : 1)));
     if (player.flowers.length < 3) player.flowers.push(t('F1', 9 - i), t('F2', 9 - i), t('M3', 9 - i));
   });
+}
+
+/**
+ * `?demo=final`: after a played Hu, fills the rest of the 16-game match with fabricated results
+ * so the final standings can be screenshotted. For screenshots only.
+ */
+export function finishDemoMatch(controller: GameController): void {
+  if (!controller.match) return;
+  const script: [Seat | null, number][] = [['nan', 12], [null, 0], ['xi', 6], ['dong', 9], ['bei', 5], [null, 0], ['nan', 7], ['dong', 16], ['xi', 5], [null, 0], ['bei', 8], ['dong', 6], ['nan', 5], [null, 0], ['xi', 10]];
+  let match = controller.match;
+  for (const [winner, tay] of script) {
+    if (isMatchOver(match)) break;
+    match = recordHand(match, winner, winner !== null, tay);
+  }
+  controller.match = match;
 }

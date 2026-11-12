@@ -78,13 +78,18 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
   );
 }
 
+/** Screen side of each river and its rotation: every river's rows run away from the centre toward its owner. */
+const RIVER_SIDES = ['bottom', 'right', 'top', 'left'] as const;
+
 export function CenterArea({ controller, progress }: { controller: GameController; progress?: ReactNode }) {
   const s = controller.getState();
   const pending = s.discardPending;
   const trail = controller.discardTrail;
   const positions = seatPositions(controller.humanSeat);
-  const source = (seat: Seat) => Object.entries(positions).find(([, s]) => s === seat)?.[0];
-  const freshId = controller.lastDiscard?.tile.id;
+  // The claimable discard lies in its discarder's river; a Kakan tile waits in the centre instead.
+  const riverPending = pending && !pending.isPromotedKong ? pending : null;
+  // Latest discard stays marked: the claimable one, else the last committed one.
+  const freshId = riverPending?.tile.id ?? controller.lastDiscard?.tile.id ?? trail[trail.length - 1]?.tile.id;
   const won = controller.outcome?.kind === 'hu' ? controller.outcome : null;
   // Drawable tiles: excludes the optional 14-tile dead wall.
   const left = controller.remainingDrawable;
@@ -92,33 +97,46 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
     <>
     <section className="center-area" aria-label="Area buangan">
       <div className="board-plane">
-        {(Object.entries(positions) as ['bottom' | 'right' | 'top' | 'left', Seat][]).map(([position, seat]) => {
-          const wind = seatWindOf(s, seat);
-          return (
-            <span key={position} className={`felt-wind felt-${position}${s.currentTurn === seat ? ' is-turn' : ''}`} aria-hidden="true">
-              {SEAT_SHORT[wind]} <b>{WIND_GLYPH[wind]}</b>{s.dealerSeat === seat && <small> · Dealer</small>}
-            </span>
-          );
-        })}
-        <div className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
-          {trail.length === 0 && !pending && <span className="muted">Belum ada buangan.</span>}
-          {trail.map((d, i) => (
-            <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d.tile.id === freshId ? ' is-fresh' : ''}`} data-from={source(d.seat)} data-seat={d.seat} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
-              <TileView tile={d.tile} size="sm" highlight={d.tile.id === freshId} />
-            </span>
-          ))}
+        <div className="discard-board">
+          {RIVER_SIDES.map((position) => {
+            const seat = positions[position];
+            const tiles = trail.filter((d) => d.seat === seat);
+            return (
+              <div key={position} className={`discard-river river-${position}`} data-discard-group={seat} aria-label={`Buangan ${PLAYER_NAME[seat]}`}>
+                {tiles.map((d) => (
+                  <span key={d.tile.id} className={`pool-tile${d.tile.id === freshId ? ' is-fresh' : ''}`} data-seat={seat} title={`${PLAYER_NAME[seat]} · ${tileText(d.tile)} (#${trail.indexOf(d) + 1})`}>
+                    <TileView tile={d.tile} size="sm" highlight={d.tile.id === freshId} />
+                  </span>
+                ))}
+                {riverPending?.discarder === seat && (
+                  <span key={riverPending.tile.id} className="pool-tile is-fresh is-pending" data-pending-discard="" data-seat={seat} title={`Buangan ${PLAYER_NAME[seat]} · ${tileText(riverPending.tile)} — menunggu klaim`}>
+                    <TileView tile={riverPending.tile} size="sm" highlight />
+                  </span>
+                )}
+              </div>
+            );
+          })}
+          <div className="discard-center">
+            {RIVER_SIDES.map((position) => {
+              const seat = positions[position];
+              const wind = seatWindOf(s, seat);
+              return (
+                <span key={position} className={`felt-wind felt-${position}${s.currentTurn === seat ? ' is-turn' : ''}${s.dealerSeat === seat ? ' is-dealer' : ''}`} aria-hidden="true">
+                  <b>{WIND_GLYPH[wind]}</b><span className="felt-wind-name">{SEAT_SHORT[wind]}</span>{s.dealerSeat === seat && <Crown size={10} className="felt-dealer" />}
+                </span>
+              );
+            })}
+            {/* No wall on the felt: this counter is also where a draw's tile flies from. */}
+            <p data-wall-anchor="" className={`wall-counter${left <= 20 ? ' is-low' : ''}`} aria-label={`Sisa ${left} tile di tembok`}>
+              Sisa <b>{left}</b> tile
+            </p>
+          </div>
         </div>
       </div>
-      {/* No wall on the felt: this counter is also where a draw's tile flies from. */}
-      <p data-wall-anchor="" className={`wall-counter${left <= 20 ? ' is-low' : ''}`} aria-label={`Sisa ${left} tile di tembok`}>
-        Sisa <b>{left}</b> tile
-      </p>
-      {pending && (
-        <div key={pending.tile.id} className="pending-discard" data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${PLAYER_NAME[pending.discarder]} ke area buangan tengah`}>
-          <span>
-            {pending.isPromotedKong ? 'Kakan oleh' : 'Buangan'} {PLAYER_NAME[pending.discarder]}:
-          </span>
-          <TileView tile={pending.tile} size="lg" highlight={freshId === pending.tile.id} />
+      {pending?.isPromotedKong && (
+        <div key={pending.tile.id} className="pending-discard" data-pending-discard="" data-seat={pending.discarder} aria-label={`Kakan ${PLAYER_NAME[pending.discarder]} menunggu Chiong Kong`}>
+          <span>Kakan oleh {PLAYER_NAME[pending.discarder]}:</span>
+          <TileView tile={pending.tile} size="lg" highlight />
         </div>
       )}
       {won && <p className={`hu-burst${won.scoring.isValidHu ? '' : ' is-lew-fit'}`} role="status">{won.scoring.isValidHu ? 'HU' : 'LEW FIT'}<small>{PLAYER_NAME[won.winner]}</small></p>}
@@ -126,11 +144,6 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
     <aside className="table-hud" aria-label="Info meja">
       <TableMotion controller={controller} />
       {progress}
-      <div className="center-stats">
-        <span className="stat">
-          Giliran: <b>{PLAYER_NAME[s.currentTurn]}</b>
-        </span>
-      </div>
     </aside>
     </>
   );
@@ -141,9 +154,13 @@ interface HumanAreaProps {
   actions: HumanActions;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  /** Coach line shown just above the hand (see PracticeCoach) */
+  coach?: ReactNode;
+  /** Action pills (see ActionHud): they float just above this seat, on the felt's near edge */
+  hud?: ReactNode;
 }
 
-export function HumanArea({ controller, actions, selectedId, onSelect }: HumanAreaProps) {
+export function HumanArea({ controller, actions, selectedId, onSelect, coach, hud }: HumanAreaProps) {
   const s = controller.getState();
   const seat = controller.humanSeat;
   const p = s.players[seat];
@@ -175,6 +192,8 @@ export function HumanArea({ controller, actions, selectedId, onSelect }: HumanAr
 
   return (
     <section className={`human-area${active ? ' is-active' : ''}`} data-seat-panel={seat} aria-label="Tangan Anda">
+      {hud}
+      {coach && <div className="coach-slot">{coach}</div>}
       <div className="seat-head">
         <strong>{PLAYER_NAME[seat]}</strong>
         <WindBadges seat={seat} controller={controller} />
@@ -218,23 +237,25 @@ function HudButton({ label, enabled, onClick, tone = 'plain', icon, title, coach
   );
 }
 
-export function ActionHud({
-  controller,
-  actions,
-  selectedId,
-  onSelect,
-}: {
+interface CoachProps {
   controller: GameController;
   actions: HumanActions;
   selectedId: string | null;
-  onSelect: (id: string | null) => void;
-}) {
+}
+
+function coachFor({ controller, actions, selectedId }: CoachProps) {
+  const player = controller.getState().players[controller.humanSeat];
+  const selected = player.hand.find(t => t.id === selectedId);
+  return practiceCoachLine({ ...actions, selectedTileId: selectedId, selectedTileLabel: selected ? tileText(selected) : null, outcome: controller.outcome, matchComplete: controller.match ? controller.matchOver : undefined });
+}
+
+/** The coach line and, with a tile picked, what that tile would read as: shown just above the hand. */
+export function PracticeCoach({ controller, actions, selectedId }: CoachProps) {
   const claim = actions.claim;
   const state = controller.getState();
   const player = state.players[controller.humanSeat];
   const selected = player.hand.find(t => t.id === selectedId);
-  const coach = practiceCoachLine({ ...actions, selectedTileId: selectedId, selectedTileLabel: selected ? tileText(selected) : null, outcome: controller.outcome, matchComplete: controller.match ? controller.matchOver : undefined });
-  const coached = (action: CoachEmphasis) => coach.emphasis === action;
+  const coach = coachFor({ controller, actions, selectedId });
   const reading = selected ? handReadingLine({ hand: player.hand.filter(t => t.id !== selected.id), winningTile: selected,
     melds: player.melds, flowers: player.flowers, seat: seatWindOf(state, controller.humanSeat), roundWind: state.roundWind,
     flags: {
@@ -249,6 +270,28 @@ export function ActionHud({
     rules: toFullRules(controller.getSettings()),
     overlapPolicy: toScoringOverlap(controller.getSettings().overlapPolicy),
     minHuTay: controller.getSettings().minHuTay }) : null;
+  return (
+    <>
+      <p className="practice-coach" role="status">{coach.text}</p>
+      {reading && <p className="hand-reading">{reading}</p>}
+    </>
+  );
+}
+
+export function ActionHud({
+  controller,
+  actions,
+  selectedId,
+  onSelect,
+}: {
+  controller: GameController;
+  actions: HumanActions;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  const claim = actions.claim;
+  const coach = coachFor({ controller, actions, selectedId });
+  const coached = (action: CoachEmphasis) => coach.emphasis === action;
   const huScore = claim ? claim.huScore : actions.selfHuScore;
   const canHu = claim ? claim.canHu : actions.canSelfDrawHu;
   const huTitle = huScore
@@ -259,7 +302,6 @@ export function ActionHud({
   const selectedOk = !!selectedId && actions.discardableTileIds.includes(selectedId);
 
   return (
-    <>
     <div className="action-hud" role="toolbar" aria-label="Aksi">
       {claim && (
         <div className="claim-banner">
@@ -320,8 +362,5 @@ export function ActionHud({
       />}
       {claim && <HudButton coached={coached('lew')} label="Lew" tone="danger" enabled={!!claim} onClick={() => controller.humanClaim('pass')} icon={<Undo2 size={14} />} title="Lewati klaim" />}
     </div>
-    <p className="practice-coach" role="status">{coach.text}</p>
-    {reading && <p className="hand-reading">{reading}</p>}
-    </>
   );
 }

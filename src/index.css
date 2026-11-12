@@ -2008,51 +2008,7 @@ select {
 .table-felt .wall-counter b { color: #ffd56b; font-size: 1.25em; font-variant-numeric: tabular-nums; }
 .table-felt .wall-counter.is-low { border-color: #ff8a6b; }
 .table-felt .wall-counter.is-low b { color: #ffb199; }
-.felt-wind {
-  position: absolute;
-  color: var(--felt-gold);
-  font-weight: 800;
-  font-size: 15px;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
-}
-.felt-wind b { font-size: 1.1em; font-weight: 700; color: #ffcf7d; }
-.felt-wind small { font-size: 11px; color: var(--felt-ink); }
-.felt-wind.is-turn { color: #ffe08a; text-shadow: 0 0 10px rgba(255, 213, 107, 0.8), 0 1px 0 rgba(0, 0, 0, 0.5); }
-/* Your own wind sits in the near-left corner: the action pills take the near edge's centre. */
-.felt-bottom { bottom: 9%; left: 13%; }
-.felt-top { top: 12%; left: 50%; transform: translateX(-50%); }
-.felt-left { left: 10%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
-.felt-right { right: 10%; top: 50%; transform: translate(50%, -50%) rotate(-90deg); }
-.table-felt .discard-pool {
-  position: absolute;
-  inset: 19% 16%;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: center;
-  justify-content: center;
-  gap: 5px 1px;
-  min-height: 0;
-  max-height: none;
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: 0;
-  background: none;
-}
-.table-felt .discard-pool .muted { color: rgba(243, 231, 201, 0.55); }
-.table-felt .pool-tile {
-  height: fit-content;
-  border-bottom: 0;
-  border-radius: 3px;
-  box-shadow: 0 7px 0 -4px var(--pool-mark, transparent);
-}
-.table-felt .pool-tile.seat-mark-dong { --pool-mark: #6f9ef0; }
-.table-felt .pool-tile.seat-mark-nan { --pool-mark: #f07a6c; }
-.table-felt .pool-tile.seat-mark-xi { --pool-mark: #f0c060; }
-.table-felt .pool-tile.seat-mark-bei { --pool-mark: #c0a4f0; }
-.table-felt .pool-tile.is-fresh { box-shadow: none; }
+/* Discard rivers and the centre compass: see the v0.5.2 section at the end. */
 /* The claimable discard is raised off the felt, upright and readable. */
 .table-felt .center-area > .pending-discard {
   position: absolute;
@@ -2368,16 +2324,11 @@ select {
 /* Large screens: everything on the felt grows with the table so the centre never looks empty. */
 @media (min-width: 1600px) {
   :root { --hud-rail: 340px; --felt-persp: 1500px; }
-  .table-felt .discard-pool .tile-sm { --w: 42px; --h: 56px; }
-  .table-felt .discard-pool { gap: 7px 2px; }
   .table-felt .hand-row > .tile { --w: 62px; --h: 84px; }
   .table-felt .seat-panel .tile-back { --w: 31px; --h: 42px; }
   .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 40px; --h: 20px; }
   .table-felt .tile-sm { --w: 32px; --h: 43px; }
   .board-plane { width: min(100%, 900px); max-height: 140%; }
-  .table-felt .wall-counter { font-size: 18px; padding: 4px 18px; }
-  .felt-wind { font-size: 22px; }
-  .felt-wind small { font-size: 14px; }
   .table-felt .seat-head { font-size: 16px; }
   .table-felt .badge { font-size: 12px; padding: 2px 8px; }
   .table-felt .bonus-rack small { font-size: 12px; }
@@ -2387,15 +2338,11 @@ select {
   .table-hud, .table-felt .practice-coach { font-size: 13px; }
 }
 @media (min-width: 1800px) and (min-height: 950px) {
-  .table-felt .discard-pool .tile-sm { --w: 54px; --h: 72px; }
-  .table-felt .discard-pool { inset: 17% 13%; gap: 9px 2px; }
   .table-felt .hand-row > .tile { --w: 70px; --h: 95px; }
   .table-felt .seat-panel .tile-back { --w: 35px; --h: 47px; }
   .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 46px; --h: 23px; }
   .table-felt .tile-sm { --w: 36px; --h: 48px; }
   .board-plane { width: min(100%, 1100px); aspect-ratio: 1.15; max-height: 150%; }
-  .table-felt .wall-counter { font-size: 21px; }
-  .felt-wind { font-size: 26px; }
   .table-felt .seat-head { font-size: 18px; }
   .table-felt .hud-btn { min-height: 66px; font-size: 28px; }
 }
@@ -2478,20 +2425,12 @@ select {
   .table-felt > .kim-indicator { grid-area: center; margin: 6px 0 0 2px; font-size: 10px; padding: 1px 8px; }
   .table-felt .center-area::before { inset: -4px -50px; }
   .board-plane { aspect-ratio: 0.95; }
-  /* Kim pill takes the felt's top-left corner; the counter moves to the top-right. */
-  .table-felt .wall-counter { left: auto; right: 4px; top: 6px; transform: none; font-size: 11px; padding: 2px 10px; }
-  .felt-wind { font-size: 10px; }
-  .felt-wind small { font-size: 8px; }
-  .table-felt .discard-pool { inset: 18% 14%; gap: 4px 1px; }
-  .felt-left { left: 6%; }
-  .felt-right { right: 6%; }
   /* Side slabs stay a few px inside the felt: less lean, and room for the count. */
   .table-felt .seat-left { padding-left: 6px; }
   .table-felt .seat-right { padding-right: 6px; }
   .table-felt .seat-left .concealed { transform: perspective(520px) rotateX(24deg) skewX(-7deg); }
   .table-felt .seat-right .concealed { transform: perspective(520px) rotateX(24deg) skewX(7deg); }
   .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 18px; }
-  .table-felt .discard-pool .tile-sm { --w: 18px; --h: 25px; }
   .table-felt .center-area > .pending-discard { padding: 4px 8px 8px; font-size: 10px; }
   .table-felt .center-area > .pending-discard .tile { --w: 32px; --h: 44px; }
   /* Fourteen tiles plus the drawn gap always fit the row, down to 320px wide. */
@@ -2519,7 +2458,6 @@ select {
   /* Without foreshortening the board keeps its full height: size it by the centre cell instead. */
   .app.view-flat .board-plane { width: auto; height: 100%; max-width: 100%; max-height: 100%; }
   .app.view-flat .table-felt .center-area { align-self: stretch; }
-  .app.view-flat .table-felt .discard-pool { inset: 17% 12%; }
 }
 
 /* ---------- Opening dice: who becomes the first dealer ---------- */
@@ -2660,4 +2598,416 @@ select {
 @media (min-width: 1600px) {
   .table-info dd .tile { --w: 30px; --h: 40px; }
   .table-info dd, .table-hud .match-scores { font-size: 14px; }
+}
+
+/* ==========================================================================
+   v0.5.2 polish: themed menu, compact result standings, Kim in hand,
+   per-player discard rivers, one turn card, coach above the hand.
+   ========================================================================== */
+
+/* ---------- Main menu: same red lattice, felt and wood as the table ---------- */
+.app.is-menu {
+  background:
+    radial-gradient(circle at 50% 120%, rgba(0, 0, 0, 0.45), transparent 60%),
+    radial-gradient(circle, transparent 0 11px, rgba(255, 196, 120, 0.07) 12px 13px, transparent 14px) 0 0 / 36px 36px,
+    radial-gradient(circle, rgba(255, 196, 120, 0.06) 0 4px, transparent 5px) 18px 18px / 36px 36px,
+    var(--scene);
+}
+:is(.app.is-menu, .app.is-table) .app-header {
+  background: linear-gradient(#3d070b, #260406);
+  border-bottom: 1px solid #000;
+  color: var(--felt-ink);
+}
+.app.is-menu .release-version { background: transparent; border-color: rgba(243, 231, 201, 0.35); color: var(--felt-ink); }
+.app.is-menu .header-actions .icon-btn { color: var(--felt-ink); }
+.app.is-menu .header-actions .icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.app.is-menu .main-menu { padding: 28px 16px 40px; }
+.app.is-menu .menu-card {
+  position: relative;
+  max-width: 600px;
+  padding: 26px clamp(16px, 4.5vw, 36px) 22px;
+  border: 14px solid var(--rim-wood);
+  border-radius: 26px;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.1), transparent 65%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.03) 0 2px, transparent 2px 4px),
+    linear-gradient(var(--felt-deep), var(--felt-green) 45%, var(--felt-deep));
+  color: var(--felt-ink);
+  box-shadow: inset 0 0 0 2px var(--rim-dark), inset 0 14px 30px rgba(0, 0, 0, 0.3), 0 0 0 3px var(--rim-dark), 0 24px 50px rgba(0, 0, 0, 0.55);
+}
+.menu-showcase { display: flex; justify-content: center; gap: 6px; margin: 0 0 16px; }
+.menu-showcase .tile { box-shadow: 0 2px 0 var(--tile-side), 0 4px 0 var(--tile-back), 0 6px 8px rgba(0, 0, 0, 0.35); }
+.menu-showcase .tile:nth-child(odd) { transform: translateY(4px) rotate(-3deg); }
+.menu-showcase .tile:nth-child(even) { transform: rotate(3deg); }
+.app.is-menu .menu-eyebrow { color: var(--felt-gold); text-align: center; }
+.app.is-menu .menu-card h2 { color: #fffaf0; text-align: center; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+.app.is-menu .menu-card > p { max-width: none; text-align: center; }
+.app.is-menu .menu-card .muted { color: rgba(243, 231, 201, 0.85); }
+.app.is-menu .menu-last { display: flex; margin: 6px auto 0; background: rgba(0, 0, 0, 0.3); border-color: rgba(243, 231, 201, 0.35); color: var(--felt-ink); }
+.menu-option { display: grid; gap: 6px; margin-top: 16px; }
+.menu-option-label { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #ffd56b; }
+.menu-segments {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.32);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+.menu-segments button {
+  min-height: 48px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--felt-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.menu-segments button:hover { background: rgba(255, 255, 255, 0.1); }
+.menu-segments button.is-on {
+  background: linear-gradient(#fffdf6, #f1e7cc);
+  color: var(--call-ink);
+  box-shadow: 0 3px 0 #b8a77d, 0 0 0 2px #ffd56b;
+}
+.menu-segments button:focus-visible { outline: 3px solid #ffd56b; outline-offset: 2px; }
+.menu-option-note { color: rgba(243, 231, 201, 0.85); font-size: 12px; line-height: 1.4; }
+.app.is-menu .menu-choices { margin: 22px 0 4px; }
+.app.is-menu .menu-choice {
+  min-height: 80px;
+  border: 3px solid var(--call-ink);
+  border-radius: 16px;
+  background: linear-gradient(#ffe48a, #f2b63c);
+  color: #a80c12;
+  box-shadow: 0 5px 0 var(--call-ink), 0 12px 20px rgba(0, 0, 0, 0.4);
+}
+.app.is-menu .menu-choice:hover { background: linear-gradient(#fff0b0, #f6c45a); }
+.app.is-menu .menu-choice:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--call-ink), 0 6px 10px rgba(0, 0, 0, 0.4); }
+.app.is-menu .menu-choice strong { font-size: 22px; font-weight: 900; letter-spacing: 0.02em; }
+.app.is-menu .menu-choice.btn-primary span { color: var(--call-ink); font-weight: 700; }
+@media (max-width: 560px) {
+  .app.is-menu .main-menu { padding: 14px 8px 28px; }
+  .app.is-menu .menu-card { border-width: 9px; border-radius: 20px; padding: 18px 12px 16px; }
+  .menu-showcase { gap: 3px; margin-bottom: 10px; }
+  .menu-showcase .tile { --w: 30px; --h: 41px; }
+  .menu-segments button { min-height: 52px; font-size: 13px; padding: 4px 4px; }
+}
+@media (max-width: 360px) {
+  .menu-showcase .tile { --w: 26px; --h: 36px; }
+  .menu-segments button { font-size: 12px; }
+}
+.app.is-menu .brand > div { display: flex; align-items: center; gap: 10px; }
+.app.is-menu .app-header { padding: 6px 14px; }
+.app.is-menu .brand h1 { font-size: 17px; }
+.app.is-menu .brand-tile { width: 26px; height: 34px; font-size: 17px; }
+@media (min-width: 561px) and (max-height: 820px) {
+  .app.is-menu .main-menu { padding: 14px 16px 18px; }
+  .app.is-menu .menu-card { padding-top: 18px; padding-bottom: 16px; }
+  .menu-showcase { margin-bottom: 10px; }
+  .menu-option { margin-top: 10px; gap: 4px; }
+  .menu-segments button { min-height: 42px; }
+  .app.is-menu .menu-choices { margin-top: 16px; }
+  .app.is-menu .menu-choice { min-height: 68px; padding: 12px; }
+}
+
+/* ---------- Result dialogs: compact standings and a readable Tay breakdown ---------- */
+.match-note { padding: 10px 12px; }
+.match-note > p { margin: 0 0 8px; font-size: 13px; line-height: 1.45; }
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.standings-table :is(th, td) { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.standings-table thead th { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; background: var(--surface-2); }
+.standings-table tbody th { font-weight: 600; }
+.standings-table tbody tr:last-child :is(th, td) { border-bottom: 0; }
+.standings-table .num { text-align: right; white-space: nowrap; }
+.standings-table .rank { width: 2.2em; color: var(--muted); font-weight: 700; }
+.standings-table .total { font-size: 16px; font-weight: 800; }
+.standings-table .gained { font-weight: 700; color: var(--ok); }
+.standings-table .dealer-mark { margin-left: 6px; color: #b88418; vertical-align: -2px; }
+.standings-table .is-human th { color: var(--accent-strong); }
+.standings-table tr.is-winner { background: #fff0bf; }
+.standings-table tr.is-winner > :first-child { box-shadow: inset 4px 0 #d9a441; color: #7a5200; }
+.standings-table tr.is-winner th { font-weight: 800; }
+.match-standings-wrap { margin: 8px 0 12px; }
+.tay-breakdown { font-size: 14px; font-variant-numeric: tabular-nums; }
+.tay-breakdown .pid { width: 2.6em; color: var(--muted); font-size: 12px; }
+.tay-breakdown th.num, .tay-breakdown td.num { text-align: right; padding-right: 14px; }
+.tay-breakdown tbody td.num { font-size: 17px; font-weight: 700; }
+.tay-breakdown tbody tr:nth-child(even) { background: var(--surface-2); }
+.tay-breakdown .total-row td { padding-top: 10px; border-top: 2px solid var(--text); font-size: 16px; font-weight: 800; }
+.tay-breakdown .total-row .total { font-size: 24px; color: var(--accent-strong); }
+
+/* ---------- Discards: one river in front of each player, as on a real table ---------- */
+/*
+ * Each river is laid out as its owner sees it (first row nearest the centre) and then turned to
+ * face that owner around the board's centre. Across and near rivers run in rows of eight (three
+ * rows hold a whole game), the side rivers in rows of six, so the centre is an 8×6 rectangle that
+ * suits the wide felt. Tile size follows the board (container units), so every river and the
+ * centre always fit inside the felt; the bottom keeps room for the action pills on the near edge.
+ */
+.board-plane { container-type: size; }
+.discard-board {
+  --pill-room: 58px;
+  --dw: min(calc((100cqh - var(--pill-room) - 20px) / 14.1), calc((100cqw - 26px) / 18.8));
+  --dh: calc(var(--dw) * 1.34);
+  --long: calc(8 * var(--dw) + 7px);
+  --short: calc(6 * var(--dw) + 5px);
+  position: absolute;
+  inset: 0 0 var(--pill-room);
+}
+.discard-river {
+  --run: var(--long);
+  --reach: calc(var(--short) / 2 + 3px);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--run);
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 2px 1px;
+  transform-origin: 0 0;
+  transform: rotate(var(--turn, 0deg)) translate(-50%, var(--reach));
+}
+.river-right,
+.river-left { --run: var(--short); --reach: calc(var(--long) / 2 + 3px); }
+.river-right { --turn: -90deg; }
+.river-top { --turn: 180deg; }
+.river-left { --turn: 90deg; }
+.table-felt .discard-river .tile { --w: var(--dw); --h: var(--dh); }
+.table-felt .discard-river .pool-tile { display: inline-flex; border-radius: 3px; box-shadow: none; }
+.table-felt .discard-river .tile.is-highlight:not(.tile-back) {
+  box-shadow: 0 0 0 2px #ffd56b, 0 2px 0 var(--tile-back), 0 0 10px 3px rgba(255, 213, 107, 0.75);
+}
+.table-felt .discard-river .is-pending .tile { z-index: 1; }
+/* Centre square: the four seat winds facing their players, and the remaining-wall plate. */
+.discard-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--long) - 2px);
+  height: calc(var(--short) - 2px);
+  transform: translate(-50%, -50%);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 213, 107, 0.3), inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.discard-center .felt-wind {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  color: var(--felt-gold);
+  font-size: max(9px, calc(var(--dw) * 0.46));
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+.discard-center .felt-wind b { font-size: 1.4em; color: #ffcf7d; }
+.discard-center .felt-wind.is-turn { color: #ffe08a; text-shadow: 0 0 8px rgba(255, 213, 107, 0.9), 0 1px 0 rgba(0, 0, 0, 0.5); }
+.discard-center .felt-wind.is-turn b { color: #fff3c4; }
+.discard-center .felt-dealer { color: #ffd56b; flex: none; }
+.discard-center .felt-bottom { bottom: 6%; left: 50%; transform: translateX(-50%); }
+.discard-center .felt-top { top: 6%; left: 50%; transform: translateX(-50%); }
+.discard-center .felt-left { left: 6%; top: 50%; writing-mode: vertical-rl; transform: translateY(-50%); }
+.discard-center .felt-right { right: 6%; top: 50%; writing-mode: vertical-rl; transform: translateY(-50%) rotate(180deg); }
+.table-felt .discard-center .wall-counter {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.2em 0.75em;
+  border-width: 2px;
+  font-size: max(10px, calc(var(--dw) * 0.46));
+}
+/* 3D: perspective enlarges the near rows, so the near edge needs more room above the pills. */
+@media (min-width: 901px) {
+  .app:not(.view-flat) .discard-board { --pill-room: max(104px, 22cqh); }
+}
+/* Large 3D tables: rivers size with the board, so the old oversized board would push the near river into the pills. */
+@media (min-width: 1600px) {
+  .app:not(.view-flat) .board-plane { width: min(100%, 860px); aspect-ratio: 1.25; max-height: 125%; }
+}
+@media (max-width: 900px) {
+  .discard-board { --pill-room: 0px; }
+}
+@media (max-width: 560px) {
+  /*
+   * Portrait phones are width-bound, so the long rows turn sideways: near and across rivers run in
+   * rows of six, the side rivers in rows of eight, around a 6×8 centre on a taller felt.
+   */
+  .board-plane { aspect-ratio: 0.8; }
+  .discard-board { --dw: min(calc((100cqh - 26px) / 18.8), calc((100cqw - 20px) / 14.1)); }
+  .discard-river { --run: var(--short); --reach: calc(var(--long) / 2 + 3px); }
+  .river-right,
+  .river-left { --run: var(--long); --reach: calc(var(--short) / 2 + 3px); }
+  .discard-center { width: calc(var(--short) - 2px); height: calc(var(--long) - 2px); }
+  /* Compact rivers: glyph-only winds and a slim wall plate fit the small centre. */
+  .discard-center .felt-wind-name { display: none; }
+  .discard-center .felt-wind { font-size: 8px; }
+  .discard-center .felt-dealer { width: 8px; height: 8px; }
+  .table-felt .discard-center .wall-counter { font-size: 9px; padding: 1px 5px; border-width: 1px; }
+}
+
+/* ---------- Right panel: one turn card ---------- */
+.table-hud .turn-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; }
+.turn-card .turn-who { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.turn-card .turn-who strong { margin-left: 4px; font-size: 15px; letter-spacing: 0; text-transform: none; color: #7d0e13; }
+.turn-card .turn-cue { font-size: 12px; line-height: 1.35; color: var(--text); }
+.turn-card small { flex-basis: auto; color: var(--muted); font-size: 11px; }
+
+/* ---------- Coach line: just above your hand, in every view ---------- */
+.table-felt {
+  grid-template-areas:
+    'top  top    top   hud'
+    'left center right hud'
+    'hand hand   hand  hud';
+}
+.table-felt .coach-slot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
+  max-width: min(820px, 100%);
+  margin: 2px auto 0;
+}
+.table-felt .coach-slot :is(.practice-coach, .hand-reading) {
+  align-self: auto;
+  max-height: none;
+  overflow: visible;
+  margin: 0;
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 213, 107, 0.35);
+  border-left: 4px solid #d9a441;
+  border-radius: 10px;
+  background: rgba(10, 30, 18, 0.78);
+  color: var(--felt-ink);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+.table-felt .coach-slot .hand-reading { border-left-color: #8fc6a4; font-size: 12px; }
+@media (min-width: 901px) {
+  .table-felt .human-area { grid-template-areas: 'coach coach' 'head head' 'hand melds'; }
+  .table-felt .human-area .coach-slot { grid-area: coach; }
+}
+@media (min-width: 1600px) {
+  .table-felt .coach-slot :is(.practice-coach, .hand-reading) { font-size: 15px; }
+}
+@media (max-width: 900px) {
+  .table-felt {
+    grid-template-areas:
+      'top  top    top'
+      'left center right'
+      'hand hand   hand'
+      'hud  hud    hud';
+  }
+  .table-felt .human-area .coach-slot { order: -1; margin: 4px 6px 0; }
+}
+@media (max-width: 560px) {
+  .table-felt .coach-slot :is(.practice-coach, .hand-reading) { padding: 3px 8px; font-size: 11px; line-height: 1.3; }
+}
+
+/* ---------- Kim in your hand: gold, never greyed out ---------- */
+.table-felt .hand-row > .tile.is-kim {
+  outline: 0;
+  border-color: #c8961c;
+  background: linear-gradient(#fffdf2 52%, #fbe6a2);
+  box-shadow: 0 -9px 0 0 var(--tile-back), 0 -10px 0 0 var(--tile-back-edge), 0 0 0 2px #d9a62a, 0 0 12px 3px rgba(255, 196, 60, 0.6), 0 8px 12px rgba(0, 0, 0, 0.45);
+}
+.table-felt .hand-row > .tile.is-kim.is-disabled { filter: none; }
+.table-felt .hand-row > .tile.is-kim .kim-badge {
+  top: -16px;
+  right: -4px;
+  padding: 1px 4px;
+  border: 1px solid #7a4a00;
+  background: linear-gradient(#ffe27a, #e2a619);
+  color: #4a2400;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+/* Selected stays the raised tile with a white ring, distinct from Kim's gold glow. */
+.table-felt .hand-row > .tile.is-kim.is-selected {
+  box-shadow: 0 -9px 0 0 var(--tile-back), 0 -10px 0 0 var(--tile-back-edge), 0 0 0 2px #d9a62a, 0 0 0 5px #fff, 0 14px 18px rgba(0, 0, 0, 0.5);
+}
+@media (max-width: 560px) {
+  .table-felt .hand-row > .tile.is-kim { box-shadow: 0 -5px 0 0 var(--tile-back), 0 -6px 0 0 var(--tile-back-edge), 0 0 0 2px #d9a62a, 0 0 8px 2px rgba(255, 196, 60, 0.6); }
+  .table-felt .hand-row > .tile.is-kim .kim-badge { top: -11px; font-size: 7px; padding: 0 2px; }
+}
+.standings-table .gained.is-zero { color: var(--muted); font-weight: 400; }
+/* Phones: the felt panel's wooden rim no longer covers the top seat's name. */
+@media (max-width: 900px) {
+  .table-felt > .center-area { margin-top: 12px; }
+}
+/* Phones and tablets: the action pills get their own strip of felt under the board. */
+@media (max-width: 900px) {
+  .table-felt .center-area { padding-bottom: 62px; }
+}
+@media (max-width: 560px) {
+  .table-felt .center-area { padding-bottom: 50px; }
+}
+/* Narrowest phones: the wall plate stacks "Sisa / n / tile" to clear the side winds. */
+@media (max-width: 360px) {
+  .table-felt .discard-center .wall-counter { display: flex; flex-direction: column; align-items: center; padding: 2px 4px; border-radius: 8px; line-height: 1.05; }
+}
+@media (max-width: 560px) {
+  .table-felt > .kim-indicator { margin-top: 20px; }
+}
+/* A claim adds the banner row above the pills: give it felt room too, so the near river stays clear. */
+@media (max-width: 900px) {
+  .table-felt:has(.claim-banner) .center-area { padding-bottom: 112px; }
+}
+@media (max-width: 560px) {
+  .table-felt:has(.claim-banner) .center-area { padding-bottom: 100px; }
+  /* Your exposed melds stay one compact row above the hand instead of crowding it off screen. */
+  .table-felt .human-area .melds { flex-wrap: wrap; justify-content: center; gap: 2px 6px; }
+  .table-felt .human-area .melds .tile { --w: 20px; --h: 27px; }
+  .table-felt .human-area .meld { padding-bottom: 8px; }
+}
+@media (max-width: 360px) {
+  .table-felt .human-area .melds .tile { --w: 15px; --h: 20px; }
+  .table-felt .human-area .melds { gap: 2px 4px; }
+}
+/*
+ * The action pills live inside your seat and float just above it, over the felt's near edge: on
+ * desktop exactly where they sat before, on phones riding with the sticky hand so they never
+ * cover your tiles.
+ */
+.table-felt .human-area > .action-hud {
+  position: absolute;
+  grid-row: auto;
+  grid-column: auto;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(calc(100vw - 16px), 980px);
+  margin: 0 0 8px;
+  flex-wrap: wrap;
+}
+@media (max-width: 900px) {
+  .table-felt .human-area > .action-hud { margin-bottom: 6px; }
+}
+.tay-breakdown td { vertical-align: middle; }
+.standings-table tbody th { white-space: nowrap; }
+.standings-table .reached { display: block; font-size: 11px; font-weight: 500; white-space: normal; }
+@media (max-width: 560px) {
+  .standings-table .th-long { display: none; }
+  .standings-table :is(th, td) { padding: 6px 6px; }
+  .standings-table { font-size: 13px; }
+}
+@media (min-width: 700px) {
+  .match-history { columns: 2; column-gap: 28px; }
 }

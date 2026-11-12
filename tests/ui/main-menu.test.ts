@@ -48,12 +48,14 @@ describe('MainMenu', () => {
 
   it('renders the pregame three-mode Kim choice without development explanations', () => {
     const on = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: true, onKimChange: noop }));
-    expect(on).toContain('<option value="natural" selected="">Kim dari tile</option>');
-    expect(on).toContain('<option value="off">Tanpa Kim</option>');
+    expect(on).toContain('role="radiogroup" aria-label="Pilihan Kim"');
+    expect(on).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Kim dari tile</button>');
+    expect(on).toContain('<button type="button" role="radio" aria-checked="false">Tanpa Kim</button>');
+    expect(on).toContain('keempat kopinya jadi Kim');
     expect(on).not.toMatch(/model lama|belum diterapkan|menunggu konfirmasi/);
     const off = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: false, onKimChange: noop }));
-    expect(off).toContain('<option value="natural">Kim dari tile</option>');
-    expect(off).toContain('<option value="off" selected="">Tanpa Kim</option>');
+    expect(off).toContain('<button type="button" role="radio" aria-checked="false">Kim dari tile</button>');
+    expect(off).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Tanpa Kim</button>');
   });
 
 
