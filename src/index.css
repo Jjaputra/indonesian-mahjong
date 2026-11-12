@@ -1176,6 +1176,7 @@ select {
   font-size: 14px;
   color: var(--accent-strong);
 }
+.settings .field-note { margin: 0; color: var(--muted); font-size: 12px; }
 .toggle.is-disabled {
   opacity: 0.5;
 }
@@ -1640,11 +1641,23 @@ select {
 .menu-card { max-width: 520px; }
 .menu-choice { min-height: 88px; }
 .menu-choice strong { display: flex; align-items: center; gap: 12px; }
+/* Phones: brand and actions share one row; the version pill and button text give way first. */
 @media (max-width: 560px) {
-  .app-header { grid-template-columns: minmax(0, 1fr); }
+  .app-header { grid-template-columns: minmax(0, 1fr) auto; padding-top: max(6px, env(safe-area-inset-top)); }
   .brand > div { display: flex; align-items: center; gap: 9px; }
+  .brand h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .release-version { margin-top: 0; }
   .header-actions { justify-content: flex-end; }
+  .header-actions .btn-new-game { padding: 5px 7px; }
+}
+@media (max-width: 440px) {
+  .release-version { display: none; }
+  .header-actions .btn-new-game .btn-text { display: none; }
+}
+@media (max-width: 360px) {
+  .app-header { gap: 4px; padding-left: 6px; padding-right: 6px; }
+  .brand h1, .app.is-table .brand h1 { font-size: 13px; }
+  .header-actions { gap: 2px; }
 }
 
 .action-hud:empty { display: none; }
@@ -1695,6 +1708,14 @@ select {
 .app.is-table .header-actions .icon-btn { color: var(--felt-ink); }
 .app.is-table .header-actions .icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
 .app.is-table .header-actions .btn-primary { background: var(--felt-ink); border-color: var(--felt-ink); color: #3d070b; font-weight: 700; }
+@media (max-width: 560px) {
+  .app.is-table .app-header { padding: 5px 8px; }
+  .app.is-table .brand h1 { font-size: 14px; }
+}
+@media (max-width: 360px) {
+  .app.is-table .app-header { padding: 4px 6px; }
+  .app.is-table .brand h1 { font-size: 13px; }
+}
 
 .table-felt {
   position: relative;
@@ -2304,19 +2325,39 @@ select {
 .hu-banner.is-lew-fit { font-size: 36px; color: #6b4a12; }
 
 /* ---------- Size steps ---------- */
+/* Large screens: everything on the felt grows with the table so the centre never looks empty. */
 @media (min-width: 1600px) {
   :root { --hud-rail: 340px; --felt-persp: 1500px; }
-  .table-felt .discard-pool .tile-sm { --w: 38px; --h: 51px; }
+  .table-felt .discard-pool .tile-sm { --w: 42px; --h: 56px; }
+  .table-felt .discard-pool { gap: 7px 2px; }
   .table-felt .hand-row > .tile { --w: 62px; --h: 84px; }
-  .table-felt .seat-panel .tile-back { --w: 27px; --h: 37px; }
-  .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 34px; --h: 17px; }
-  .table-felt .tile-sm { --w: 28px; --h: 38px; }
-  .board-plane { width: min(100%, 800px); }
-  .table-felt .wall-counter { font-size: 16px; }
-  .felt-wind { font-size: 19px; }
-  .table-felt .seat-head { font-size: 14px; }
+  .table-felt .seat-panel .tile-back { --w: 31px; --h: 42px; }
+  .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 40px; --h: 20px; }
+  .table-felt .tile-sm { --w: 32px; --h: 43px; }
+  .board-plane { width: min(100%, 900px); max-height: 140%; }
+  .table-felt .wall-counter { font-size: 18px; padding: 4px 18px; }
+  .felt-wind { font-size: 22px; }
+  .felt-wind small { font-size: 14px; }
+  .table-felt .seat-head { font-size: 16px; }
+  .table-felt .badge { font-size: 12px; padding: 2px 8px; }
+  .table-felt .bonus-rack small { font-size: 12px; }
+  .table-felt > .kim-indicator { font-size: 15px; padding: 4px 16px; }
+  .table-felt .center-area > .pending-discard .tile { --w: 58px; --h: 78px; }
   .table-felt .hud-btn { min-height: 60px; font-size: 26px; }
   .table-hud, .table-felt .practice-coach { font-size: 13px; }
+}
+@media (min-width: 1800px) and (min-height: 950px) {
+  .table-felt .discard-pool .tile-sm { --w: 54px; --h: 72px; }
+  .table-felt .discard-pool { inset: 17% 13%; gap: 9px 2px; }
+  .table-felt .hand-row > .tile { --w: 70px; --h: 95px; }
+  .table-felt .seat-panel .tile-back { --w: 35px; --h: 47px; }
+  .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 46px; --h: 23px; }
+  .table-felt .tile-sm { --w: 36px; --h: 48px; }
+  .board-plane { width: min(100%, 1100px); aspect-ratio: 1.15; max-height: 150%; }
+  .table-felt .wall-counter { font-size: 21px; }
+  .felt-wind { font-size: 26px; }
+  .table-felt .seat-head { font-size: 18px; }
+  .table-felt .hud-btn { min-height: 66px; font-size: 28px; }
 }
 @media (min-width: 901px) and (max-height: 760px) {
   .table-felt .human-area .hand-row { padding-top: 12px; padding-bottom: 4px; }
@@ -2397,7 +2438,8 @@ select {
   .table-felt > .kim-indicator { grid-area: center; margin: 6px 0 0 2px; font-size: 10px; padding: 1px 8px; }
   .table-felt .center-area::before { inset: -4px -50px; }
   .board-plane { aspect-ratio: 0.95; }
-  .table-felt .wall-counter { font-size: 11px; padding: 2px 10px; }
+  /* Kim pill takes the felt's top-left corner; the counter moves to the top-right. */
+  .table-felt .wall-counter { left: auto; right: 4px; top: 6px; transform: none; font-size: 11px; padding: 2px 10px; }
   .felt-wind { font-size: 10px; }
   .felt-wind small { font-size: 8px; }
   .table-felt .discard-pool { inset: 18% 14%; gap: 4px 1px; }

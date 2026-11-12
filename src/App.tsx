@@ -220,8 +220,8 @@ export function App() {
           <button type="button" className="icon-btn" onClick={() => setModal('settings')} title="Pengaturan">
             <Settings size={18} />
           </button>
-          {matchStarted && <button type="button" className="btn btn-primary" onClick={() => midMatch ? setAbandonOpen(true) : newGame()}>
-            <RotateCcw size={14} /> Permainan Baru
+          {matchStarted && <button type="button" className="btn btn-primary btn-new-game" title="Permainan Baru" onClick={() => midMatch ? setAbandonOpen(true) : newGame()}>
+            <RotateCcw size={14} /> <span className="btn-text">Permainan Baru</span>
           </button>}
         </div>
       </header>

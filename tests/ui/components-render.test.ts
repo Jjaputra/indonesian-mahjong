@@ -146,6 +146,9 @@ describe('UI render smoke tests', () => {
       expect(html).toContain(label);
     }
     expect(html).not.toMatch(/Kim aktif|Minimum Tay|Dealer awal|Bunga.Musim|PDF|Preset|Aturan rumah/);
+    // Kim is chosen once, on the main menu; settings only point there.
+    expect(html).not.toMatch(/Mode Kim|<select/);
+    expect(html).toContain('Pilihan Kim diatur di menu utama');
     const casual = withPreset(s, 'casual');
     expect(casual.allowKimInMeldClaim).toBe(getPreset('casual').allowKimInMeldClaim);
     expect(casual.aiDifficulty).toBe('hard');
