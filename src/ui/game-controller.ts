@@ -3,6 +3,7 @@
  * human's legal actions (with the minimum-Tay Hu gate), scores the final hand with the 44-Tay
  * engine and records finished games in storage. Pure TypeScript, so it runs under Vitest in node.
  */
+import { gameDeltas } from '../core/round-score';
 import { GameEngine, canFormWinningHand, type GameEngineState } from '../core/game-engine';
 import { SEAT_ORDER, isSameKind } from '../core/tiles';
 import type { ClaimDeclaration, LegalActions, Meld, Seat, Tile, TileFace, Wind } from '../core/types';
@@ -13,7 +14,7 @@ import { loadDevMode, saveDevMode, historyScoringFields, saveGameRecord, type Ga
 import { buildObservation, builtInStrategy, chooseDiscard, isFirstGoAround, explainDiscardChoice, type AIStrategy } from './ai-controller';
 import { MELD_LABEL, PLAYER_NAME, SEAT_SHORT, tileText } from './labels';
 import { isInitialDealtHand, scoreHu, seatWindOf, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
-import { createMatch, currentHandNumber, isMatchOver, recordHand, finishMatchAtBoundary, rollOpeningDealer, type DeadWallOption, type MatchTimeLimit, type DealerWinRule, type MatchState, roundScore, type RoundScore } from './match';
+import { createMatch, currentHandNumber, isMatchOver, recordHand, finishMatchAtBoundary, rollOpeningDealer, type DeadWallOption, type MatchTimeLimit, type DealerWinRule, type MatchState, roundScore, type RoundScore, kongPayment, type KongPayment } from './match';
 
 export type GameEventType = 'draw' | 'discard' | 'jia' | 'pung' | 'kong' | 'flower' | 'hu' | 'lewFit' | 'seri';
 
@@ -47,11 +48,15 @@ export interface HuOutcome {
   scoring: ScoringResult;
   /** Round Score in koin, or null for an invalid Hu (Lew Fit). */
   roundScore: RoundScore | null;
+  kongPayments: KongPayment[];
+  gameDeltas: Record<Seat, number>;
   durationSeconds: number;
 }
 
 export interface SeriOutcome {
   kind: 'seri';
+  kongPayments: KongPayment[];
+  gameDeltas: Record<Seat, number>;
   durationSeconds: number;
 }
 
@@ -157,6 +162,7 @@ export class GameController {
   private listeners = new Set<() => void>();
   private eventListeners = new Set<(e: GameEvent) => void>();
 
+  currentKongPayments: KongPayment[] = [];
   outcome: GameOutcome | null = null;
   /** Continuous match in progress (null = single game); updated as soon as a hand ends. */
   match: MatchState | null = null;
@@ -369,6 +375,7 @@ export class GameController {
     this.discardCount = 0;
     this.botExplanation = null;
     this.outcome = null;
+    this.currentKongPayments = [];
     this.log = [];
     this.aiClaimsFor = '';
     this.humanAnsweredFor = '';
@@ -411,7 +418,7 @@ export class GameController {
 
   private checkSeri(): boolean {
     if (this.getState().phase !== 'DRAW_SERI' || this.outcome) return false;
-    this.outcome = { kind: 'seri', durationSeconds: this.durationSeconds() };
+    this.outcome = { kind: 'seri', kongPayments: [...this.currentKongPayments], gameDeltas: gameDeltas(null, this.currentKongPayments), durationSeconds: this.durationSeconds() };
     this.addLog('Tembok habis — permainan Seri (tidak ada pemenang).');
     this.emit('seri');
     this.record();
@@ -424,8 +431,8 @@ export class GameController {
     if (!this.match || !this.outcome) return;
     const o = this.outcome;
     this.match = o.kind === 'hu'
-      ? recordHand(this.match, o.winner, o.scoring.isValidHu, o.scoring.totalTay, this.now(), { winMethod: o.winMethod, discarder: o.discarder })
-      : recordHand(this.match, null, false, 0, this.now());
+      ? recordHand(this.match, o.winner, o.scoring.isValidHu, o.scoring.totalTay, this.now(), { winMethod: o.winMethod, discarder: o.discarder }, o.kongPayments)
+      : recordHand(this.match, null, false, 0, this.now(), undefined, o.kongPayments);
   }
 
   private record(): void {
@@ -434,6 +441,8 @@ export class GameController {
     if (o.kind === 'seri') {
       saveGameRecord(
         {
+          kongPayments: o.kongPayments,
+          gameDeltas: o.gameDeltas,
           winner: null,
           winningHand: [],
           winningTile: null,
@@ -463,7 +472,9 @@ export class GameController {
         scoringBreakdown: o.scoring.patterns.map((p) => ({ id: p.id, name: p.name, tay: p.tay })),
         totalTay: o.scoring.totalTay,
         roundScore: o.roundScore,
-        koin: o.roundScore?.deltas[o.winner] ?? 0,
+        kongPayments: o.kongPayments,
+        gameDeltas: o.gameDeltas,
+        koin: o.gameDeltas[o.winner],
         discarder: o.discarder,
         ...historyScoringFields(o.scoring),
         isWithKim: o.scoring.isWithKim,
@@ -523,6 +534,7 @@ export class GameController {
     const s = this.getState();
     const p = s.players[seat];
     const winningTile = s.winningTile ?? p.hand[p.hand.length - 1]!;
+    const score = scoring.isValidHu ? roundScore(seat, scoring.totalTay, { winMethod, discarder }) : null;
     this.outcome = {
       kind: 'hu',
       winFlags: { ...this.flagsFor(seat, winMethod === 'tsumo'), isRobbingKong: winMethod === 'chiong_kong', discarderSeat: discarder },
@@ -535,7 +547,9 @@ export class GameController {
       melds: p.melds.map((m) => ({ ...m, tiles: [...m.tiles] })),
       flowers: [...p.flowers],
       scoring,
-      roundScore: scoring.isValidHu ? roundScore(seat, scoring.totalTay, { winMethod, discarder }) : null,
+      roundScore: score,
+      kongPayments: [...this.currentKongPayments],
+      gameDeltas: gameDeltas(score, this.currentKongPayments),
       durationSeconds: this.durationSeconds(),
     };
     const how = winMethod === 'tsumo' ? 'Ce Mo' : winMethod === 'chiong_kong' ? 'Chiong Kong' : `buangan ${PLAYER_NAME[discarder!]}`;
@@ -735,11 +749,18 @@ export class GameController {
   private ankongFor(seat: Seat, tiles: Tile[]): void {
     const before = this.flowerCounts();
     const r = this.engine.declareAnkong(seat, tiles);
+    this.payKong(seat, tiles[0]!, true);
     this.addLog(`${PLAYER_NAME[seat]} Ankong ${tileText(tiles[0]!)}.`, seat);
     this.emit('kong', seat);
     this.logNewFlowers(before);
     if (seat === this.humanSeat) this.humanDrawnTileId = r.replacementTile?.id ?? null;
     this.checkSeri();
+  }
+
+  private payKong(owner: Seat, tile: Tile, concealed: boolean): void {
+    const payment = kongPayment(owner, tile, concealed);
+    this.currentKongPayments = [...this.currentKongPayments, payment];
+    this.addLog(`Kong ${tileText(tile)}: tiap pemain bayar ${payment.perPlayer} koin ke ${PLAYER_NAME[owner]}`, owner);
   }
 
   private kakanFor(seat: Seat, tileId: string, meldIndex: number): void {
@@ -847,6 +868,7 @@ export class GameController {
 
     if (result.winningAction === 'kong' || result.winningAction === 'pung' || result.winningAction === 'jia') {
       const claimant = result.nextTurn;
+      if (result.winningAction === 'kong') this.payKong(claimant, pending.tile, false);
       this.lastDiscard = null;
       this.addLog(`${PLAYER_NAME[claimant]} ${MELD_LABEL[result.winningAction]} ${tileText(pending.tile)} dari ${PLAYER_NAME[pending.discarder]}.`, claimant);
       if (claimant !== this.humanSeat) {
@@ -859,6 +881,7 @@ export class GameController {
         this.humanDrawnTileId = result.winningAction === 'kong' ? hand[hand.length - 1]?.id ?? null : null;
       }
     } else if (pending.isPromotedKong) {
+      this.payKong(pending.discarder, pending.tile, false);
       this.addLog(`Kong ${PLAYER_NAME[pending.discarder]} sah; ambil tile pengganti.`, pending.discarder);
       if (pending.discarder === this.humanSeat) {
         const hand = this.getState().players[this.humanSeat].hand;

@@ -252,7 +252,7 @@ describe('match UI wiring', () => {
   });
 
   it('result modal offers the next hand or the final standings', () => {
-    const seri = { kind: 'seri' as const, durationSeconds: 1 };
+    const seri = { kind: 'seri' as const, kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 }, durationSeconds: 1 };
     const next = renderToStaticMarkup(createElement(HuResultModal, { outcome: seri, onClose: noop, onNewGame: noop, onNextHand: noop }));
     expect(next).toContain('Lanjut ke game berikutnya');
     expect(next).toContain('Kembali ke menu');

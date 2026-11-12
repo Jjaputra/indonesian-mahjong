@@ -1,4 +1,4 @@
-import { deriveRoundScore, type RoundScore } from '../core/round-score';
+import { deriveRoundScore, type RoundScore, type KongPayment, gameDeltas, migrateKongPayments } from '../core/round-score';
 import type { KimMode as WallKimMode } from '../core/types';
 // ============================================================================
 // Persistence Layer (F25): LocalStorage-backed GameSettings & Match History
@@ -96,6 +96,8 @@ export interface MatchHistoryRecord {
   scoringBreakdown: ScoringBreakdownItem[];
   totalTay: number;
   roundScore: RoundScore | null;
+  kongPayments: KongPayment[];
+  gameDeltas: Record<Seat, number>;
   /** Winner koin delta, or zero if payout facts are unavailable. */
   koin: number;
   discarder?: Seat;
@@ -128,10 +130,10 @@ export interface MatchHistoryRecord {
 
 /**
  * Input to `saveGameRecord`. `id` and `timestamp` are generated when omitted.
- * `flowers`, `melds`, `roundScore` and `koin` are optional for legacy callers; loads fill them.
+ * `flowers`, `melds`, `roundScore`, `koin`, `kongPayments` and `gameDeltas` are optional for legacy callers; loads fill them.
  */
-export type NewMatchHistoryRecord = Omit<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds' | 'roundScore' | 'koin'> &
-  Partial<Pick<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds' | 'roundScore' | 'koin'>>;
+export type NewMatchHistoryRecord = Omit<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds' | 'roundScore' | 'koin' | 'kongPayments' | 'gameDeltas'> &
+  Partial<Pick<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds' | 'roundScore' | 'koin' | 'kongPayments' | 'gameDeltas'>>;
 
 /** Minimal subset of the Web Storage API used by this module. */
 export interface StorageLike {
@@ -654,6 +656,8 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
 
   const totalTay = isFiniteNumber(raw.totalTay) ? raw.totalTay : scoringBreakdown.reduce((sum, b) => sum + b.tay, 0);
   const score = raw.roundScore === null ? null : deriveRoundScore(winner, totalTay, raw);
+  const kongPayments = migrateKongPayments(raw.kongPayments);
+  const deltas = gameDeltas(score, kongPayments);
   const discarder = (SEATS as readonly unknown[]).includes(raw.discarder) ? raw.discarder as Seat : undefined;
   return {
     id: raw.id,
@@ -664,7 +668,9 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
     scoringBreakdown,
     totalTay,
     roundScore: score,
-    koin: winner ? score?.deltas[winner] ?? 0 : 0,
+    kongPayments,
+    gameDeltas: deltas,
+    koin: winner ? deltas[winner] : 0,
     ...(discarder ? { discarder } : {}),
     isWithKim: pickBool(raw.isWithKim, false),
     winMethod: pickEnum(raw.winMethod, WIN_METHODS, winner === null ? 'draw' : 'ron'),

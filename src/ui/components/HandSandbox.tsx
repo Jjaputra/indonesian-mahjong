@@ -10,6 +10,7 @@ import { classifyHand, modeLabel } from '../tay-calculator';
 import { FacePicker, RemovableRow, faceTiles, isBonusFace } from './DevTools';
 import { RoundScoreBlock, TayBreakdown, copyText } from './HuResultModal';
 import { Modal } from './Modal';
+import { kongPaymentsOf } from './points';
 import { TileView } from './TileView';
 
 type MeldType = DevHand['melds'][number]['type'];
@@ -267,7 +268,7 @@ export function HandSandbox({ settings, initial, onClose }: { settings: GameSett
                 <dd><span className={`badge ${evaluation.result.scoring.mode === 'K' ? 'badge-kim' : 'badge-seat'}`}>{modeLabel(evaluation.result.scoring.mode)}</span></dd>
               </dl>
               <TayBreakdown scoring={evaluation.result.scoring} />
-              <RoundScoreBlock nameOf={(s) => `Kursi ${SEAT_SHORT[s]}`}
+              <RoundScoreBlock nameOf={(s) => `Kursi ${SEAT_SHORT[s]}`} kongPayments={kongPaymentsOf(evaluation.result)}
                 outcome={evaluation.result.roundScore ? { winner: draft.seatWind, seatWind: draft.seatWind, roundScore: evaluation.result.roundScore } : null} />
             </>
           )}

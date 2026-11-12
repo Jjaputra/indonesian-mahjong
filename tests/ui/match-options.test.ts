@@ -47,7 +47,7 @@ describe('v0.4.2 match options', () => {
     expect(board.indexOf('Bot Kanan')).toBeLessThan(board.indexOf('Anda'));
     for (const html of [board,
       renderToStaticMarkup(createElement(MatchResultNote, { match: m })),
-      renderToStaticMarkup(createElement(HuResultModal, { outcome: { kind: 'seri', durationSeconds: 1 }, matchSummary: createElement(MatchResultNote, { match: m }), onClose: noop, onNewGame: noop })),
+      renderToStaticMarkup(createElement(HuResultModal, { outcome: { kind: 'seri', kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 }, durationSeconds: 1 }, matchSummary: createElement(MatchResultNote, { match: m }), onClose: noop, onNewGame: noop })),
       renderToStaticMarkup(createElement(MatchStandingsModal, { match: m, onMenu: noop, onPlayAgain: noop })),
     ]) {
       expect(html).toContain('23'); expect(html).toContain('Hu');

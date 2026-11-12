@@ -3083,3 +3083,24 @@ select {
 .dev-tool-actions .muted { margin-right: auto; }
 .concealed.is-revealed { flex-wrap: wrap; gap: 1px; }
 .panel-wide:has(.sandbox) { width: min(1180px, 100%); }
+
+/* ---------- Kong koin (v0.5.7) ---------- */
+.kong-toast-wrap { position: fixed; top: 64px; left: 0; right: 0; z-index: 40; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
+.kong-toast { max-width: 100%; border-color: #b88418; background: #fff8e8; color: #5a3d06; box-shadow: 0 6px 18px rgba(31, 42, 48, 0.18); text-align: center; overflow-wrap: anywhere; animation: fade 0.15s ease-out; }
+.kong-chip { display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 999px; background: #fff1cc; color: #7a5208; font-size: 10px; font-weight: 700; vertical-align: 1px; white-space: nowrap; }
+.round-score .rs-sub { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 10px 0 4px; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.round-score .rs-sub small { font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.kong-pay-rows { margin: 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+.kong-pay-row { display: flex; align-items: center; gap: 8px; padding: 4px 2px; border-bottom: 1px dashed var(--line); }
+.kong-pay-row .tile { flex: none; }
+.kong-pay-row .kp-text { display: flex; flex-direction: column; min-width: 0; font-size: 13px; line-height: 1.3; }
+.kong-pay-row .kp-text small { font-size: 11px; color: var(--muted); }
+.kong-pay-row .rs-koin { margin-left: auto; font-size: 15px; font-weight: 800; white-space: nowrap; }
+.game-total-rows .rs-parts { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.game-total-rows .round-score-row:first-child { font-weight: inherit; }
+.history-kongs { margin: 4px 0; padding-left: 18px; font-size: 12px; }
+@media (max-width: 420px) {
+  .game-total-rows .round-score-row { flex-wrap: wrap; row-gap: 0; }
+  .game-total-rows .rs-parts { order: 3; flex-basis: 100%; }
+  .kong-toast-wrap { top: 56px; }
+}
