@@ -61,17 +61,7 @@ export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps)
       <div className="settings">
         <section>
           <h3>Preferensi bermain</h3>
-          <label className="field">Mode Kim
-            <select value={draft.kimMode ?? (draft.kimEnabled ? 'dedicated' : 'off')} onChange={e => {
-              const kimMode = e.target.value as 'off' | 'dedicated' | 'natural';
-              setDraft(d => ({ ...d, kimMode, kimEnabled: kimMode !== 'off' }));
-            }}>
-              <option value="natural">Kim dari tile yang ada</option>
-              <option value="dedicated">Kim khusus — pemula (148 tile)</option>
-              <option value="off">Tanpa Kim</option>
-            </select>
-            <small>Kim natural: Kim dipilih acak dari tile yang ada setiap game (144 tile). Semua Kim yang dipakai sesuai nomer/jenis mendapat Bo KIM.</small>
-          </label>
+          <p className="field-note">Pilihan Kim diatur di menu utama sebelum pertandingan dimulai.</p>
           <div className="field">
             <span>Tingkat kesulitan AI</span>
             <div className="segmented" role="group" aria-label="Tingkat kesulitan AI">
