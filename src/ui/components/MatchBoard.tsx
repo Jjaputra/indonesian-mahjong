@@ -74,9 +74,7 @@ export function MatchResultNote({ match }: { match: MatchState }) {
   const next = match.seating;
   const rotation = last.lewFit ? 'Lew Fit: dealer dan angin duduk berputar satu langkah.' : last.winner === null
     ? 'Tidak ada Hu sah: angin duduk tidak berputar.'
-    : last.winner === last.dealer
-      ? `${PLAYER_NAME[last.winner]} (dealer) menang: dealer tetap.`
-      : 'Angin duduk berputar satu langkah.';
+    : `Dealer pindah ke ${PLAYER_NAME[next.dealer]}. Angin duduk berputar satu langkah.`;
   return (
     <div className="match-note"><p>
       <strong>{`Game ${last.hand}/16 selesai.`}</strong>{' '}

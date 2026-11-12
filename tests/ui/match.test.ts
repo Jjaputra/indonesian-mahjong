@@ -7,7 +7,8 @@ import { getPreset, MemoryStorage, type GameSettings } from '@/storage';
 import { GameController } from '@/ui/game-controller';
 import { createMatch, isMatchOver, nextSeating, recordHand, standings, loadDealerWinRule, saveDealerWinRule, type Seating } from '@/ui/match';
 import { seatWindOf } from '@/ui/win-context';
-import { MatchStandingsModal, MatchScoreboard } from '@/ui/components/MatchBoard';
+import { MatchStandingsModal, MatchScoreboard, MatchResultNote } from '@/ui/components/MatchBoard';
+import { PLAYER_NAME } from '@/ui/labels';
 import { MainMenu } from '@/ui/components/MainMenu';
 import { HuResultModal } from '@/ui/components/HuResultModal';
 import { matchProgressLabel } from '@/ui/labels';
@@ -44,9 +45,11 @@ function playHand(c: GameController): void {
 const start: Seating = { dealer: 'dong', prevailingWind: 'dong', dealerPasses: 0 };
 
 describe('match rotation policy (nextSeating)', () => {
-  it('dealer wins retain the deal even with a legacy rotate argument', () => {
-    expect(nextSeating(start, { kind: 'hu', winner: 'dong' })).toEqual(start);
-    expect(nextSeating(start, { kind: 'hu', winner: 'dong' }, 'rotate')).toEqual(start);
+  it('dealer wins rotate even with a legacy stay argument', () => {
+    const rotated = { dealer: 'nan', prevailingWind: 'dong', dealerPasses: 1 };
+    expect(nextSeating(start, { kind: 'hu', winner: 'dong' })).toEqual(rotated);
+    expect(nextSeating(start, { kind: 'hu', winner: 'dong' }, 'stay')).toEqual(rotated);
+    expect(nextSeating(start, { kind: 'hu', winner: 'dong' }, 'rotate')).toEqual(rotated);
   });
 
   it('non-dealer win: the dealer passes to the next seat in turn order', () => {
@@ -76,6 +79,43 @@ describe('match rotation policy (nextSeating)', () => {
   it('seat winds follow the dealer chair', () => {
     expect(SEAT_ORDER.map((seat) => seatWindOf({ dealerSeat: 'dong' }, seat))).toEqual(['dong', 'nan', 'xi', 'bei']);
     expect(SEAT_ORDER.map((seat) => seatWindOf({ dealerSeat: 'nan' }, seat))).toEqual(['bei', 'dong', 'nan', 'xi']);
+  });
+
+  it.each(['dealer', 'non-dealer', 'lew_fit'] as const)('16 games without Seri give four games per wind after %s results', (result) => {
+    let match = createMatch();
+    for (let game = 0; game < 16; game++) {
+      const dealer = SEAT_ORDER[game % 4]!;
+      expect(match.seating).toEqual({ dealer, prevailingWind: SEAT_ORDER[Math.floor(game / 4)], dealerPasses: game % 4 });
+      expect(SEAT_ORDER.map(seat => seatWindOf({ dealerSeat: dealer }, seat))).toEqual(
+        SEAT_ORDER.map((_, chair) => SEAT_ORDER[(chair - game % 4 + 4) % 4]),
+      );
+      match = recordHand(match, result === 'non-dealer' ? SEAT_ORDER[(game + 1) % 4]! : dealer, result !== 'lew_fit', 5);
+    }
+    expect(match.hands.map(hand => hand.prevailingWind)).toEqual([
+      'dong', 'dong', 'dong', 'dong', 'nan', 'nan', 'nan', 'nan',
+      'xi', 'xi', 'xi', 'xi', 'bei', 'bei', 'bei', 'bei',
+    ]);
+    expect(match.seating).toEqual(start);
+    expect(isMatchOver(match)).toBe(true);
+  });
+
+  it('Seri counts a game but delays the fourth dealer change and prevailing wind', () => {
+    let match = createMatch();
+    for (let i = 0; i < 3; i++) match = recordHand(match, match.seating.dealer, true, 5);
+    const before = match.seating;
+    match = recordHand(match, null, false, 0);
+    expect(match.hands).toHaveLength(4);
+    expect(match.seating).toEqual(before);
+    expect(match.seating.prevailingWind).toBe('dong');
+    match = recordHand(match, match.seating.dealer, true, 5);
+    expect(match.seating).toEqual({ dealer: 'dong', prevailingWind: 'nan', dealerPasses: 0 });
+  });
+
+  it.each(['dong', 'xi'] as const)('result note names the next dealer after %s Hu', (winner) => {
+    const match = recordHand(createMatch(), winner, true, 5);
+    const html = renderToStaticMarkup(createElement(MatchResultNote, { match }));
+    expect(html).toContain(`Dealer pindah ke ${PLAYER_NAME.nan}`);
+    expect(html).not.toContain('dealer tetap');
   });
 });
 
@@ -139,7 +179,7 @@ describe('GameController continuous match', () => {
       playHand(c);
       expect(c.match!.hands).toHaveLength(hand);
       const o = c.outcome!;
-      if (o.kind === 'hu' && o.scoring.isValidHu && o.winner !== dealer) {
+      if (o.kind === 'hu') {
         expect(c.match!.seating.dealer).toBe(SEAT_ORDER[(SEAT_ORDER.indexOf(dealer) + 1) % 4]);
       } else {
         expect(c.match!.seating.dealer).toBe(dealer);
@@ -282,7 +322,7 @@ describe('match review regressions', () => {
     expect(c.outcome?.kind).toBe('hu');
     expect(c.match!.huCount.dong).toBe(1);
     expect(c.match!.tayTotal.dong).toBe(4);
-    expect(c.match!.seating.dealer).toBe(c.getState().dealerSeat === 'dong' ? 'dong' : SEAT_ORDER[(SEAT_ORDER.indexOf(c.getState().dealerSeat) + 1) % 4]);
+    expect(c.match!.seating.dealer).toBe(SEAT_ORDER[(SEAT_ORDER.indexOf(c.getState().dealerSeat) + 1) % 4]);
   });
 
   it('a controller wall-out draw counts exactly once without rotating seating', () => {
@@ -388,16 +428,17 @@ describe('match review regressions', () => {
 
 
 describe('legacy dealer-win migration', () => {
-  it('ignores rotate and removes its saved preference', () => {
+  it.each(['stay', 'rotate'] as const)('ignores legacy %s and removes its saved preference', (legacy) => {
     const store = new MemoryStorage();
-    store.setItem('itm.match-dealer-win.v1', 'rotate');
-    expect(loadDealerWinRule(store)).toBe('stay');
+    store.setItem('itm.match-dealer-win.v1', legacy);
+    expect(loadDealerWinRule(store)).toBe('rotate');
     expect(store.getItem('itm.match-dealer-win.v1')).toBeNull();
-    saveDealerWinRule('rotate', store);
+    saveDealerWinRule(legacy, store);
     expect(store.getItem('itm.match-dealer-win.v1')).toBeNull();
-    let match = createMatch('dong', 'dong', 5, 'rotate');
+    let match = createMatch('dong', 'dong', 5, legacy);
+    expect(match.dealerWinRule).toBe('rotate');
     for (let i = 0; i < 4; i++) match = recordHand(match, 'dong', true, 5);
-    expect(match.seating).toEqual(start);
+    expect(match.seating).toEqual({ dealer: 'dong', prevailingWind: 'nan', dealerPasses: 0 });
   });
   it('does not render the removed dealer control', () => {
     const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: () => {}, dealerWinRule: 'stay', onDealerWinRuleChange: () => {} }));

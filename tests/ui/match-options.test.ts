@@ -21,12 +21,12 @@ describe('v0.4.2 match options', () => {
     for (let i = 0; i < 14; i++) m = recordHand(m, null, false, 0);
     m = recordHand(m, 'dong', true, 5);
     expect(countedGames(m)).toBe(15);
-    expect(m.seating.dealer).toBe('dong');
+    expect(m.seating.dealer).toBe('nan');
     expect(isMatchOver(m)).toBe(false);
     m = recordHand(m, null, false, 0);
     expect(countedGames(m)).toBe(16);
     expect(isMatchOver(m)).toBe(true);
-    expect(m.seating.dealer).toBe('dong');
+    expect(m.seating.dealer).toBe('nan');
     expect(recordHand(m, 'nan', true, 100)).toBe(m);
     const lewFit = recordHand(createMatch(), 'dong', false, 100);
     expect(countedGames(lewFit)).toBe(1);
@@ -51,7 +51,9 @@ describe('v0.4.2 match options', () => {
       renderToStaticMarkup(createElement(MatchStandingsModal, { match: m, onMenu: noop, onPlayAgain: noop })),
     ]) {
       expect(html).toContain('23'); expect(html).toContain('Hu');
-      expect(html.indexOf('Bot Kanan')).toBeLessThan(html.indexOf('Anda'));
+      // Result notes mention the next dealer before their ranked score summary.
+      const scoreSummary = html.match(/<div class="match-note"><p>.*?<\/p><p>(.*?)<\/p>/)?.[1] ?? html;
+      expect(scoreSummary.indexOf('Bot Kanan')).toBeLessThan(scoreSummary.indexOf('Anda'));
     }
   });
   it('breaks Tay ties by valid Hu, then first to reach the final Tay total', () => {
