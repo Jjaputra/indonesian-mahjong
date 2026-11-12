@@ -564,16 +564,34 @@ summary:focus-visible,
   color: var(--text);
   font-size: 12px;
 }
+.match-board-title { flex-basis: 100%; margin: 0; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+/* "Tabel Total Poin": one row per player in ranking order. */
 .match-scores {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  color: var(--muted);
+  flex-basis: 100%;
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
 }
-.match-score.is-dealer {
-  color: var(--accent-strong);
-  font-weight: 600;
-}
+.match-scores th,
+.match-scores td { padding: 3px 6px; text-align: left; border-bottom: 1px solid var(--line); }
+.match-scores thead th { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.match-scores tbody th { font-weight: 600; white-space: nowrap; }
+.match-scores .num { text-align: right; }
+.match-scores .rank { width: 2.4em; color: var(--muted); }
+.match-scores .dealer-mark { margin-left: 4px; vertical-align: -1px; color: #b88418; }
+.match-score.is-human { background: #e6f1ec; }
+.match-score.is-human th { color: var(--accent-strong); font-weight: 800; }
+.match-score.is-leader { background: #fff0bf; }
+.match-score.is-leader td.num b,
+.match-score.is-leader .rank { color: #7d0e13; font-weight: 800; }
+
+/* Table info: wind, Kim and minimum Tay, each beside its real tile. */
+.table-info { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin: 0; padding: 8px 10px; }
+.table-info > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.table-info > div:last-child { grid-column: 1 / -1; flex-direction: row; align-items: baseline; gap: 6px; }
+.table-info dt { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.table-info dd { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; }
+.table-info dd .tile { --w: 24px; --h: 32px; }
 .match-note {
   margin: 0 0 10px;
   padding: 8px 10px;
@@ -2129,9 +2147,11 @@ select {
 .table-hud .match-board > strong { flex-basis: 100%; font-size: 14px; color: #4a1206; }
 .table-hud .match-board .muted { color: var(--muted); }
 .table-hud [aria-label='Waktu pertandingan'] { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; color: #7d0e13; }
-.table-hud .match-scores { display: flex; flex-wrap: wrap; gap: 2px 10px; color: var(--muted); }
-.table-hud .match-score { padding: 0; background: none; }
-.table-hud .match-score.is-dealer { color: #7d0e13; font-weight: 700; }
+.table-hud .match-scores { margin-top: 4px; font-size: 12px; }
+.table-hud .match-scores :is(th, td) { border-bottom-color: #e3d5b4; }
+.table-hud .match-score.is-leader { background: #fff0bf; }
+.table-hud .match-board-title { color: #7d0e13; }
+.table-hud .play-progress > .table-info { order: -11; }
 .table-hud .table-stage { order: -9; padding: 6px 10px; font-size: 12px; line-height: 1.4; }
 /* Tempo, bot reasoning and the log live in a drawer that starts closed. */
 .table-hud .table-tools { order: 8; padding: 0; }
@@ -2631,4 +2651,13 @@ select {
 }
 
 /* Player answers 2026-11-12: highlight the Tay leader independently of the dealer. */
-.match-score.is-leader, .table-hud .match-score.is-leader { background: #fff0bf; box-shadow: inset 0 -2px #b88418; }
+.match-score.is-leader > :first-child { box-shadow: inset 3px 0 #b88418; }
+
+/* Desktop: the side panel's table info shows the Kim tile; phones keep the felt pill (panel is below the fold). */
+@media (min-width: 901px) {
+  .table-felt > .kim-indicator { display: none; }
+}
+@media (min-width: 1600px) {
+  .table-info dd .tile { --w: 30px; --h: 40px; }
+  .table-info dd, .table-hud .match-scores { font-size: 14px; }
+}

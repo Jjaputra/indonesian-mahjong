@@ -85,7 +85,6 @@ describe('UI render smoke tests', () => {
     expect(html).toContain('Selatan');
     expect(html).toContain('Timur');
     expect(html).toContain(`Sisa <b>${c.remainingDrawable}</b> tile`);
-    expect(html).toContain('Ada Kim');
     expect((html.match(/tile-lg/g) ?? []).length).toBe(c.getState().players.dong.hand.length);
   });
 

@@ -8,7 +8,7 @@ import { GameEngine } from '@/core/game-engine';
 import { Wall, createMulberry32 } from '@/core/wall';
 import { parseTileHand, createCompleteTileSet } from '@/core/tiles';
 import { MemoryStorage, getPreset, sanitizeSettings, updateSettings, loadSettings } from '@/storage';
-import { MatchScoreboard, MatchResultNote, MatchStandingsModal } from '@/ui/components/MatchBoard';
+import { MatchScoreboard, MatchResultNote, MatchStandingsModal, TableInfo } from '@/ui/components/MatchBoard';
 import { HuResultModal } from '@/ui/components/HuResultModal';
 import { MainMenu } from '@/ui/components/MainMenu';
 import { seatWindOf } from '@/ui/win-context';
@@ -41,9 +41,10 @@ describe('v0.4.2 match options', () => {
     expect(m.tayTotal).toEqual({ dong: 23, nan: 100, xi: 0, bei: 0 });
     expect(standings(m)[0]!.seat).toBe('nan');
     const board = renderToStaticMarkup(createElement(MatchScoreboard, { match: m, hand: 6, prevailingWind: 'dong', dealer: 'dong' }));
-    expect(board).toContain('Bot Kanan:');
-    expect(board.indexOf('Bot Kanan:')).toBeLessThan(board.indexOf('Anda:'));
-    expect(board).toContain('is-leader');
+    expect(board).toContain('Tabel Total Poin');
+    expect(board).toMatch(/<tr class="match-score is-leader"><td class="rank">#1<\/td><th scope="row">Bot Kanan<\/th>/);
+    expect(board).toMatch(/is-human"><td class="rank">#2<\/td><th scope="row">Anda/);
+    expect(board.indexOf('Bot Kanan')).toBeLessThan(board.indexOf('Anda'));
     for (const html of [board,
       renderToStaticMarkup(createElement(MatchResultNote, { match: m })),
       renderToStaticMarkup(createElement(HuResultModal, { outcome: { kind: 'seri', durationSeconds: 1 }, matchSummary: createElement(MatchResultNote, { match: m }), onClose: noop, onNewGame: noop })),
@@ -131,5 +132,22 @@ describe('v0.4.2 match options', () => {
   it('renders the three Kim choices and two wall choices together in the menu', () => {
     const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, kimMode: 'natural', onKimModeChange: noop, deadWall: 'none', onDeadWallChange: noop }));
     for (const label of ['Kim dari tile', 'Kim tambahan (pemula)', 'Tanpa Kim', 'Sampai habis (turnamen)', 'Sisa 14 tile (dead wall)']) expect(html).toContain(label);
+  });
+});
+
+describe('table info panel', () => {
+  it('shows the table wind and Kim with real tiles, and the minimum Tay', () => {
+    const natural = renderToStaticMarkup(createElement(TableInfo, { roundWind: 'nan', kimEnabled: true, kimFace: { type: 'tong', value: 9 }, minHuTay: 5 }));
+    expect(natural).toContain('Angin meja');
+    expect(natural).toContain('Selatan (Nan)');
+    expect(natural).toContain('9 Tong');
+    expect((natural.match(/class="tile tile-sm/g) ?? []).length).toBe(2);
+    expect(natural).toMatch(/Minimum Tay<\/dt><dd><b>5<\/b>/);
+    const dedicated = renderToStaticMarkup(createElement(TableInfo, { roundWind: 'dong', kimEnabled: true, kimFace: null, minHuTay: 3 }));
+    expect(dedicated).toContain('Tile KIM');
+    expect(dedicated).toContain('kim-badge');
+    const off = renderToStaticMarkup(createElement(TableInfo, { roundWind: 'dong', kimEnabled: false, kimFace: null, minHuTay: 5 }));
+    expect(off).toContain('Tanpa Kim');
+    expect((off.match(/class="tile tile-sm/g) ?? []).length).toBe(1);
   });
 });
