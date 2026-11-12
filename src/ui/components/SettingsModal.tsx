@@ -7,12 +7,16 @@ import {
   type SettingsPresetName,
 } from '../../storage';
 import { DIFFICULTY_LABEL } from '../labels';
+import { TABLE_VIEW_LABEL, type TableView } from '../table-view';
 import { Modal } from './Modal';
 
 interface SettingsModalProps {
   settings: GameSettings;
   onSave: (settings: GameSettings) => void;
   onClose: () => void;
+  /** Table view applies at once (a device preference, not part of the saved settings). */
+  tableView?: TableView;
+  onTableViewChange?: (view: TableView) => void;
 }
 
 /** Applies a preset's rules while keeping presentation preferences (same as storage.applyPreset). */
@@ -39,7 +43,7 @@ function Toggle({ label, hint, checked, disabled, onChange }: { label: string; h
   );
 }
 
-export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps) {
+export function SettingsModal({ settings, onSave, onClose, tableView = '3d', onTableViewChange }: SettingsModalProps) {
   const [draft, setDraft] = useState<GameSettings>({ ...settings });
   const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
@@ -68,6 +72,16 @@ export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps)
               {(['easy', 'normal', 'hard'] as AIDifficulty[]).map((d) => (
                 <button key={d} type="button" className={draft.aiDifficulty === d ? 'is-on' : ''} aria-pressed={draft.aiDifficulty === d} onClick={() => set('aiDifficulty', d)}>
                   {DIFFICULTY_LABEL[d]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="field">
+            <span>Tampilan meja</span>
+            <div className="segmented" role="group" aria-label="Tampilan meja">
+              {(['3d', 'flat'] as TableView[]).map((v) => (
+                <button key={v} type="button" className={tableView === v ? 'is-on' : ''} aria-pressed={tableView === v} onClick={() => onTableViewChange?.(v)}>
+                  {TABLE_VIEW_LABEL[v]}
                 </button>
               ))}
             </div>
