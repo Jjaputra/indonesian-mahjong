@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Home, RotateCcw } from 'lucide-react';
 import type { Seat, Wind } from '../../core/types';
-import { SEAT_ORDER } from '../../core/tiles';
-import { standings, countedGames, isMatchOver, remainingMatchMs, type MatchState } from '../match';
+import { standings, isMatchOver, remainingMatchMs, type MatchState } from '../match';
 import { PLAYER_NAME, SEAT_SHORT, matchProgressLabel } from '../labels';
 import { Modal } from './Modal';
 
@@ -23,17 +22,17 @@ export function MatchClock({ match }: { match: MatchState }) {
   return <span aria-label="Waktu pertandingan">{remaining === null ? 'Waktu: tanpa batas' : `Waktu: ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`}{remaining === 0 && match.endedBy === null ? ' — waktu habis, selesaikan game ini' : ''}</span>;
 }
 
-/** Compact in-play indicator: "Game 3/8 · Angin putaran Timur" plus each player's valid Hu count. */
+/** Compact in-play indicator: "Game 3/16 · Angin putaran Timur" plus each player's valid Hu count. */
 export function MatchScoreboard({ match, hand, prevailingWind, dealer }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat }) {
   return (
     <div className="match-board" aria-label="Papan skor pertandingan">
-      <strong>{matchProgressLabel(match.length === '16++' ? countedGames(match) + (isMatchOver(match) ? 0 : 1) : hand, match.length, prevailingWind)}</strong>
+      <strong>{matchProgressLabel(hand, prevailingWind)}</strong>
       <MatchMinimumNote match={match} />
       <MatchClock match={match} />
       <span className="match-scores">
-        {SEAT_ORDER.map((seat) => (
-          <span key={seat} className={`match-score${seat === dealer ? ' is-dealer' : ''}`} title={seat === dealer ? 'Dealer game ini' : undefined}>
-            {PLAYER_NAME[seat]}: <b>{match.huCount[seat]}</b> Hu · {match.tayTotal[seat]} Tay
+        {standings(match).map(({ seat, rank }) => (
+          <span key={seat} className={`match-score${seat === dealer ? ' is-dealer' : ''}${rank === 1 && match.tayTotal[seat] > 0 ? ' is-leader' : ''}`} title={seat === dealer ? 'Dealer game ini' : undefined}>
+            {PLAYER_NAME[seat]}: <b>{match.tayTotal[seat]} Tay</b> · {match.huCount[seat]} Hu
           </span>
         ))}
       </span>
@@ -54,16 +53,15 @@ export function MatchResultNote({ match }: { match: MatchState }) {
       : 'Angin duduk berputar satu langkah.';
   return (
     <div className="match-note"><p>
-      <strong>{`Game ${last.hand}${match.length === null || match.length === '16++' ? '' : `/${match.length}`} selesai.`}</strong>{' '}
+      <strong>{`Game ${last.hand}/16 selesai.`}</strong>{' '}
       {over ? match.endedBy === 'time' ? 'Pertandingan berakhir karena batas waktu 90 menit.' : 'Ini game terakhir pertandingan.' : `${rotation} Berikutnya dealer: ${PLAYER_NAME[next.dealer]} · Angin putaran ${SEAT_SHORT[next.prevailingWind]}.`}
     </p>
-    {match.length === '16++' && <p>{countedGames(match)}/16 game dihitung · kemenangan dealer tidak menambah hitungan.</p>}
-    <p>{standings(match).map(r => `${PLAYER_NAME[r.seat]}: ${r.hu} Hu · ${r.tay} Tay`).join(' / ')}</p>
+    <p>{standings(match).map(r => `${PLAYER_NAME[r.seat]}: ${r.tay} Tay · ${r.hu} Hu`).join(' / ')}</p>
     </div>
   );
 }
 
-/** Final standings when the match ends: most valid Hu wins, ties go to whoever reached it first. */
+/** Final standings when the match ends: total Tay, then valid Hu, then first to reach final Tay. */
 export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: MatchState; onPlayAgain: () => void; onMenu: () => void }) {
   const rows = standings(match);
   const champion = rows[0] && rows[0].hu > 0 && rows.filter((r) => r.rank === 1).length === 1 ? rows[0] : null;
@@ -84,7 +82,7 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: Mat
     >
       <MatchMinimumNote match={match} />
       {match.endedBy === 'time' && <p>Pertandingan berakhir karena batas waktu 90 menit; game terakhir telah diselesaikan.</p>}
-      <p>{champion ? `Pemenang meja: ${PLAYER_NAME[champion.seat]} dengan ${champion.hu} Hu.` : 'Tidak ada pemenang meja tunggal.'}</p>
+      <p>{champion ? `Pemenang meja: ${PLAYER_NAME[champion.seat]} dengan ${champion.tay} Tay · ${champion.hu} Hu.` : 'Tidak ada pemenang meja tunggal.'}</p>
       <table className="tay-table match-standings">
         <thead>
           <tr>
@@ -98,7 +96,7 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: Mat
           {rows.map((r) => (
             <tr key={r.seat}>
               <td>{r.rank}</td>
-              <td>{PLAYER_NAME[r.seat]}{r.hu > 0 && r.reachedAt > 0 ? <span className="muted"> · capai di game {r.reachedAt}</span> : null}</td>
+              <td>{PLAYER_NAME[r.seat]}{r.hu > 0 && r.reachedAt > 0 ? <span className="muted"> · total Tay dicapai di game {r.reachedAt}</span> : null}</td>
               <td className="num">{r.hu}</td>
               <td className="num">{r.tay}</td>
             </tr>
@@ -108,11 +106,11 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: Mat
       <ol className="match-history" aria-label="Riwayat game">
         {match.hands.map((h) => (
           <li key={h.hand}>
-            Game {h.hand} · Dealer {PLAYER_NAME[h.dealer]} · {h.winner ? `${PLAYER_NAME[h.winner]} Hu ${h.totalTay} Tay` : h.lewFit ? 'Lew Fit (tidak dihitung)' : 'Seri'}
+            Game {h.hand} · Dealer {PLAYER_NAME[h.dealer]} · {h.winner ? `${PLAYER_NAME[h.winner]} Hu ${h.totalTay} Tay` : h.lewFit ? 'Lew Fit (0 Hu / 0 Tay)' : 'Seri'}
           </li>
         ))}
       </ol>
-      <p className="muted">Peringkat: Hu sah terbanyak (minimal Tay terpenuhi); jika sama, yang lebih dulu mencapai jumlah Hu itu.</p>
+      <p className="muted">Peringkat: total Tay tertinggi; jika sama, Hu sah terbanyak, lalu yang lebih dulu mencapai total Tay akhir.</p>
     </Modal>
   );
 }

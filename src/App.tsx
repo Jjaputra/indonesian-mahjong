@@ -19,7 +19,7 @@ import { GameController, type GameEventType } from './ui/game-controller';
 import { PlayProgress } from './ui/components/PlayProgress';
 import { DiceRoll, openingRollOf, type OpeningRoll } from './ui/components/DiceRoll';
 import { MatchResultNote, MatchStandingsModal } from './ui/components/MatchBoard';
-import { loadMatchLength, saveMatchLength, loadDealerWinRule, loadDeadWall, saveDeadWall, loadMatchTimeLimit, saveMatchTimeLimit, watchMatchClock, type MatchTimeLimit, type MatchLength, type DeadWallOption } from './ui/match';
+import { migrateMatchLengthPreference, loadDealerWinRule, loadDeadWall, saveDeadWall, loadMatchTimeLimit, saveMatchTimeLimit, watchMatchClock, type MatchTimeLimit, type DeadWallOption } from './ui/match';
 import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsForPace, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
 import { DIFFICULTY_LABEL, tileText } from './ui/labels';
 import { releaseVersion } from './ui/release';
@@ -76,8 +76,7 @@ export function App() {
   const [abandonOpen, setAbandonOpen] = useState(false);
   const [standingsOpen, setStandingsOpen] = useState(false);
   const [dice, setDice] = useState<{ roll: OpeningRoll; autoClose: boolean } | null>(null);
-  const [matchLength, setMatchLength] = useState<MatchLength>(loadMatchLength);
-  const [deadWall, setDeadWall] = useState<DeadWallOption>(() => { loadDealerWinRule(); return loadDeadWall(); });
+  const [deadWall, setDeadWall] = useState<DeadWallOption>(() => { migrateMatchLengthPreference(); loadDealerWinRule(); return loadDeadWall(); });
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<MatchTimeLimit>(loadMatchTimeLimit);
   const [history, setHistory] = useState(() => loadGameHistory());
 
@@ -129,7 +128,7 @@ export function App() {
     setSelectedId(null);
     setPaused(false);
     controller.setSettings({ ...settings, startingSeatWind: 'dong' });
-    controller.startMatch(matchLength, 'stay', timeLimitMinutes, deadWall);
+    controller.startMatch('stay', timeLimitMinutes, deadWall);
     const roll = openingRollOf(controller.match);
     setDice(roll ? { roll, autoClose: true } : null);
     setMatchStarted(true);
@@ -234,7 +233,6 @@ export function App() {
         }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
           timeLimitMinutes={timeLimitMinutes} onTimeLimitChange={limit => { setTimeLimitMinutes(limit); saveMatchTimeLimit(limit); }}
           deadWall={deadWall} onDeadWallChange={option => { setDeadWall(option); saveDeadWall(option); }}
-          matchLength={matchLength} onMatchLengthChange={(length) => { setMatchLength(length); saveMatchLength(length); }}
           lastResult={history[0] ? history[0].winner === null ? 'Seri' : `${history[0].totalTay} Tay` : null} />
       ) : (
         <main className="table-felt">

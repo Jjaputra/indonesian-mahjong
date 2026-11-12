@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ScoringEngine, DISALLOWED_PAIR_HONORS, isDisallowedHonorPair, parseHandFeatures, scoreDecomposition, tableTay } from '@/scoring';
+import { ScoringEngine, isDisallowedHonorPair, parseHandFeatures, scoreDecomposition, tableTay } from '@/scoring';
 import { findWinningDecompositions } from '@/kim/wildcard-solver';
 import { calculateTay, isSelectable } from '@/ui/tay-calculator';
 import { materializeHand, TOURNAMENT_RULES, type HandSpec } from './claude-44-patterns-fixtures';
@@ -30,11 +30,12 @@ describe('Player-confirmed house rules, 2026-11-12', () => {
   });
 
   for (const pair of ['DZ', 'DF', 'DP', 'WD', 'WN', 'WX', 'WB']) {
-    it(`excludes both shapes with an honor pair: ${pair}`, () => {
+    it(`checks both shapes with a valued or non-valued honor pair: ${pair}`, () => {
       const trips = evaluate({ concealed: `1T 1T 1T 5S 5S 5S 9B 9B 9B 3T 3T 3T ${pair}`, winningTile: pair });
       const sequences = evaluate({ concealed: `1T 2T 3T 4S 5S 6S 7B 8B 9B 4T 5T 6T ${pair}`, winningTile: pair });
-      expect(tay(trips, 15)).toBeUndefined();
-      expect(tay(sequences, 14)).toBeUndefined();
+      const valued = ['DZ', 'DF', 'DP', 'WD', 'WN'].includes(pair); // Seat Nan, prevailing Dong.
+      expect(tay(trips, 15)).toBe(valued ? undefined : 5);
+      expect(tay(sequences, 14)).toBe(valued ? undefined : 3);
       expect(tay(trips, 34)).toBe(20); // Concealed-triplet eligibility is independent.
     });
   }
@@ -81,12 +82,11 @@ describe('Player-confirmed house rules, 2026-11-12', () => {
     const totals = candidates.map(solved => {
       const features = parseHandFeatures(solved, m.concealed, m.melds);
       const patterns = scoreDecomposition({ features, mode: 'K', flowers: m.flowers, context, basis: 'match_table' });
-      if (isDisallowedHonorPair(solved.pair)) expect(patterns.some(p => p.id === 14 || p.id === 15)).toBe(false);
+      if (isDisallowedHonorPair(solved.pair, context)) expect(patterns.some(p => p.id === 14 || p.id === 15)).toBe(false);
       return patterns.reduce((sum, p) => sum + p.tay, 0);
     });
-    expect(candidates.some(s => s.pair?.kimCount === 1 && isDisallowedHonorPair(s.pair))).toBe(true);
+    expect(candidates.some(s => s.pair?.kimCount === 1 && isDisallowedHonorPair(s.pair, context))).toBe(true);
     expect(evaluate(spec).totalTay).toBe(Math.max(...totals));
-    expect(DISALLOWED_PAIR_HONORS).toHaveLength(7);
   });
 
   it('seven pairs can still include honor pairs', () => {

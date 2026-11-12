@@ -56,7 +56,7 @@ describe('match rotation policy (nextSeating)', () => {
 
   it('draw (Seri) keeps seating, while Lew Fit rotates without crediting a Hu', () => {
     expect(nextSeating({ dealer: 'xi', prevailingWind: 'nan', dealerPasses: 2 }, { kind: 'none' })).toEqual({ dealer: 'xi', prevailingWind: 'nan', dealerPasses: 2 });
-    const m = recordHand(createMatch(8), 'nan', false, 3);
+    const m = recordHand(createMatch(), 'nan', false, 3);
     expect(m.seating).toEqual({ dealer: 'nan', prevailingWind: 'dong', dealerPasses: 1 });
     expect(m.huCount.nan).toBe(0);
     expect(m.hands[0]).toMatchObject({ winner: null, lewFit: true });
@@ -80,20 +80,21 @@ describe('match rotation policy (nextSeating)', () => {
 });
 
 describe('match scoring and end', () => {
-  it('ends after N hands; seri still counts as a game', () => {
-    let m = createMatch(4);
+  it('ends after 16 hands; seri still counts as a game', () => {
+    let m = createMatch();
     m = recordHand(m, null, false, 0);
     m = recordHand(m, 'xi', true, 8);
     m = recordHand(m, null, false, 0);
     expect(isMatchOver(m)).toBe(false);
     m = recordHand(m, 'dong', true, 6);
+    for (let i = 4; i < 16; i++) m = recordHand(m, null, false, 0);
     expect(isMatchOver(m)).toBe(true);
-    expect(m.hands.map((h) => h.winner)).toEqual([null, 'xi', null, 'dong']);
-    expect(isMatchOver(recordHand(createMatch(null), 'xi', true, 5))).toBe(false);
+    expect(m.hands.slice(0, 4).map((h) => h.winner)).toEqual([null, 'xi', null, 'dong']);
+    expect(isMatchOver(recordHand(createMatch(), 'xi', true, 5))).toBe(false);
   });
 
-  it('table winner: most valid Hu, tie broken by whoever reached that count first', () => {
-    let m = createMatch(8);
+  it('table winner: highest Tay, then Hu count, then first to final Tay', () => {
+    let m = createMatch();
     m = recordHand(m, 'xi', true, 5); // xi reaches 1 at hand 1
     m = recordHand(m, 'bei', true, 30); // bei reaches 1 at hand 2
     m = recordHand(m, 'bei', true, 10); // bei reaches 2 at hand 3
@@ -104,7 +105,7 @@ describe('match scoring and end', () => {
   });
 
   it('final standings render with Main lagi and back to menu', () => {
-    const m = recordHand(createMatch(1), 'nan', true, 9);
+    const m = recordHand(createMatch(), 'nan', true, 9);
     const html = renderToStaticMarkup(createElement(MatchStandingsModal, { match: m, onPlayAgain: () => {}, onMenu: () => {} }));
     expect(html).toContain('Klasemen Akhir');
     expect(html).toContain('Main lagi');
@@ -113,16 +114,16 @@ describe('match scoring and end', () => {
   });
 
   it('labels the in-play indicator', () => {
-    expect(matchProgressLabel(3, 8, 'dong')).toBe('Game 3/8 · Angin putaran Timur');
-    expect(matchProgressLabel(12, null, 'nan')).toBe('Game 12 · Angin putaran Selatan');
+    expect(matchProgressLabel(3, 'dong')).toBe('Game 3/16 · Angin putaran Timur');
+    expect(matchProgressLabel(12, 'nan')).toBe('Game 12/16 · Angin putaran Selatan');
   });
 });
 
 describe('GameController continuous match', () => {
   it('plays hands back to back with fresh walls until the match ends', () => {
     const c = new GameController({ settings: settings(), seed: 31, saveHistory: false, autoStart: false });
-    c.startMatch(4);
-    for (let hand = 1; hand <= 4; hand++) {
+    c.startMatch();
+    for (let hand = 1; hand <= 16; hand++) {
       const s = c.getState();
       // Fresh deal: full wall, empty discards and melds, outcome cleared, seating from the match.
       expect(c.outcome).toBeNull();
@@ -143,7 +144,7 @@ describe('GameController continuous match', () => {
       } else {
         expect(c.match!.seating.dealer).toBe(dealer);
       }
-      if (hand < 4) {
+      if (hand < 16) {
         expect(c.matchOver).toBe(false);
         expect(c.nextHand()).toBe(true);
       }
@@ -155,7 +156,7 @@ describe('GameController continuous match', () => {
 
   it('nextHand is a no-op mid-hand', () => {
     const c = new GameController({ settings: settings(), seed: 3, saveHistory: false, autoStart: false });
-    c.startMatch(8);
+    c.startMatch();
     const serial = c.gameSerial;
     expect(c.nextHand()).toBe(false);
     expect(c.gameSerial).toBe(serial);
@@ -163,7 +164,7 @@ describe('GameController continuous match', () => {
 
   it('keeps the match Kim mode for every hand even if settings change mid-match', () => {
     const c = new GameController({ settings: settings({ kimEnabled: false, kimMode: 'off' }), seed: 8, saveHistory: false, autoStart: false });
-    c.startMatch(2);
+    c.startMatch();
     c.setSettings(settings({ kimEnabled: true, kimMode: 'dedicated' }));
     playHand(c);
     c.nextHand();
@@ -174,7 +175,7 @@ describe('GameController continuous match', () => {
   it('passes the rotated seat wind to the scorer', () => {
     // Dealer on the nan chair: the human (dong chair) sits Utara (Bei) this hand.
     const c = new GameController({ settings: settings({ kimEnabled: false, kimMode: 'off', startingSeatWind: 'nan' }), seed: 5, saveHistory: false, autoStart: false });
-    c.startMatch(8);
+    c.startMatch();
     const s = mutable(c);
     s.dealerSeat = 'nan'; // Fixture for rotated-seat scoring, independent of opening dice.
     expect(s.dealerSeat).toBe('nan');
@@ -199,7 +200,7 @@ describe('GameController continuous match', () => {
 
   it('records the winner seat wind on the outcome', () => {
     const c = new GameController({ settings: settings(), seed: 77, saveHistory: false, autoStart: false });
-    c.startMatch(null);
+    c.startMatch();
     for (let i = 0; i < 6; i++) {
       playHand(c);
       const o = c.outcome!;
@@ -212,11 +213,11 @@ describe('GameController continuous match', () => {
 
 describe('match UI wiring', () => {
   const noop = () => {};
-  it('menu offers the match length choice', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, matchLength: 8, onMatchLengthChange: noop }));
-    expect(html).toContain('Panjang pertandingan');
-    for (const label of ['8 game', '16 game', '16 game ++', 'Tanpa batas']) expect(html).toContain(label);
-    expect(html).toMatch(/aria-pressed="true"[^>]*>8 game/);
+  it('menu describes 16 games without a length choice', () => {
+    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop }));
+    expect(html).toContain('16 game');
+    expect(html).not.toContain('Panjang pertandingan');
+    for (const label of ['8 game', '16 game ++', 'Tanpa batas']) expect(html).not.toContain(label);
   });
 
   it('result modal offers the next hand or the final standings', () => {
@@ -234,9 +235,9 @@ describe('match UI wiring', () => {
 describe('match review regressions', () => {
   const noop = () => {};
   it('credits the configured minimum and labels lower training rules in both scoreboards', () => {
-    expect(recordHand(createMatch(4), 'nan', true, 3).huCount.nan).toBe(0);
-    expect(recordHand(createMatch(4), 'nan', true, 5).huCount.nan).toBe(1);
-    let training = createMatch(4, 'dong', 'dong', 3);
+    expect(recordHand(createMatch(), 'nan', true, 3).huCount.nan).toBe(0);
+    expect(recordHand(createMatch(), 'nan', true, 5).huCount.nan).toBe(1);
+    let training = createMatch('dong', 'dong', 3);
     training = recordHand(training, 'nan', true, 3);
     expect(training.huCount.nan).toBe(1);
     expect(training.tayTotal.nan).toBe(3);
@@ -248,27 +249,27 @@ describe('match review regressions', () => {
       expect(html).toContain('Minimum latihan 3 Tay');
       expect(html).toContain('aturan turnamen 5 Tay');
     }
-    const tournament = renderToStaticMarkup(createElement(MatchScoreboard, { match: createMatch(8), hand: 1, prevailingWind: 'dong', dealer: 'dong' }));
+    const tournament = renderToStaticMarkup(createElement(MatchScoreboard, { match: createMatch(), hand: 1, prevailingWind: 'dong', dealer: 'dong' }));
     expect(tournament).not.toContain('Minimum latihan');
   });
 
   it('keeps the chosen match minimum through nextHand, then applies a new choice to a new match', () => {
     const c = new GameController({ settings: settings({ minHuTay: 3 }), seed: 74, saveHistory: false, autoStart: false });
-    c.startMatch(4);
+    c.startMatch();
     expect(c.match!.minHuTay).toBe(3);
     c.setSettings(settings({ minHuTay: 9 }));
     playHand(c);
     expect(c.nextHand()).toBe(true);
     expect(c.getSettings().minHuTay).toBe(3);
     expect(c.getState().rules.minHuTay).toBe(3);
-    c.startMatch(4);
+    c.startMatch();
     expect(c.match!.minHuTay).toBe(9);
     expect(c.getState().rules.minHuTay).toBe(9);
   });
 
   it('a legal below-five training Hu still agrees with the modal, match credit and rotation', () => {
     const c = new GameController({ settings: settings({ minHuTay: 3, kimEnabled: false, kimMode: 'off', startingSeatWind: 'nan' }), seed: 4, saveHistory: false, autoStart: false });
-    c.startMatch(4);
+    c.startMatch();
     const s = mutable(c);
     s.phase = 'ACTION_DECISION'; s.currentTurn = 'dong'; s.selfDrawSeat = 'dong';
     s.players.dong.hand = parseTileHand('4T 5T 6T 7S 8S 9S 3W 3W 3W 2W 2W');
@@ -286,7 +287,7 @@ describe('match review regressions', () => {
 
   it('a controller wall-out draw counts exactly once without rotating seating', () => {
     const c = new GameController({ settings: settings({ kimEnabled: false, kimMode: 'off', startingSeatWind: 'xi', roundWind: 'nan' }), seed: 5, saveHistory: false, autoStart: false });
-    c.startMatch(2);
+    c.startMatch();
     const seating = { ...c.match!.seating };
     const state = mutable(c);
     state.wall = new Wall([], null);
@@ -307,7 +308,7 @@ describe('match review regressions', () => {
 
   it('fresh natural walls and Kim faces use the next seed, while pace and bot difficulty persist', () => {
     const c = new GameController({ settings: settings({ kimMode: 'natural', animationSpeed: 'off', aiDifficulty: 'easy' }), seed: 92, saveHistory: false, autoStart: false });
-    c.startMatch(null);
+    c.startMatch();
     expect(c.getState().kimFace).toMatchObject(createGameWall('natural', 92).kimFace!);
     expect(c.getState().wall.serialize().tiles).toEqual(createGameWall('natural', 92).wall.serialize().tiles);
     playHand(c);
@@ -321,20 +322,20 @@ describe('match review regressions', () => {
 
   it('coaches continuation between match hands and standings at the end', () => {
     const c = new GameController({ settings: settings(), seed: 24, saveHistory: false, autoStart: false });
-    c.startMatch(2);
+    c.startMatch();
     playHand(c);
     const line = () => renderToStaticMarkup(createElement(ActionHud, { controller: c, actions: c.getHumanActions(), selectedId: null, onSelect: noop }));
     expect(line()).toContain('Lanjut ke game berikutnya');
     c.nextHand();
     expect(line()).not.toContain('Hasil game sudah siap');
-    playHand(c);
+    for (let i = 2; i <= 16; i++) { playHand(c); if (i < 16) c.nextHand(); }
     expect(line()).toContain('Lihat klasemen akhir');
     expect(line()).not.toContain('Lanjut ke game berikutnya');
   });
 
   function rotatedScore(hand: string, flowers: string = '', roundWind: 'dong' | 'xi' = 'dong') {
     const c = new GameController({ settings: settings({ kimMode: 'off', kimEnabled: false, startingSeatWind: 'nan', roundWind }), seed: 7, saveHistory: false, autoStart: false });
-    c.startMatch(4);
+    c.startMatch();
     const s = mutable(c);
     s.phase = 'ACTION_DECISION'; s.currentTurn = 'dong'; s.selfDrawSeat = 'dong';
     s.players.dong.hand = parseTileHand(hand);
@@ -360,13 +361,21 @@ describe('match review regressions', () => {
     const prefix = '1T 2T 3T 4T 5T 6T 7B 8B 9B 2S 3S 4S';
     expect(rotatedScore(prefix + ' 4W 4W').score.patterns.some(p => p.id === 14)).toBe(false);
     expect(rotatedScore(prefix + ' 1W 1W').score.patterns.some(p => p.id === 14)).toBe(false);
-    // House rule, player feedback 2026-11-12: every wind pair excludes Ping Fu.
-    expect(rotatedScore(prefix + ' 2W 2W').score.patterns.some(p => p.id === 14)).toBe(false);
+    // Player answers 2026-11-12: a non-valued wind pair permits Ping Fu.
+    expect(rotatedScore(prefix + ' 2W 2W').score.patterns.find(p => p.id === 14)?.tay).toBe(3);
+  });
+
+  it('Tuei Tuei uses the same rotated valued-pair predicate for human and AI', () => {
+    const prefix = '1T 1T 1T 5S 5S 5S 9B 9B 9B 3T 3T 3T';
+    for (const pair of ['DZ', 'DF', 'DP', '4W', '1W']) {
+      expect(rotatedScore(`${prefix} ${pair} ${pair}`).score.patterns.some(p => p.id === 15)).toBe(false);
+    }
+    expect(rotatedScore(prefix + ' 2W 2W').score.patterns.find(p => p.id === 15)?.tay).toBe(10);
   });
 
   it('a dealer on another chair receives Thien Fu on the untouched deal, for AI and human', () => {
     const c = new GameController({ settings: settings({ kimMode: 'off', kimEnabled: false, startingSeatWind: 'nan' }), humanSeat: 'nan', seed: 10, saveHistory: false, autoStart: false });
-    c.startMatch(4);
+    c.startMatch();
     const s = mutable(c);
     s.players.nan.hand = parseTileHand('1T 2T 3T 4T 5T 6T 7B 8B 9B 2S 3S 4S 9T 9T');
     s.players.nan.melds = []; s.players.nan.flowers = [];
@@ -386,7 +395,7 @@ describe('legacy dealer-win migration', () => {
     expect(store.getItem('itm.match-dealer-win.v1')).toBeNull();
     saveDealerWinRule('rotate', store);
     expect(store.getItem('itm.match-dealer-win.v1')).toBeNull();
-    let match = createMatch(null, 'dong', 'dong', 5, 'rotate');
+    let match = createMatch('dong', 'dong', 5, 'rotate');
     for (let i = 0; i < 4; i++) match = recordHand(match, 'dong', true, 5);
     expect(match.seating).toEqual(start);
   });

@@ -585,8 +585,8 @@ describe('Reviewer 1 Verification: 44-Tay Conformance & Invariants', () => {
       expect(res.isValidHu).toBe(true);
       expect(res.patterns.some((p) => p.id === 34)).toBe(true);
       expect(res.patterns.find((p) => p.id === 34)!.tay).toBe(30); // Si Am Kang NK = 30
-      // Player feedback 2026-11-12: the wind pair excludes #15, independently of #34.
-      expect(res.patterns.some((p) => p.id === 15)).toBe(false);
+      // Player answers 2026-11-12: non-valued Barat pair permits #15, independently of #34.
+      expect(res.patterns.find((p) => p.id === 15)?.tay).toBe(10);
       // Ce Mo Pu Ciu Jen (#44: 5 Tay) present
       expect(res.patterns.some((p) => p.id === 44)).toBe(true);
     });

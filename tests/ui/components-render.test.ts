@@ -91,7 +91,7 @@ describe('UI render smoke tests', () => {
 
   it('opening dice overlay rolls two dice per seat from the match roll and can be skipped', () => {
     const c = new GameController({ settings: settings(), autoStart: false, seed: 5, saveHistory: false });
-    c.startMatch(16);
+    c.startMatch();
     const roll = openingRollOf(c.match)!;
     expect(roll.rounds[0]).toHaveLength(4);
     const html = renderToString(createElement(DiceRoll, { roll, humanSeat: c.humanSeat, onDone: noop }));

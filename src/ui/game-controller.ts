@@ -13,7 +13,7 @@ import { historyScoringFields, saveGameRecord, type GameSettings, type StorageLi
 import { buildObservation, builtInStrategy, chooseDiscard, isFirstGoAround, explainDiscardChoice, type AIStrategy } from './ai-controller';
 import { MELD_LABEL, PLAYER_NAME, SEAT_SHORT, tileText } from './labels';
 import { isInitialDealtHand, scoreHu, seatWindOf, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
-import { createMatch, currentHandNumber, isMatchOver, recordHand, finishMatchAtBoundary, rollOpeningDealer, type DeadWallOption, type MatchTimeLimit, type DealerWinRule, type MatchLength, type MatchState } from './match';
+import { createMatch, currentHandNumber, isMatchOver, recordHand, finishMatchAtBoundary, rollOpeningDealer, type DeadWallOption, type MatchTimeLimit, type DealerWinRule, type MatchState } from './match';
 
 export type GameEventType = 'draw' | 'discard' | 'jia' | 'pung' | 'kong' | 'flower' | 'hu' | 'lewFit' | 'seri';
 
@@ -243,10 +243,10 @@ export class GameController {
     return this.engine.getState();
   }
 
-  /** Start a match of `length` hands (null = endless) and deal its first hand. */
-  startMatch(length: MatchLength, dealerWinRule: DealerWinRule = 'stay', timeLimitMinutes: MatchTimeLimit = null, deadWall: DeadWallOption = 'none'): void {
+  /** Start a 16-game match and deal its first hand. */
+  startMatch(dealerWinRule: DealerWinRule = 'stay', timeLimitMinutes: MatchTimeLimit = null, deadWall: DeadWallOption = 'none'): void {
     const openingRoll = rollOpeningDealer(this.baseSeed === undefined ? Math.random : createMulberry32(this.baseSeed));
-    this.match = createMatch(length, openingRoll.dealer, this.nextSettings.roundWind, this.nextSettings.minHuTay, dealerWinRule, timeLimitMinutes, this.now());
+    this.match = createMatch(openingRoll.dealer, this.nextSettings.roundWind, this.nextSettings.minHuTay, dealerWinRule, timeLimitMinutes, this.now());
     this.match.openingRoll = openingRoll;
     this.match.deadWall = deadWall;
     this.matchKim = { kimEnabled: this.nextSettings.kimEnabled, kimMode: this.nextSettings.kimMode };
@@ -312,7 +312,7 @@ export class GameController {
     this.discardTrail = [];
     this.humanDrawnTileId = null;
     this.startedAt = this.now();
-    const total = this.match ? (this.match.length === null ? '' : `/${this.match.length}`) : '';
+    const total = this.match ? '/16' : '';
     this.addLog(this.match
       ? `Game ${currentHandNumber(this.match)}${total} dimulai. Dealer (Timur): ${PLAYER_NAME[dealer]}. Angin putaran: ${SEAT_SHORT[roundWind]}.`
       : `Permainan baru dimulai. Dealer (Timur): ${PLAYER_NAME[dealer]}.`);
