@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { createMatch, recordHand, countedGames, isMatchOver, standings, rollOpeningDealer, migrateMatchLengthPreference, loadDeadWall, saveDeadWall } from '@/ui/match';
+import { createMatch, nextSeating, recordHand, countedGames, isMatchOver, standings, rollOpeningDealer, migrateMatchLengthPreference, loadDeadWall, saveDeadWall } from '@/ui/match';
 import { GameController } from '@/ui/game-controller';
 import type { GameEngineState } from '@/core/game-engine';
 import { GameEngine } from '@/core/game-engine';
@@ -21,12 +21,12 @@ describe('v0.4.2 match options', () => {
     for (let i = 0; i < 14; i++) m = recordHand(m, null, false, 0);
     m = recordHand(m, 'dong', true, 5);
     expect(countedGames(m)).toBe(15);
-    expect(m.seating.dealer).toBe('nan');
+    expect(m.seating.dealer).toBe('bei');
     expect(isMatchOver(m)).toBe(false);
     m = recordHand(m, null, false, 0);
     expect(countedGames(m)).toBe(16);
     expect(isMatchOver(m)).toBe(true);
-    expect(m.seating.dealer).toBe('nan');
+    expect(m.seating.dealer).toBe('dong');
     expect(recordHand(m, 'nan', true, 100)).toBe(m);
     const lewFit = recordHand(createMatch(), 'dong', false, 100);
     expect(countedGames(lewFit)).toBe(1);
@@ -95,7 +95,7 @@ describe('v0.4.2 match options', () => {
     expect(wall.clone().remainingDrawable).toBe(0);
     expect(Wall.deserialize(wall.serialize()).drawTail()).toBeNull();
   });
-  it('ends at the reserve with Seri, counting once and keeping seating', () => {
+  it('ends at the reserve with Seri, counting once and rotating seating', () => {
     const c = new GameController({ ...options, seed: 7 }); c.startMatch('stay', null, '14');
     expect(c.remainingDrawable).toBe(c.getState().wall.remainingCount - 14);
     const s = c.getState() as GameEngineState;
@@ -105,7 +105,7 @@ describe('v0.4.2 match options', () => {
     const seating = { ...c.match!.seating };
     c.humanDraw(); c.step();
     expect(c.outcome?.kind).toBe('seri'); expect(countedGames(c.match!)).toBe(1);
-    expect(c.match!.seating).toEqual(seating); expect(s.wall.remainingCount).toBe(14);
+    expect(c.match!.seating).toEqual(nextSeating(seating, { kind: 'none' })); expect(s.wall.remainingCount).toBe(14);
     expect(c.remainingDrawable).toBe(0);
   });
   it('does not dip into the reserve for a bunga replacement', () => {

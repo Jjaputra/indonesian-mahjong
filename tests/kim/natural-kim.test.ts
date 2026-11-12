@@ -48,17 +48,17 @@ const score = (tiles: Tile[]) => new ScoringEngine().evaluateHand(tiles, [], [],
 
 describe('Natural Kim', () => {
 
-  it('conserves 144 physical tiles including eight bonuses and marks exactly four copies of one face', () => {
+  it('conserves 143 in-play physical tiles plus an indicator including eight bonuses and marks exactly four copies of one face', () => {
 
     for (let seed = 1; seed <= 40; seed++) {
 
-      const { wall, kimFace } = createGameWall('natural', seed);
+      const { wall, kimFace, kimIndicator } = createGameWall('natural', seed);
 
       const tiles = wall.serialize().tiles;
 
-      expect(tiles).toHaveLength(144);
+      expect(tiles).toHaveLength(143);
 
-      expect(new Set(tiles.map(t => t.id)).size).toBe(144);
+      expect(new Set(tiles.map(t => t.id)).size).toBe(143);
 
       expect(tiles.filter(t => t.type === 'flower' || t.type === 'season')).toHaveLength(8);
 
@@ -66,7 +66,10 @@ describe('Natural Kim', () => {
 
       expect(tiles.filter(isKim).every(t => t.type === kimFace!.type && t.value === kimFace!.value)).toBe(true);
 
-      expect(tiles.map(t => t.id).sort()).toEqual(createCompleteTileSet().filter(t => t.type !== 'kim').map(t => t.id).sort());
+      const removed = createCompleteTileSet().filter(t => t.type !== 'kim' && !tiles.some(x => x.id === t.id));
+      expect(removed).toHaveLength(1);
+      expect(removed[0]).toMatchObject(kimIndicator!);
+      expect(tiles.filter(t => t.type === kimIndicator!.type && t.value === kimIndicator!.value)).toHaveLength(3);
 
     }
 

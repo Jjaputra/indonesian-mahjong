@@ -37,8 +37,8 @@ export function driveDemo(controller: GameController, mode: DemoMode, maxHands =
       const discards = controller.discardCount;
       if (mode === 'claim' && a.claim && discards >= 6 && (a.claim.canPung || a.claim.jiaOptions.length)) return;
       if (mode === 'table' && a.canDiscard && discards >= 22) return;
-      // Late game: rivers near full, to check they still fit the felt.
-      if (mode === 'late' && a.canDiscard && discards >= 72) return;
+      // Late game: a crowded discard pool, to check it still fits the felt.
+      if (mode === 'late' && a.canDiscard && discards >= 56) return;
       if (a.canReplaceFlowers) controller.humanReplaceFlowers();
       else if (a.claim) controller.humanClaim(mode === 'hu' && a.claim.canHu ? 'hu' : 'pass');
       else if (a.canSelfDrawHu && mode === 'hu') controller.humanSelfDrawHu();

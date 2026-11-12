@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 import { getPreset, type GameSettings } from '@/storage';
-import { ActionHud, CenterArea, HumanArea, PracticeCoach, seatPositions } from '@/ui/components/GameTable';
+import { ActionHud, CenterArea, HumanArea, PracticeCoach } from '@/ui/components/GameTable';
 import { MatchResultNote, MatchStandingsModal } from '@/ui/components/MatchBoard';
 import { GameController } from '@/ui/game-controller';
 import { driveDemo } from '@/ui/dev-demo';
@@ -18,30 +18,25 @@ function controllerAt(mode: 'table' | 'claim'): GameController {
   return c;
 }
 
-describe('v0.5.2 table layout', () => {
-  it('lays discards out as one river per player, each holding only that player\'s tiles', () => {
+describe('v0.5.2 table layout (v0.5.3: central discard pool)', () => {
+  it('keeps every discard in one central pool, upright, with the latest one marked (v0.5.3 revert)', () => {
     const c = controllerAt('table');
     const html = renderToString(createElement(CenterArea, { controller: c }));
-    const pos = seatPositions(c.humanSeat);
-    for (const side of ['bottom', 'right', 'top', 'left'] as const) {
-      expect(html).toContain(`class="discard-river river-${side}" data-discard-group="${pos[side]}"`);
-    }
-    // Every committed discard sits in its owner's river, and nowhere else.
-    const tiles = [...html.matchAll(/class="pool-tile[^"]*" data-seat="(\w+)"/g)].map((m) => m[1]);
+    expect(html).toContain('class="discard-pool"');
+    expect(html).not.toContain('discard-river');
+    expect(html).not.toContain('discard-center');
+    const tiles = [...html.matchAll(/class="pool-tile seat-mark-(\w+)[^"]*" data-from="\w+" data-seat="(\w+)"/g)];
     expect(tiles).toHaveLength(c.discardTrail.length);
-    for (const seat of Object.values(pos)) {
-      expect(tiles.filter((s) => s === seat)).toHaveLength(c.discardTrail.filter((d) => d.seat === seat).length);
-    }
-    expect(html).not.toContain('discard-pool');
-    expect(html).toContain('is-fresh');
+    expect(tiles.every((m) => m[1] === m[2])).toBe(true);
+    expect((html.match(/is-fresh/g) ?? [])).toHaveLength(1);
+    expect(html).toContain('data-wall-anchor');
   });
 
-  it('puts the claimable discard, highlighted, at the end of its discarder\'s river', () => {
+  it('raises the claimable discard, highlighted, above the pool as the motion target', () => {
     const c = controllerAt('claim');
     const pending = c.getState().discardPending!;
     const html = renderToString(createElement(CenterArea, { controller: c }));
-    const river = html.match(new RegExp(`data-discard-group="${pending.discarder}"[^>]*>(.*?)</div>`))![1]!;
-    expect(river).toMatch(/class="pool-tile is-fresh is-pending" data-pending-discard=""[^>]*><span class="tile tile-sm[^"]*is-highlight/);
+    expect(html).toMatch(new RegExp(`class="pending-discard" data-pending-discard="" data-from="\\w+" data-seat="${pending.discarder}"[^>]*>.*?<span class="tile tile-lg[^"]*is-highlight`));
     expect((html.match(/data-pending-discard/g) ?? [])).toHaveLength(1);
   });
 

@@ -27,15 +27,18 @@ export function MatchClock({ match }: { match: MatchState }) {
 /**
  * Table info at the top of the side panel: the prevailing (table) wind and this hand's Kim, each
  * with its real tile, and the match's minimum Tay. `kimFace` is the natural Kim face; with Kim on
- * and no face, the dedicated KIM tile is the Kim.
+ * and no face, the dedicated KIM tile is the Kim. `kimIndicator` is the natural Kim's indicator: one
+ * copy of the tile before the Kim, taken out of play and shown face-up (3 copies stay in play).
  */
-export function TableInfo({ roundWind, kimEnabled, kimFace, minHuTay }: { roundWind: Wind; kimEnabled: boolean; kimFace: TileFace | null | undefined; minHuTay: number }) {
+export function TableInfo({ roundWind, kimEnabled, kimFace, kimIndicator, minHuTay }: { roundWind: Wind; kimEnabled: boolean; kimFace: TileFace | null | undefined; kimIndicator?: TileFace | null; minHuTay: number }) {
   const wind: Tile = { id: 'table-wind', type: 'wind', value: SEAT_ORDER.indexOf(roundWind) + 1, isKim: false };
   const kim: Tile | null = !kimEnabled ? null : kimFace ? { ...kimFace, id: 'table-kim', isKim: false } : keyToTile('KIM');
+  const pointer: Tile | null = kim && kimFace && kimIndicator ? { ...kimIndicator, id: 'table-kim-indicator', isKim: false } : null;
   return (
     <dl className="table-info" aria-label="Info meja">
       <div><dt>Angin meja</dt><dd>{SEAT_LABEL[roundWind]} <TileView tile={wind} size="sm" /></dd></div>
       <div><dt>Kim</dt><dd>{kim ? <>{kimFace ? tileText(kim) : 'Tile KIM'} <TileView tile={kim} size="sm" /></> : 'Tanpa Kim'}</dd></div>
+      {pointer && <div className="table-info-pointer" title="Satu tile ini dikeluarkan dari permainan dan dibuka"><dt>Penunjuk</dt><dd><TileView tile={pointer} size="sm" /> {tileText(pointer)} <small>(3 tile tersisa)</small></dd></div>}
       <div><dt>Minimum Tay</dt><dd><b>{minHuTay}</b></dd></div>
     </dl>
   );
@@ -110,7 +113,7 @@ export function MatchResultNote({ match }: { match: MatchState }) {
   const next = match.seating;
   const wind = `Angin putaran ${SEAT_SHORT[next.prevailingWind]}.`;
   const rotation = last.lewFit ? `Lew Fit: dealer dan angin duduk berputar. Dealer berikutnya: ${PLAYER_NAME[next.dealer]} · ${wind}`
-    : last.winner === null ? `Tidak ada Hu sah: angin duduk tidak berputar. Dealer tetap ${PLAYER_NAME[next.dealer]} · ${wind}`
+    : last.winner === null ? `Seri. Dealer pindah ke ${PLAYER_NAME[next.dealer]} · ${wind}`
     : `Dealer pindah ke ${PLAYER_NAME[next.dealer]} · ${wind}`;
   return (
     <div className="match-note"><p>

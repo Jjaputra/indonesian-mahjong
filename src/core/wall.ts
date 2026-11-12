@@ -12,6 +12,7 @@ export interface SerializedWall {
   readonly tailIndex: number;
   readonly initialCount: number;
   readonly reservedCount?: number;
+  readonly kimIndicator?: TileFace | null;
 }
 
 /**
@@ -45,6 +46,8 @@ export function shuffleTiles(tiles: readonly Tile[], rng: () => number = Math.ra
 export class Wall {
   /** Reserved tiles cannot be used for turn or replacement draws. */
   reservedCount = 0;
+  /** Face-up tile removed before dealing; never part of the drawable inventory. */
+  kimIndicator: TileFace | null = null;
   get remainingDrawable(): number { return Math.max(0, this.remainingCount - this.reservedCount); }
 
   private tiles: Tile[];
@@ -86,7 +89,7 @@ export class Wall {
   }
 
   /**
-   * Total number of tiles originally in the wall (148 for the legacy Kim set, 144 with Kim disabled).
+   * Total number of tiles originally in the wall (148 for the legacy Kim set, 143 for natural Kim, 144 with Kim disabled).
    */
   get totalCount(): number {
     return this.initialCount;
@@ -185,6 +188,7 @@ export class Wall {
   clone(): Wall {
     const cloned = new Wall(this.tiles, null);
     cloned.reservedCount = this.reservedCount;
+    cloned.kimIndicator = this.kimIndicator ? { ...this.kimIndicator } : null;
     cloned.headIndex = this.headIndex;
     cloned.tailIndex = this.tailIndex;
     return cloned;
@@ -200,6 +204,7 @@ export class Wall {
       tailIndex: this.tailIndex,
       initialCount: this.initialCount,
       reservedCount: this.reservedCount,
+      kimIndicator: this.kimIndicator,
     };
   }
 
@@ -209,6 +214,7 @@ export class Wall {
   static deserialize(state: SerializedWall): Wall {
     const wall = new Wall(state.tiles, null);
     wall.reservedCount = state.reservedCount ?? 0;
+    wall.kimIndicator = state.kimIndicator ?? null;
     (wall as any).headIndex = state.headIndex;
     (wall as any).tailIndex = state.tailIndex;
     (wall as any).initialCount = state.initialCount;
@@ -216,23 +222,37 @@ export class Wall {
   }
 }
 
+/** The preceding face in the same family; honor cycles are an app assumption. */
+export function kimIndicatorFor(kim: TileFace): TileFace {
+  const max = kim.type === 'wind' ? 4 : kim.type === 'dragon' ? 3 : 9;
+  if (!['tong', 'sok', 'ban', 'wind', 'dragon'].includes(kim.type) || kim.value < 1 || kim.value > max) {
+    throw new Error('Kim indicator requires a playing tile face');
+  }
+  return { type: kim.type, value: kim.value === 1 ? max : kim.value - 1 };
+}
+
 /** Natural Kim uses a random existing face, pending confirmation of the dice procedure.
  * Boolean overload preserves the legacy wall-only API.
  */
-export function createGameWall(kimMode: KimMode, seed?: number): { wall: Wall; kimFace: TileFace | null };
+export function createGameWall(kimMode: KimMode, seed?: number): { wall: Wall; kimFace: TileFace | null; kimIndicator: TileFace | null };
 export function createGameWall(kimEnabled: boolean, seed?: number): Wall;
-export function createGameWall(mode: KimMode | boolean, seed?: number): Wall | { wall: Wall; kimFace: TileFace | null } {
+export function createGameWall(mode: KimMode | boolean, seed?: number): Wall | { wall: Wall; kimFace: TileFace | null; kimIndicator: TileFace | null } {
   const kimMode = typeof mode === 'boolean' ? (mode ? 'dedicated' : 'off') : mode;
   const rng = seed === undefined ? Math.random : createMulberry32(seed);
   let tiles = createCompleteTileSet().filter(t => kimMode === 'dedicated' || t.type !== 'kim');
   tiles = shuffleTiles(tiles, rng);
   let kimFace: TileFace | null = null;
+  let kimIndicator: TileFace | null = null;
   if (kimMode === 'natural') {
     const playing = tiles.filter(t => t.type !== 'flower' && t.type !== 'season');
     const chosen = playing[Math.floor(rng() * playing.length)]!;
     kimFace = { type: chosen.type, value: chosen.value };
+    kimIndicator = kimIndicatorFor(kimFace);
+    const indicatorIndex = tiles.findIndex(t => t.type === kimIndicator!.type && t.value === kimIndicator!.value);
+    tiles.splice(indicatorIndex, 1);
     tiles = tiles.map(t => t.type === chosen.type && t.value === chosen.value ? { ...t, isKim: true } : t);
   }
   const wall = new Wall(tiles, null);
-  return typeof mode === 'boolean' ? wall : { wall, kimFace };
+  wall.kimIndicator = kimIndicator;
+  return typeof mode === 'boolean' ? wall : { wall, kimFace, kimIndicator };
 }
