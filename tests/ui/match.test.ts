@@ -359,7 +359,8 @@ describe('match review regressions', () => {
     const prefix = '1T 2T 3T 4T 5T 6T 7B 8B 9B 2S 3S 4S';
     expect(rotatedScore(prefix + ' 4W 4W').score.patterns.some(p => p.id === 14)).toBe(false);
     expect(rotatedScore(prefix + ' 1W 1W').score.patterns.some(p => p.id === 14)).toBe(false);
-    expect(rotatedScore(prefix + ' 2W 2W').score.patterns.some(p => p.id === 14)).toBe(true);
+    // House rule, player feedback 2026-11-12: every wind pair excludes Ping Fu.
+    expect(rotatedScore(prefix + ' 2W 2W').score.patterns.some(p => p.id === 14)).toBe(false);
   });
 
   it('a dealer on another chair receives Thien Fu on the untouched deal, for AI and human', () => {

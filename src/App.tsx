@@ -193,7 +193,7 @@ export function App() {
 
   const pos = seatPositions(controller.humanSeat);
   return (
-    <div className="app">
+    <div className={`app${view === 'table' ? ' is-table' : ''}`}>
       <header className="app-header">
         <div className="brand">
           <span className="brand-tile">金</span>

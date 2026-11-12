@@ -9,6 +9,7 @@ import {
   parseHandFeatures,
 } from './hand-parser';
 import { SUPERSEDES, getPattern, tableTay } from './patterns';
+import { isDisallowedHonorPair } from './pair-rules';
 import type {
   DetectedPattern,
   IScoringEngine,
@@ -99,7 +100,7 @@ function detectBonus({ mode, flowers, context, bonusTileRule }: ScoringInput): D
 
 function detectKim({ features, mode, context }: ScoringInput): DetectedPattern[] {
   const out: (DetectedPattern | null)[] = [];
-  // Kim usage comes from the hand; the column only decides the value (a blank cell awards nothing).
+  // Bo KIM eligibility comes from the interpretation; its house-rule value is column-independent.
   if (features.kimCount === 0 || features.isBoKim) {
     out.push(award(8, mode, 'Tidak ada Kim di tangan (Bo KIM)'));
     return out.filter((p): p is DetectedPattern => p !== null);
@@ -133,7 +134,7 @@ function detectFirstTurn({ mode, context }: ScoringInput): DetectedPattern[] {
 }
 
 function detectShape(input: ScoringInput): DetectedPattern[] {
-  const { features, mode, context, flowers } = input;
+  const { features, mode, flowers } = input;
   const out: (DetectedPattern | null)[] = [];
   const tiles = features.representedTiles.filter((t) => t.type !== 'kim');
   const suits = new Set(tiles.filter((t) => isSuitedType(t.type)).map((t) => t.type));
@@ -155,16 +156,9 @@ function detectShape(input: ScoringInput): DetectedPattern[] {
   }
 
   if (features.shape === 'standard') {
-    const pair = features.pair;
-    const pairKind = pair?.representedTiles.find((t) => t.type !== 'kim');
-    const seatNo = SEAT_NUMBER[context.seatWind];
-    const roundNo = SEAT_NUMBER[context.roundWind];
-    const isValuePair =
-      !!pairKind &&
-      (pairKind.type === 'dragon' ||
-        (pairKind.type === 'wind' && (pairKind.value === seatNo || pairKind.value === roundNo)));
-    if (features.sequenceCount === 4 && !isValuePair) push(award(14, mode, '4 urutan + pair bukan naga/angin duduk/angin putaran'));
-    if (features.triplets.length === 4) push(award(15, mode, '4 tris + 1 pair'));
+    const honorPair = isDisallowedHonorPair(features.pair);
+    if (features.sequenceCount === 4 && !honorPair) push(award(14, mode, '4 urutan + pair bukan naga/angin'));
+    if (features.triplets.length === 4 && !honorPair) push(award(15, mode, '4 tris + pair bukan naga/angin'));
   }
 
   if (features.shape !== 'thirteen_orphans' && features.shape !== 'se_sam_pu_tat') {
@@ -275,7 +269,7 @@ export function columnNotes(column: KimMode, basis: ScoringBasis, handKimCount: 
   if (basis !== 'match_table') return [];
   const notes: string[] = [];
   if (column === 'K' && handKimCount === 0) {
-    notes.push('Hand tanpa Kim (Bo KIM terdeteksi), tetapi sel #8 Bo KIM di kolom Ada KIM kosong: 0 Tay.');
+    notes.push('Hand tanpa Kim (Bo KIM terdeteksi): +3 Tay di kedua kolom — aturan rumah, konfirmasi pemain 2026-11-12.');
   }
   if (column === 'NK' && handKimCount > 0) {
     notes.push(`Hand memegang ${handKimCount} Kim, tetapi pola Kim kosong di kolom Tanpa KIM.`);

@@ -4,7 +4,7 @@ Source of truth: **BANDUNG MAHJONG CUP RULEBOOK ver06** (PDF, 20 pages, read in 
 
 The rulebook is a tournament guide. It names ITM / YDSP "revisi 5 tahun 2026" as the underlying ruleset (p. 11, §5.4) but does not reproduce it. Anything the PDF does not state is marked **assumption** or **unresolved** below. Notes in `.agents/teamwork` are secondary: several record guesses as if they were confirmed.
 
-This game does **not** claim full conformity with ITM/YDSP. The dice procedure for selecting Kim remains unconfirmed (see Kim model below).
+This game does **not** claim full conformity with ITM/YDSP. Kim is chosen as a random natural face each hand, which players confirmed is acceptable (see Kim model below).
 
 ## 1. Confirmed by the PDF
 
@@ -34,14 +34,14 @@ Values are `Ada KIM / Tidak ada KIM`; `—` means the cell is blank. Column plac
 | 5 | 4 Tiles Musim | 20 / 20 | 8 | |
 | 6 | 7 Tiles Bunga/Musim | 30 / 30 | 8 | Immediate Hu without a finished hand = 10 Tay |
 | 7 | Tile KIM | 1 / — | 8 | Value in the Ada KIM column |
-| 8 | Bo KIM | — / 3 | 8 | No Kim, or every Kim used at its own face; user confirmed row text (2026-11-11) |
+| 8 | Bo KIM | — / 3 | 8 | No Kim, or every Kim used at its own face; house rule +3 in both columns (player feedback 2026-11-12) |
 | 9 | Shi Kim | 40 / — | 8 | Immediate Hu = 10 Tay |
 | 10 | Pao Chin | 20 / 30 | 8 | Must be declared; still counts if Thi Fu does not happen |
 | 11 | Thien Fu | 40 / 60 | 8 | Opening hand Hu, posisi Dong only |
 | 12 | Thi Fu | 40 / 60 | 8 | "Hu dari hasil lew atau discard pertama (diawali dengan declare Pao Chin)"; see §2 |
 | 13 | Chicken Hand | 0 / 0 | 8 | |
-| 14 | Ping Fu | 3 / 3 | 9 | Not with a dragon, seat-wind or round-wind pair |
-| 15 | Tuei Tuei | 5 / 10 | 9 | |
+| 14 | Ping Fu | 3 / 3 | 9 | PDF: not with a dragon, seat-wind or round-wind pair; house rule: any honor pair disqualifies (player feedback 2026-11-12) |
+| 15 | Tuei Tuei | 5 / 10 | 9 | House rule: any dragon/wind pair disqualifies (player feedback 2026-11-12) |
 | 16 | Tjit Tuei | 10 / 20 | 9 | |
 | 17 | Chao It | 5 / 10 | 9 | |
 | 18 | It Set | 20 / 30 | 9 | |
@@ -97,14 +97,16 @@ Eleven older tests expected the self-draw reading. They now assert the discard-o
 
 The column only decides values. Kim usage is still counted from the hand (`ScoringResult.handKimCount`, `isWithKim`):
 - #7 Tile KIM, #9, #30, #32 and #40 need Kim in the hand. A zero-Kim hand never gets a 0-Tay "Tile KIM" line just because the Ada KIM column is active.
-- #8 Bo KIM is detected from the hand. In the Ada KIM column its cell is blank, so it scores nothing; the result notes "Bo KIM terdeteksi, tetapi sel … kosong".
-- Example, Kim match, concealed Tuei Tuei with no Kim, won on a discard: hand usage gives #15 10, #34 30, #8 3; match table gives #15 5, #34 20 and no #8.
+- #8 Bo KIM is detected from the hand and awards +3 in either column and either scoring basis, overriding the blank Ada KIM PDF cell (player feedback 2026-11-12). It is awarded once and never together with joker-use awards.
+- Example, Kim match, concealed Tuei Tuei with a number pair and no Kim, won on a discard: hand usage gives #15 10, #34 30, #8 3; match table gives #15 5, #34 20 and #8 3.
 
 The **Mode Kim** setting decides how Kim is selected and whether it exists. Settings are frozen for a hand: changes made during a match (including the basis and the flower rule) apply from the next `newGame`, and the table header says so. `toGameRules` / `toFullRules` include `scoringBasis` and `bonusTileRule` only when they differ from the legacy defaults, which is what an omitted field means to the engine.
 
 **Persistence.** The two scoring choices are written to settings only once the user actually chooses them (a settings save that changes them, the menu flower toggle, or a preset). Until then practice follows the house defaults (`withPracticeScoringDefaults`), and unrelated saves (sound, pace, Kim choice) do not write the fallback value. An explicitly stored choice, including the PDF reference values, is never replaced. History rows store `scoringBasis`, `tableColumn`, `bonusTileRule` and `handKimCount` when the saver provides them (`historyScoringFields`). Rows saved earlier keep their original label (the hand's Kim usage) and no Kim count is invented for them.
 
 **Bo KIM natural use (#8, p. 8): confirmed by the user (2026-11-11).** Row #8 says “Tidak ada Kim / Joker ATAU Kim dipakai untuk melengkapi set sesuai dengan nomer/jenis kim tersebut.” Every Kim used at its own face earns Bo KIM (3 Tay) and reads the Tidak ada KIM column, including under the match-table house rule. Exception, #39 Se Sam Pu Tat: its "tidak ada kim" condition is met the same way, so such a hand reads the same column as a Kim-free hand in both bases (40 Tay). `handKimCount` still records physical Kim; `isWithKim` records joker use for this interpretation. Zero-Kim hands retain the existing match-table house rule described above. The solver enumerates natural and wildcard uses and the scorer chooses the highest total Tay legal interpretation; a possible natural reading does not force it over a higher scoring joker reading.
+
+**Ping Fu / Tuei Tuei honor-pair restriction (#14/#15): player feedback 2026-11-12.** A pair (kaki) of any dragon or any wind disqualifies both patterns: "naga / surat gak boleh jadi kaki". This extends the PDF Ping Fu exclusion (dragons, seat/prevailing winds) to all winds and to Tuei Tuei; it is a house rule. Kim-substituted pairs use their interpreted face: an honor face disqualifies them too. `isDisallowedHonorPair` and `DISALLOWED_PAIR_HONORS` centralize all three dragons and four winds so the scope can be narrowed later. Sam/Si Am Kang (#33/#34) count concealed triplets independently and remain eligible; Tjit Tuei (#16) is a separate seven-pair pattern. Each candidate is checked before highest-total-Tay arbitration. Example: 9 Sok tris, Zhong tris won on Zhong discard, Pat pair, exposed Pung 9 Tong and 1 Ban, Musim 3 (off-seat), Kim match with no Kim: Musim 1 + Zhong 2 + Bo KIM 3 = **6 Tay**; no Tuei Tuei.
 
 **Shi Kim decision (implementation interpretation).** Holding four physical Kim permits instant Shi Kim Hu (10 Tay), regardless of their potential natural use, since no completed decomposition is being declared. In a completed hand, all four used naturally earn Bo KIM/NK and no Kim-specific awards; any joker use permits Shi Kim (40 Tay/K). Kim Thi and Kim Ciok follow the row text literally: three Kim forming a tris is "Kim dijadikan tris" (#30) and two Kim forming the pair is "Kim dijadikan pair" (#32), even when the Kim are all one natural face (three natural Kim are always the same face). The scorer keeps the highest-total reading, so three Zhong Kim score Kim Thi 30 (Ada KIM column) rather than Bo KIM + Tris Zhong. Pyong Pi needs a Kim paired with the drawn winning tile. #7 Tile KIM counts every physical Kim held whenever the hand reads the Ada KIM column (1 Tay each, including any Kim used at its own face in a mixed hand). An all-natural reading never awards these K-only patterns together with Bo KIM; the four-Kim instant reading remains an interpretation pending further expert clarification.
 
@@ -148,7 +150,7 @@ Collection awards are: #4 four Bunga 10, #5 four Musim 20, #6 seven bonus tiles 
 
 Natural Kim cannot be discarded or used to claim Jia/Pung/Kong, even if a casual toggle allowed legacy dedicated-joker claims. Core discard validation, human legal actions and bot selection enforce this. Consequently a tile of the chosen Kim face cannot enter the discard pile and cannot be claimed from a discard. Concealed nominal use remains allowed. Dealer starts with 14 tiles, other players with 13 (existing inventory assumption).
 
-**Dice selection is still unconfirmed.** Direction, stack/top indexing, wind/dragon/flower mapping and the indicator-to-Kim mapping have not been established; no dice algorithm is invented here. The user's example (indicator 11 → Kim 22) does not settle those details.
+**Random selection confirmed acceptable by players (2026-11-12).** Asked how Kim should be chosen, the playtest group answered that random is fine ("toh mau ambil dari mana2 juga sama aja random dapetnya") and that no flipped indicator needs to be shown. The game keeps the random face plus the small "Kim: <face>" indicator; no dice/indicator procedure is modelled.
 
 ## 5. Gaps found in this audit
 
@@ -160,7 +162,7 @@ Natural Kim cannot be discarded or used to claim Jia/Pung/Kong, even if a casual
 2. What does "lew" mean in rows #10 and #12? Does a first-round self-draw after Pao Chin score Thi Fu?
 3. Flowers/seasons: the user chose own-seat only for individual tiles. Still open: do collection awards (#4, #5, #6) change under that rule?
 4. Does "posisi Dong" (Thien Fu) confirm the dealer-relative seat-wind convention used by the app?
-5. The full dice-Kim procedure: direction, stack/top indexing, wind and flower mapping, physical distribution, and indicator-to-Kim mapping (natural Bo KIM is now confirmed).
+5. ~~The dice-Kim procedure~~ — resolved: players confirmed random Kim selection is fine (see Kim model).
 6. Ce Chiong Kong: must the winning tile be the 4th tile of the exposed Pung?
 7. Is a triplet completed by the winning discard concealed for Sam/Si Am Kang?
 8. Which pattern pairs exclude each other beyond Thi Fu → Pao Chin?

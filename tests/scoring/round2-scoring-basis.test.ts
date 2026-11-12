@@ -51,7 +51,7 @@ describe('Round 2 · match with Kim, hand holds zero Kim', () => {
     expect(r.notes).toEqual([]);
   });
 
-  it('match table reads Ada Kim for the whole match: Tuei Tuei 5, no #7 and no Bo KIM value', () => {
+  it('match table reads Ada Kim for the whole match: Tuei Tuei 5, no #7 and Bo KIM 3', () => {
     const r = score(TUEI, TUEI_WIN, rules(true, 'match_table'));
     expect(r.scoringBasis).toBe('match_table');
     expect(r.mode).toBe('K');
@@ -59,13 +59,13 @@ describe('Round 2 · match with Kim, hand holds zero Kim', () => {
     expect(r.isWithKim).toBe(false);
     expect(tay(r, 15)).toBe(5);
     expect(ids(r)).not.toContain(7); // no zero-Kim "Tile KIM" line just because the K column is active
-    expect(ids(r)).not.toContain(8); // Bo KIM is detected but its Ada KIM cell is blank
-    expect(r.notes.join(' ')).toContain('Bo KIM');
+    expect(tay(r, 8)).toBe(3); // Player-confirmed override of the blank PDF cell
+    expect(r.notes.join(' ')).toContain('+3 Tay');
     // Four concealed triplets also read #34 Si Am Kang from Ada KIM (20 instead of 30).
     const legacy = score(TUEI, TUEI_WIN, LEGACY);
     expect(tay(legacy, 34)).toBe(30);
     expect(tay(r, 34)).toBe(20);
-    expect(r.totalTay).toBe(legacy.totalTay - 5 - 3 - 10);
+    expect(r.totalTay).toBe(legacy.totalTay - 5 - 10);
   });
 });
 

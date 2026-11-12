@@ -1,6 +1,6 @@
 /**
  * Manual 44-Tay calculator (the v0.1 "Kalkulator Tay" brief) and receipt builders.
- * Pattern values come from the canonical rulebook table in src/scoring/patterns.ts.
+ * Pattern values use tableTay, including the player-confirmed Bo KIM +3 in both columns.
  */
 import type { BonusTileRule, ScoringBasis } from '../core/types';
 import type { KimMode } from '../kim/types';

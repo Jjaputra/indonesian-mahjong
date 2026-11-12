@@ -45,7 +45,8 @@ describe('Tay calculator data', () => {
   });
 
   it('"—" patterns are not selectable in that mode', () => {
-    expect(isSelectable(8, true)).toBe(false);
+    // House rule, player feedback 2026-11-12: Bo KIM +3 is available in both columns.
+    expect(isSelectable(8, true)).toBe(true);
     expect(isSelectable(8, false)).toBe(true);
     expect(isSelectable(9, false)).toBe(false);
     expect(isSelectable(39, true)).toBe(false);
@@ -62,10 +63,11 @@ describe('calculateTay', () => {
 
     const k = calculateTay([14, 8, 43], true, 5);
     expect(k.mode).toBe('K');
-    expect(k.ignoredIds).toEqual([8]);
-    expect(k.total).toBe(4);
-    expect(k.meetsMinimum).toBe(false);
-    expect(k.statusText).toBe('Di bawah ambang Tay · 4 / 5. Bukan vonis Hu — susunan kartu dan aturan meja tetap menentukan.');
+    // House rule, player feedback 2026-11-12: include Bo KIM +3 in Ada KIM too.
+    expect(k.ignoredIds).toEqual([]);
+    expect(k.total).toBe(7);
+    expect(k.meetsMinimum).toBe(true);
+    expect(k.statusText).toBe('Cukup Tay · 7 ≥ 5. Bukan vonis Hu — susunan kartu dan aturan meja tetap menentukan.');
   });
 
   it('drops superseded patterns under the rulebook policy and keeps them when cumulative', () => {
