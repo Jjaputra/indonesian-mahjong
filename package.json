@@ -1,7 +1,7 @@
 {
   "name": "cabezon-indonesian-mahjong",
   "private": true,
-  "version": "0.4.6",
+  "version": "0.4.7",
   "type": "module",
   "description": "Indonesian Traditional Mahjong (ITM / YDSP) Browser Game based on Bandung Mahjong Cup Rulebook ver06",
   "scripts": {

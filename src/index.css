@@ -1836,6 +1836,17 @@ select {
 .table-felt .melds { justify-content: center; gap: 6px; }
 .table-felt .meld { padding: 0 0 10px; gap: 0; background: none; border: 0; }
 .table-felt .meld-label { color: rgba(243, 231, 201, 0.8); font-size: 8px; letter-spacing: 0.06em; }
+/*
+ * The claimed tile lies sideways, as on a real table. Margins widen its slot to the tile's height,
+ * so it takes its own room in the row; the shift keeps it resting on the meld's baseline.
+ */
+.tile.is-claimed {
+  margin: 0 calc((var(--h) - var(--w)) / 2 + 1px);
+  transform: translateY(calc((var(--h) - var(--w)) / 2)) rotate(90deg);
+}
+.table-felt .tile.is-claimed:not(.tile-back) {
+  box-shadow: 2px 0 0 var(--tile-side), 4px 0 0 var(--tile-back), 5px 0 6px rgba(0, 0, 0, 0.35);
+}
 
 /* Concealed hands: standing tile backs (navy back, ivory face edge). */
 .table-felt .tile-back {
@@ -2165,11 +2176,20 @@ select {
 }
 .table-felt .human-area .seat-head { gap: 6px; font-size: 12px; }
 .table-felt .human-area .rack { margin-left: 0; }
-.table-felt .human-area .melds {
-  position: absolute;
-  left: 34px;
-  bottom: calc(100% + 6px);
-  justify-content: flex-start;
+/* Your exposed melds lie to the right of your hand, in the same row, as on a real table. */
+@media (min-width: 901px) {
+  .table-felt .human-area {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas: 'head head' 'hand melds';
+    justify-content: center;
+    align-items: end;
+    column-gap: 18px;
+  }
+  .table-felt .human-area .seat-head { grid-area: head; justify-self: center; }
+  .table-felt .human-area .hand-row { grid-area: hand; min-width: 0; }
+  .table-felt .human-area .melds { grid-area: melds; flex-wrap: nowrap; gap: 8px; padding-bottom: 6px; }
+  .table-felt .human-area .melds:empty { display: none; }
 }
 .table-felt .human-area .hand-row {
   max-width: 100%;
@@ -2432,7 +2452,7 @@ select {
   .table-felt .seat-top .concealed { gap: 0; }
   .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 20px; --h: 10px; }
   .table-felt .seat-panel .tile-sm { --w: 14px; --h: 20px; }
-  .table-felt .seat-panel .meld { flex-wrap: wrap; max-width: 44px; justify-content: center; }
+  .table-felt .seat-panel .meld { flex-wrap: wrap; max-width: 44px; justify-content: center; align-items: flex-end; row-gap: 5px; }
   .table-felt .seat-top .meld { flex-wrap: nowrap; max-width: none; }
   /* On the felt's far-left corner, clear of the top seat's rack. */
   .table-felt > .kim-indicator { grid-area: center; margin: 6px 0 0 2px; font-size: 10px; padding: 1px 8px; }
