@@ -47,7 +47,7 @@ export function calculatorMatchProps(active: Pick<GameSettings, 'minHuTay' | 'ov
     defaultMinHuTay: active.minHuTay,
     overlapPolicy: active.overlapPolicy,
     scoringBasis: active.scoringBasis,
-    bonusTileRule: active.bonusTileRule,
+    bonusTileRule: 'rulebook_per_tile' as const,
     matchKimEnabled: active.kimEnabled,
   };
 }
@@ -68,7 +68,7 @@ export function activeRulesSummary(rules: { kimEnabled: boolean; scoringBasis: S
     rules.scoringBasis === 'match_table'
       ? `Tabel ${modeLabel(rules.kimEnabled ? 'K' : 'NK')} untuk semua Hu${rules.kimEnabled ? ' (semua Kim natural: Bo KIM/NK)' : ''}`
       : 'Kolom menurut Kim di tangan';
-  const bonus = rules.bonusTileRule === 'own_seat_only' ? 'Bunga/Musim hanya posisi sendiri' : 'Bunga/Musim per tile (PDF)';
+  const bonus = 'Bunga/Musim per tile (PDF)';
   return `${table} · ${bonus}`;
 }
 
@@ -128,10 +128,11 @@ export interface CalculatorResult {
 
 /**
  * Optional exact-total inputs. Omitted fields keep the rulebook column value.
- * Flower #1 scores only seat matches (0 Tay per tile). Season #2 scores 1 Tay per tile plus seat matches,
- * or only seat matches under `own_seat_only`.
+ * Flower #1 scores only seat matches (0 Tay per tile). Season #2 scores 1 Tay per tile plus seat matches.
  */
 export interface CalculatorBonus {
+  /** Current rotated seat number, used to label a single matching tile. */
+  seatNumber?: number;
   flowers?: number;
   seasons?: number;
   flowerSeatMatches?: number;
@@ -160,18 +161,15 @@ function clampCount(value: number | undefined, max: number): number {
   return Math.min(max, Math.max(0, Math.floor(value)));
 }
 
-function bonusTay(id: number, base: number, bonus: CalculatorBonus | undefined, rule: BonusTileRule): number {
-  const seatOnly = rule === 'own_seat_only';
+function bonusTay(id: number, base: number, bonus: CalculatorBonus | undefined): number {
   if (id === 1 && bonus?.flowers !== undefined) {
     const flowers = clampCount(bonus.flowers, MAX_BONUS_TILES);
     return clampCount(bonus.flowerSeatMatches ?? 0, flowers);
   }
   if (id === 2 && bonus?.seasons !== undefined) {
     const seasons = clampCount(bonus.seasons, MAX_BONUS_TILES);
-    return (seatOnly ? 0 : seasons) + clampCount(bonus.seasonSeatMatches ?? 0, seasons);
+    return seasons + clampCount(bonus.seasonSeatMatches ?? 0, seasons);
   }
-  // Without counts, own-seat-only cannot know of any seat match, so the individual line is 0.
-  if (seatOnly && (id === 1 || id === 2)) return 0;
   return base;
 }
 
@@ -212,7 +210,7 @@ export function calculateTay(
   const instant = options.instant === true;
   const overlapPolicy = options.overlapPolicy ?? 'rulebook_exclusive';
   const scoringBasis = options.scoringBasis ?? 'hand_kim_usage';
-  const bonusTileRule = options.bonusTileRule ?? 'rulebook_per_tile';
+  const bonusTileRule: BonusTileRule = 'rulebook_per_tile';
   const lines: CalculatorLine[] = [];
   const ignoredIds: number[] = [];
   const unique = [...new Set(selectedIds)].sort((a, b) => a - b);
@@ -224,8 +222,14 @@ export function calculateTay(
       ignoredIds.push(id);
       continue;
     }
-    const tay = instant ? def.instantHu! : bonusTay(id, base, options.bonus, bonusTileRule);
-    lines.push({ id, name: def.name, tay });
+    const tay = instant ? def.instantHu! : bonusTay(id, base, options.bonus);
+    const count = id === 1 ? options.bonus?.flowers : options.bonus?.seasons;
+    const matches = id === 1 ? options.bonus?.flowerSeatMatches : options.bonus?.seasonSeatMatches;
+    const seatNumber = options.bonus?.seatNumber;
+    const name = !instant && (id === 1 || id === 2) && count === 1 && matches === 1
+      ? `${def.name}${seatNumber && seatNumber >= 1 && seatNumber <= 4 ? ` ${Math.floor(seatNumber)}` : ''} (sesuai tempat duduk)`
+      : def.name;
+    lines.push({ id, name, tay });
   }
   const applied = applySupersedes(lines, overlapPolicy);
   const total = applied.lines.reduce((sum, line) => sum + line.tay, 0);
@@ -276,7 +280,10 @@ export function buildHuReceipt(outcome: HuOutcome): string {
   }
   if (outcome.flowers.length) lines.push(`Tile bonus    : ${outcome.flowers.map(tileText).join(', ')}`);
   lines.push('--- Rincian Tay ---');
-  for (const p of r.patterns.filter((p) => p.id !== 13)) lines.push(`#${p.id} ${p.name}: ${p.tay} Tay`);
+  for (const p of r.patterns.filter((p) => p.id !== 13)) {
+    lines.push(`#${p.id} ${p.name}: ${p.tay} Tay`);
+    if ((p.id === 1 || p.id === 2) && p.description) lines.push(p.description);
+  }
   for (const note of r.notes) lines.push(`Catatan: ${note}`);
   lines.push(`TOTAL         : ${r.totalTay} Tay (minimum ${r.minHuTay})`);
   lines.push(r.isValidHu ? `HU SAH ✓ (${r.totalTay} ≥ ${r.minHuTay} Tay)` : `LEW FIT ✗ ${r.rejectionReason ?? ''}`.trim());

@@ -62,7 +62,7 @@ export type ScoringBasis = 'hand_kim_usage' | 'match_table';
 /**
  * Individual flower/season Tay (#1, #2). Collection patterns (#4, #5, #6) are the same under both.
  * - `rulebook_per_tile` (PDF default): Bunga 0 per tile, Musim 1 per tile, +1 per tile matching the seat.
- * - `own_seat_only` (user house rule): a tile matching the seat scores +1, every other tile scores 0.
+ * - `own_seat_only` is retained only to read legacy history; live scoring always uses the PDF rule.
  */
 export type BonusTileRule = 'rulebook_per_tile' | 'own_seat_only';
 

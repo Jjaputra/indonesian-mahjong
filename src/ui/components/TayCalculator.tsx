@@ -53,16 +53,16 @@ export function TayCalculator({
   defaultMinHuTay,
   overlapPolicy = 'rulebook_exclusive',
   scoringBasis: liveBasis = 'hand_kim_usage',
-  bonusTileRule: liveBonusRule = 'rulebook_per_tile',
   matchKimEnabled,
 }: TayCalculatorProps) {
   const [withKim, setWithKim] = useState(() => matchColumnWithKim(matchKimEnabled, liveBasis) ?? false);
   const [scoringBasis, setScoringBasis] = useState<ScoringBasis>(liveBasis);
-  const [bonusTileRule, setBonusTileRule] = useState<BonusTileRule>(liveBonusRule);
+  const bonusTileRule = 'rulebook_per_tile' as const;
   const [instant, setInstant] = useState(false);
   const [query, setQuery] = useState('');
   const [minHuTay, setMinHuTay] = useState(() => clampMin(defaultMinHuTay));
   const [selected, setSelected] = useState<Set<number>>(() => new Set());
+  const [seatNumber, setSeatNumber] = useState(1);
   const [flowers, setFlowers] = useState(0);
   const [seasons, setSeasons] = useState(0);
   const [flowerSeatMatches, setFlowerSeatMatches] = useState(0);
@@ -74,16 +74,16 @@ export function TayCalculator({
     setMinHuTay(clampMin(defaultMinHuTay));
   }, [defaultMinHuTay]);
   useEffect(() => setScoringBasis(liveBasis), [liveBasis]);
-  useEffect(() => setBonusTileRule(liveBonusRule), [liveBonusRule]);
 
   const bonus = useMemo<CalculatorBonus>(
     () => ({
+      seatNumber,
       flowers,
       seasons,
       flowerSeatMatches: Math.min(flowerSeatMatches, flowers),
       seasonSeatMatches: Math.min(seasonSeatMatches, seasons),
     }),
-    [flowers, seasons, flowerSeatMatches, seasonSeatMatches],
+    [seatNumber, flowers, seasons, flowerSeatMatches, seasonSeatMatches],
   );
 
   const result = useMemo(
@@ -155,13 +155,6 @@ export function TayCalculator({
             <option value="hand_kim_usage">Kim di tangan (lama)</option>
           </select>
         </label>
-        <label className="min-input">
-          Bunga/Musim
-          <select value={bonusTileRule} onChange={(e) => setBonusTileRule(e.target.value as BonusTileRule)}>
-            <option value="own_seat_only">Hanya posisi sendiri</option>
-            <option value="rulebook_per_tile">Per tile (PDF)</option>
-          </select>
-        </label>
         <label className="check">
           <input type="checkbox" checked={instant} onChange={(e) => setInstantMode(e.target.checked)} />
           Hu instan (nilai 10, bukan nilai hand lengkap)
@@ -180,6 +173,15 @@ export function TayCalculator({
             onChange={(e) => setMinHuTay(clampMin(Number(e.target.value)))}
           />
           Tay
+        </label>
+        <label className="min-input">
+          Tempat duduk
+          <select value={seatNumber} onChange={(e) => setSeatNumber(Number(e.target.value))}>
+            <option value={1}>Dong (1)</option>
+            <option value={2}>Nan (2)</option>
+            <option value={3}>Xi (3)</option>
+            <option value={4}>Bei (4)</option>
+          </select>
         </label>
         <label className="min-input">
           Bunga
@@ -300,15 +302,11 @@ export function TayCalculator({
                       </td>
                       <td>{p.id}</td>
                       <td>
-                        <strong>{p.name}</strong>
+                        <strong>{shown?.name ?? p.name}</strong>
                         <div className="muted small">
                           {p.keterangan}
                           {p.id === 1 ? ` (istilah rulebook; di tile: ${BONUS_INK_CUE.flower})` : p.id === 2 ? ` (istilah rulebook; di tile: ${BONUS_INK_CUE.season})` : ''}
-                          {p.seatMatchBonus
-                            ? bonusTileRule === 'own_seat_only'
-                              ? ' · aturan rumah: hanya tile posisi sendiri +1, tile lain 0'
-                              : ` · +${p.seatMatchBonus} bila sesuai posisi duduk`
-                            : ''}
+                          {p.seatMatchBonus ? ` · +${p.seatMatchBonus} bila sesuai tempat duduk` : ''}
                           {p.instantHu ? ` · Hu instan = ${p.instantHu} Tay` : ''}
                           {shown && shown.tay !== (withKim ? cellK : cellNK) ? ` · dihitung ${shown.tay} Tay` : ''}
                         </div>
