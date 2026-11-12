@@ -815,3 +815,12 @@ export function computeHistoryStats(history: readonly MatchHistoryRecord[]): His
     noKimWins,
   };
 }
+
+/** Separate from presets: production developer tools are opt-in. */
+export const DEV_MODE_STORAGE_KEY = 'itm.dev-mode.v1';
+export function loadDevMode(storage?: StorageLike): boolean {
+  return safeRead(getStorage(storage), DEV_MODE_STORAGE_KEY) === true;
+}
+export function saveDevMode(enabled: boolean, storage?: StorageLike): boolean {
+  return safeWrite(getStorage(storage), DEV_MODE_STORAGE_KEY, enabled === true);
+}

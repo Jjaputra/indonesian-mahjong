@@ -17,6 +17,9 @@ interface SettingsModalProps {
   /** Table view applies at once (a device preference, not part of the saved settings). */
   tableView?: TableView;
   onTableViewChange?: (view: TableView) => void;
+  /** Developer mode applies at once too (device preference, see src/dev). */
+  devMode?: boolean;
+  onDevModeChange?: (on: boolean) => void;
 }
 
 /** Applies a preset's rules while keeping presentation preferences (same as storage.applyPreset). */
@@ -43,7 +46,7 @@ function Toggle({ label, hint, checked, disabled, onChange }: { label: string; h
   );
 }
 
-export function SettingsModal({ settings, onSave, onClose, tableView = '3d', onTableViewChange }: SettingsModalProps) {
+export function SettingsModal({ settings, onSave, onClose, tableView = '3d', onTableViewChange, devMode = false, onDevModeChange }: SettingsModalProps) {
   const [draft, setDraft] = useState<GameSettings>({ ...settings });
   const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
@@ -90,6 +93,11 @@ export function SettingsModal({ settings, onSave, onClose, tableView = '3d', onT
             checked={draft.animationSpeed !== 'off'} onChange={enabled => set('animationSpeed', enabled ? 'slow' : 'off')} />
           <Toggle label="Suara" checked={draft.soundEnabled} onChange={(v) => set('soundEnabled', v)} />
         </section>
+        {onDevModeChange && <section className="dev-settings">
+          <h3>Developer</h3>
+          <Toggle label="Mode developer" checked={devMode} onChange={onDevModeChange} />
+          <p className="field-note dev-warning" role="note">Untuk cek skor. Game di mode ini tidak dicatat ke riwayat.</p>
+        </section>}
       </div>
     </Modal>
   );

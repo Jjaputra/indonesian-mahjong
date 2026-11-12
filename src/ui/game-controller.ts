@@ -5,11 +5,11 @@
  */
 import { GameEngine, canFormWinningHand, type GameEngineState } from '../core/game-engine';
 import { SEAT_ORDER, isSameKind } from '../core/tiles';
-import type { ClaimDeclaration, LegalActions, Meld, Seat, Tile, Wind } from '../core/types';
-import { createGameWall, createMulberry32 } from '../core/wall';
+import type { ClaimDeclaration, LegalActions, Meld, Seat, Tile, TileFace, Wind } from '../core/types';
+import { Wall, createGameWall, createMulberry32 } from '../core/wall';
 import { canFormWinningHandWithKim } from '../kim/wildcard-solver';
 import type { ScoringResult } from '../scoring';
-import { historyScoringFields, saveGameRecord, type GameSettings, type StorageLike, type WinMethod } from '../storage';
+import { loadDevMode, saveDevMode, historyScoringFields, saveGameRecord, type GameSettings, type StorageLike, type WinMethod } from '../storage';
 import { buildObservation, builtInStrategy, chooseDiscard, isFirstGoAround, explainDiscardChoice, type AIStrategy } from './ai-controller';
 import { MELD_LABEL, PLAYER_NAME, SEAT_SHORT, tileText } from './labels';
 import { isInitialDealtHand, scoreHu, seatWindOf, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
@@ -32,6 +32,8 @@ export interface LogEntry {
 
 export interface HuOutcome {
   kind: 'hu';
+  /** Facts captured before resolving Hu, for exact sandbox reproduction. */
+  winFlags?: WinFlags;
   winner: Seat;
   /** Winner's seat wind this hand (differs from the chair once the dealer has rotated) */
   seatWind?: Wind;
@@ -86,6 +88,7 @@ export interface GameControllerOptions {
   settings: GameSettings;
   /** Leave the engine undealt until newGame is explicitly requested. */
   autoStart?: boolean;
+  devMode?: boolean;
   /** Base seed for deterministic walls and AI choices (game n uses seed + n) */
   seed?: number;
   humanSeat?: Seat;
@@ -121,6 +124,19 @@ const PROBE_TILES: Tile[] = (() => {
 
 export class GameController {
   readonly humanSeat: Seat;
+  private developerMode = false;
+  private devGame = false;
+  get devMode(): boolean { return this.developerMode; }
+  setDevMode(enabled: boolean): void {
+    this.developerMode = enabled;
+    saveDevMode(enabled, this.storage);
+    if (enabled) this.markDevGame();
+    this.changed();
+  }
+  private markDevGame(): void {
+    this.devGame = true;
+    if (this.match) this.match.dev = true;
+  }
   private engine!: GameEngine;
   /** Settings of the game in progress */
   private settings: GameSettings;
@@ -181,6 +197,7 @@ export class GameController {
     this.humanSeat = options.humanSeat ?? 'dong';
     this.strategy = options.strategy ?? builtInStrategy;
     this.storage = options.storage;
+    this.developerMode = options.devMode ?? loadDevMode(this.storage);
     this.saveHistory = options.saveHistory ?? true;
     this.now = options.now ?? Date.now;
     this.baseSeed = options.seed;
@@ -245,6 +262,49 @@ export class GameController {
     return this.engine.getState();
   }
 
+  /** Replace the human concealed hand using only physical tiles in hand + wall. */
+  devSetHand(faces: TileFace[]): void {
+    this.requireDevMode();
+    const state = this.engine.getState();
+    if (this.outcome || (state.currentTurn !== this.humanSeat && !isInitialDealtHand(state, state.dealerSeat)) || !['ACTION_DECISION', 'TURN_DRAW', 'FLOWER_REPLACEMENT'].includes(state.phase)) throw new Error('Ubah tangan hanya pada giliran Anda.');
+    const player = state.players[this.humanSeat];
+    if (faces.length !== player.hand.length) throw new Error(`Jumlah tile harus ${player.hand.length}.`);
+    if (faces.some(f => f.type === 'flower' || f.type === 'season')) throw new Error('Bunga dan musim harus diganti melalui permainan.');
+    const wall = state.wall.serialize();
+    const active = wall.tiles.slice(wall.headIndex, wall.tailIndex + 1);
+    const pool = [...player.hand, ...active];
+    const chosen: Tile[] = [];
+    for (const face of faces) {
+      const index = pool.findIndex(t => t.type === face.type && t.value === face.value);
+      if (index < 0) throw new Error(`Tile ${face.type} ${face.value} tidak tersedia di tangan atau tembok (maksimal 4 salinan).`);
+      chosen.push(pool.splice(index, 1)[0]!);
+    }
+    // Retain the wall length, head/tail indices, dead-wall reserve and indicator.
+    const tiles = [...wall.tiles]; tiles.splice(wall.headIndex, active.length, ...pool);
+    this.engine.setDeveloperWall(Wall.deserialize({ ...wall, tiles }));
+    player.hand = chosen;
+    this.humanDrawnTileId = state.selfDrawSeat === this.humanSeat ? chosen.at(-1)!.id : null;
+    this.markDevGame(); this.changed();
+  }
+
+  /** Move a physical wall copy to the next ordinary (head) draw. */
+  devSetNextDraw(face: TileFace): void {
+    this.requireDevMode();
+    const state = this.engine.getState();
+    if (this.outcome || state.wall.isEmpty) throw new Error('Tidak ada penarikan berikutnya.');
+    const wall = state.wall.serialize();
+    const tiles = [...wall.tiles];
+    const index = tiles.findIndex((t, i) => i >= wall.headIndex && i <= wall.tailIndex && t.type === face.type && t.value === face.value);
+    if (index < 0) throw new Error(`Tile ${face.type} ${face.value} tidak tersedia di tembok.`);
+    [tiles[wall.headIndex], tiles[index]] = [tiles[index]!, tiles[wall.headIndex]!];
+    this.engine.setDeveloperWall(Wall.deserialize({ ...wall, tiles }));
+    this.markDevGame(); this.changed();
+  }
+
+  private requireDevMode(): void {
+    if (!this.developerMode) throw new Error('Aktifkan mode developer terlebih dahulu.');
+  }
+
   /** Start a 16-game match and deal its first hand. */
   startMatch(dealerWinRule: DealerWinRule = 'stay', timeLimitMinutes: MatchTimeLimit = null, deadWall: DeadWallOption = 'none'): void {
     const openingRoll = rollOpeningDealer(this.baseSeed === undefined ? Math.random : createMulberry32(this.baseSeed));
@@ -281,6 +341,8 @@ export class GameController {
   }
 
   newGame(): void {
+    this.devGame = this.developerMode || !!this.match?.dev;
+    if (this.devGame && this.match) this.match.dev = true;
     this.gameSerial++;
     this.presentationToken = null;
     this.settings = this.match && this.matchKim ? { ...this.nextSettings, ...this.matchKim, minHuTay: this.match.minHuTay } : { ...this.nextSettings };
@@ -367,7 +429,7 @@ export class GameController {
   }
 
   private record(): void {
-    if (!this.saveHistory || !this.outcome) return;
+    if (!this.saveHistory || !this.outcome || this.devGame || this.developerMode || this.match?.dev) return;
     const o = this.outcome;
     if (o.kind === 'seri') {
       saveGameRecord(
@@ -463,6 +525,7 @@ export class GameController {
     const winningTile = s.winningTile ?? p.hand[p.hand.length - 1]!;
     this.outcome = {
       kind: 'hu',
+      winFlags: { ...this.flagsFor(seat, winMethod === 'tsumo'), isRobbingKong: winMethod === 'chiong_kong', discarderSeat: discarder },
       winner: seat,
       seatWind: seatWindOf(s, seat),
       winningTile,

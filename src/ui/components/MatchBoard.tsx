@@ -55,7 +55,7 @@ function KoinSum({ match }: { match: MatchState }) {
 export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = 'dong' }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat; human?: Seat }) {
   return (
     <div className="match-board" aria-label="Papan skor pertandingan">
-      <h3 className="match-board-title">Tabel Total Poin</h3>
+      <h3 className="match-board-title">Tabel Total Poin{match.dev && <span className="dev-badge is-inline" title="Pertandingan dengan alat developer tidak dicatat ke riwayat">DEV · tidak dicatat</span>}</h3>
       <strong>{matchProgressLabel(hand, prevailingWind)}</strong>
       <MatchMinimumNote match={match} />
       <MatchClock match={match} />

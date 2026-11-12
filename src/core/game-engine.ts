@@ -383,6 +383,9 @@ export class GameEngine {
       });
   }
 
+  /** Controller-only developer rig: preserve the physical wall metadata. */
+  public setDeveloperWall(wall: Wall): void { this.state.wall = wall; }
+
   public getState(): Readonly<GameEngineState> {
     return this.state;
   }
