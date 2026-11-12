@@ -1,5 +1,5 @@
 import { TableMotion } from './TableMotion';
-import { Hand, Sparkles, Trophy, Undo2, Flower2, ArrowDownToLine, MoveDownRight, Crown } from 'lucide-react';
+import { Hand, Trophy, Undo2, Flower2, ArrowDownToLine, MoveDownRight, Crown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { sortTiles } from '../../core/tiles';
 import type { Seat, Tile } from '../../core/types';
@@ -80,7 +80,6 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
 
 export function CenterArea({ controller, progress }: { controller: GameController; progress?: ReactNode }) {
   const s = controller.getState();
-  const settings = controller.getSettings();
   const pending = s.discardPending;
   const trail = controller.discardTrail;
   const positions = seatPositions(controller.humanSeat);
@@ -128,14 +127,8 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
       <TableMotion controller={controller} />
       {progress}
       <div className="center-stats">
-        <span className="stat" title="Angin putaran">
-          Putaran: <b>{WIND_GLYPH[s.roundWind]} {SEAT_SHORT[s.roundWind]}</b>
-        </span>
         <span className="stat">
           Giliran: <b>{PLAYER_NAME[s.currentTurn]}</b>
-        </span>
-        <span className={`stat kim-indicator${settings.kimEnabled ? '' : ' off'}`} title="Status Kim">
-          <Sparkles size={14} /> {settings.kimEnabled ? "Ada Kim" : "Tanpa Kim"}
         </span>
       </div>
     </aside>

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Home, RotateCcw } from 'lucide-react';
-import type { Seat, Wind } from '../../core/types';
+import { Crown, Home, RotateCcw } from 'lucide-react';
+import { SEAT_ORDER, keyToTile } from '../../core/tiles';
+import type { Seat, Tile, TileFace, Wind } from '../../core/types';
 import { standings, isMatchOver, remainingMatchMs, type MatchState } from '../match';
-import { PLAYER_NAME, SEAT_SHORT, matchProgressLabel } from '../labels';
+import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, matchProgressLabel, tileText } from '../labels';
 import { Modal } from './Modal';
+import { TileView } from './TileView';
 
 /** Keep lower training thresholds visible wherever the match ranking is shown. */
 function MatchMinimumNote({ match }: { match: MatchState }) {
@@ -22,20 +24,44 @@ export function MatchClock({ match }: { match: MatchState }) {
   return <span aria-label="Waktu pertandingan">{remaining === null ? 'Waktu: tanpa batas' : `Waktu: ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`}{remaining === 0 && match.endedBy === null ? ' — waktu habis, selesaikan game ini' : ''}</span>;
 }
 
-/** Compact in-play indicator: "Game 3/16 · Angin putaran Timur" plus each player's valid Hu count. */
-export function MatchScoreboard({ match, hand, prevailingWind, dealer }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat }) {
+/**
+ * Table info at the top of the side panel: the prevailing (table) wind and this hand's Kim, each
+ * with its real tile, and the match's minimum Tay. `kimFace` is the natural Kim face; with Kim on
+ * and no face, the dedicated KIM tile is the Kim.
+ */
+export function TableInfo({ roundWind, kimEnabled, kimFace, minHuTay }: { roundWind: Wind; kimEnabled: boolean; kimFace: TileFace | null | undefined; minHuTay: number }) {
+  const wind: Tile = { id: 'table-wind', type: 'wind', value: SEAT_ORDER.indexOf(roundWind) + 1, isKim: false };
+  const kim: Tile | null = !kimEnabled ? null : kimFace ? { ...kimFace, id: 'table-kim', isKim: false } : keyToTile('KIM');
+  return (
+    <dl className="table-info" aria-label="Info meja">
+      <div><dt>Angin meja</dt><dd>{SEAT_LABEL[roundWind]} <TileView tile={wind} size="sm" /></dd></div>
+      <div><dt>Kim</dt><dd>{kim ? <>{kimFace ? tileText(kim) : 'Tile KIM'} <TileView tile={kim} size="sm" /></> : 'Tanpa Kim'}</dd></div>
+      <div><dt>Minimum Tay</dt><dd><b>{minHuTay}</b></dd></div>
+    </dl>
+  );
+}
+
+/** "Tabel Total Poin": progress, clock, and each player's Tay and Hu in match-ranking order. */
+export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = 'dong' }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat; human?: Seat }) {
   return (
     <div className="match-board" aria-label="Papan skor pertandingan">
+      <h3 className="match-board-title">Tabel Total Poin</h3>
       <strong>{matchProgressLabel(hand, prevailingWind)}</strong>
       <MatchMinimumNote match={match} />
       <MatchClock match={match} />
-      <span className="match-scores">
-        {standings(match).map(({ seat, rank }) => (
-          <span key={seat} className={`match-score${seat === dealer ? ' is-dealer' : ''}${rank === 1 && match.tayTotal[seat] > 0 ? ' is-leader' : ''}`} title={seat === dealer ? 'Dealer game ini' : undefined}>
-            {PLAYER_NAME[seat]}: <b>{match.tayTotal[seat]} Tay</b> · {match.huCount[seat]} Hu
-          </span>
-        ))}
-      </span>
+      <table className="match-scores">
+        <thead><tr><th scope="col">#</th><th scope="col">Pemain</th><th scope="col" className="num">Tay</th><th scope="col" className="num">Hu</th></tr></thead>
+        <tbody>
+          {standings(match).map(({ seat, rank, tay, hu }) => (
+            <tr key={seat} className={`match-score${seat === dealer ? ' is-dealer' : ''}${rank === 1 && tay > 0 ? ' is-leader' : ''}${seat === human ? ' is-human' : ''}`}>
+              <td className="rank">#{rank}</td>
+              <th scope="row">{PLAYER_NAME[seat]}{seat === dealer && <Crown size={11} aria-label="Dealer" className="dealer-mark" />}</th>
+              <td className="num"><b>{tay}</b></td>
+              <td className="num">{hu}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
