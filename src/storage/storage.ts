@@ -220,10 +220,10 @@ export const CASUAL_SETTINGS: Readonly<GameSettings> = Object.freeze({
   soundEnabled: true,
 });
 
-/** The user's house choices (not PDF text): column from the match Kim choice, own-seat flowers only. */
+/** The user's house choices (not PDF text): column from the match Kim choice, player-confirmed PDF bonus tiles. */
 export const PRACTICE_SCORING_DEFAULTS: Readonly<Pick<GameSettings, 'scoringBasis' | 'bonusTileRule'>> = Object.freeze({
   scoringBasis: 'match_table',
-  bonusTileRule: 'own_seat_only',
+  bonusTileRule: 'rulebook_per_tile',
 });
 
 /** Tournament Kim and overlap rules with the user's house scoring choices. */
@@ -389,7 +389,7 @@ export function sanitizeSettings(
     ),
     overlapPolicy: pickEnum(src.overlapPolicy, OVERLAP_POLICIES, base.overlapPolicy),
     scoringBasis: pickEnum(src.scoringBasis, SCORING_BASES, base.scoringBasis),
-    bonusTileRule: pickEnum(src.bonusTileRule, BONUS_TILE_RULES, base.bonusTileRule),
+    bonusTileRule: 'rulebook_per_tile',
     aiDifficulty: pickEnum(src.aiDifficulty, AI_DIFFICULTIES, base.aiDifficulty),
     animationSpeed: pickEnum(src.animationSpeed, ANIMATION_SPEEDS, base.animationSpeed),
     soundEnabled: pickBool(src.soundEnabled, base.soundEnabled),
@@ -433,7 +433,11 @@ export function detectPreset(settings: GameSettings): SettingsPresetName | 'cust
 export function loadSettings(storage?: StorageLike): GameSettings {
   const raw = safeRead(getStorage(storage), SETTINGS_STORAGE_KEY);
   if (raw === undefined) return { ...DEFAULT_SETTINGS };
-  return sanitizeSettings(raw);
+  const settings = sanitizeSettings(raw);
+  if (isRecord(raw) && raw.bonusTileRule === 'own_seat_only') {
+    safeWrite(getStorage(storage), SETTINGS_STORAGE_KEY, { ...raw, bonusTileRule: 'rulebook_per_tile' });
+  }
+  return settings;
 }
 
 /** Persist settings (sanitized first). Returns false if the write failed. */
@@ -470,12 +474,12 @@ export function updateSettings(patch: Partial<GameSettings>, storage?: StorageLi
 
 /**
  * Practice table defaults: a scoring choice the user never stored follows the house defaults
- * (match table, own-seat flowers). A stored choice, including the PDF reference values, is kept.
+ * (match table). Bonus tiles always follow the player-confirmed PDF values.
  */
 export function withPracticeScoringDefaults(settings: GameSettings, storage?: StorageLike): GameSettings {
   const raw = safeRead(getStorage(storage), SETTINGS_STORAGE_KEY);
   const stored = isRecord(raw) ? raw : {};
-  const next = { ...settings };
+  const next = { ...settings, bonusTileRule: 'rulebook_per_tile' as const };
   for (const key of SCORING_CHOICE_KEYS) {
     if (!hasValidChoice(stored, key)) Object.assign(next, { [key]: PRACTICE_SCORING_DEFAULTS[key] });
   }
@@ -525,7 +529,6 @@ export function toGameRules(settings: GameSettings): GameRules {
     allowKimInMeldClaim: settings.allowKimInMeldClaim,
     minHuTay: settings.minHuTay,
     ...(settings.scoringBasis === 'match_table' ? { scoringBasis: settings.scoringBasis } : {}),
-    ...(settings.bonusTileRule === 'own_seat_only' ? { bonusTileRule: settings.bonusTileRule } : {}),
   };
 }
 

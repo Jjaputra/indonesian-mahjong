@@ -149,21 +149,21 @@ describe('Round 2 · individual flower/season rule', () => {
     expect(tay(r, 2)).toBe(4);
   });
 
-  it('own-seat-only: each own-seat tile +1, every off-seat tile 0', () => {
+  it('retired own-seat option normalizes to the PDF rule', () => {
     const r = score(CHICKEN, CHICKEN_WIN, rules(true, undefined, 'own_seat_only'), { flowers: bonus, seat: 'nan' });
-    expect(r.bonusTileRule).toBe('own_seat_only');
+    expect(r.bonusTileRule).toBe('rulebook_per_tile');
     expect(tay(r, 1)).toBe(1);
-    expect(tay(r, 2)).toBe(1);
-    expect(r.patterns.find((p) => p.id === 2)?.description).toContain('2 posisi lain (0)');
+    expect(tay(r, 2)).toBe(4);
+    expect(r.patterns.find((p) => p.id === 2)?.description).toContain('Tile Musim 2 (sesuai tempat duduk) 2');
   });
 
-  it('own-seat-only: off-seat tiles alone score 0 but stay listed', () => {
+  it('off-seat Bunga scores 0 and off-seat Musim scores 1', () => {
     const r = score(CHICKEN, CHICKEN_WIN, rules(true, undefined, 'own_seat_only'), {
       flowers: [keyToTile('F1'), keyToTile('M3')],
       seat: 'nan',
     });
     expect(tay(r, 1)).toBe(0);
-    expect(tay(r, 2)).toBe(0);
+    expect(tay(r, 2)).toBe(1);
   });
 
   it('collection awards (#5 four seasons) are kept under both rules', () => {
@@ -173,14 +173,14 @@ describe('Round 2 · individual flower/season rule', () => {
     expect(tay(pdf, 5)).toBe(20);
     expect(tay(house, 5)).toBe(20);
     expect(tay(pdf, 2)).toBe(5);
-    expect(tay(house, 2)).toBe(1);
+    expect(tay(house, 2)).toBe(5);
   });
 
   it('the bonus rule is independent of the table basis', () => {
     for (const basis of ['hand_kim_usage', 'match_table'] as const) {
       const r = score(CHICKEN, CHICKEN_WIN, rules(true, basis, 'own_seat_only'), { flowers: bonus, seat: 'nan' });
       expect(tay(r, 1)).toBe(1);
-      expect(tay(r, 2)).toBe(1);
+      expect(tay(r, 2)).toBe(4);
     }
   });
 });
@@ -228,10 +228,10 @@ describe('Round 2 · hand preview and calculator agree with live scoring', () =>
     const pdf = calculateTay([1, 2], true, 0, { bonus: counts });
     const house = calculateTay([1, 2], true, 0, { bonus: counts, bonusTileRule: 'own_seat_only' });
     expect(pdf.lines.map((l) => l.tay)).toEqual([1, 4]);
-    expect(house.lines.map((l) => l.tay)).toEqual([1, 1]);
-    expect(house.bonusTileRule).toBe('own_seat_only');
-    // Without counts the house rule knows of no seat match, so the individual line is 0.
-    expect(calculateTay([2], true, 0, { bonusTileRule: 'own_seat_only' }).total).toBe(0);
+    expect(house.lines.map((l) => l.tay)).toEqual([1, 4]);
+    expect(house.bonusTileRule).toBe('rulebook_per_tile');
+    // Without counts the PDF base value is used.
+    expect(calculateTay([2], true, 0, { bonusTileRule: 'own_seat_only' }).total).toBe(1);
     expect(calculateTay([2], true, 0).total).toBe(1);
   });
 });

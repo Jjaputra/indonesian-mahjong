@@ -45,14 +45,14 @@ describe('Round 2 · presets keep the PDF reference separate from house choices'
     expect(HOUSE_SETTINGS).toMatchObject(PRACTICE_SCORING_DEFAULTS);
     expect(detectPreset(getPreset('house'))).toBe('house');
     expect(detectPreset(getPreset('tournament'))).toBe('tournament');
-    expect(detectPreset({ ...getPreset('tournament'), bonusTileRule: 'own_seat_only' })).toBe('custom');
+    expect(detectPreset({ ...getPreset('tournament'), bonusTileRule: 'rulebook_per_tile' })).toBe('tournament');
   });
 
   it('toGameRules / toFullRules propagate the active basis and flower rule, and omit legacy defaults', () => {
     expect(toGameRules(TOURNAMENT_SETTINGS)).not.toHaveProperty('scoringBasis');
     expect(toGameRules(TOURNAMENT_SETTINGS)).not.toHaveProperty('bonusTileRule');
-    expect(toGameRules(HOUSE_SETTINGS)).toMatchObject({ scoringBasis: 'match_table', bonusTileRule: 'own_seat_only' });
-    expect(toFullRules(HOUSE_SETTINGS)).toMatchObject({ scoringBasis: 'match_table', bonusTileRule: 'own_seat_only', kimEnabled: true });
+    expect(toGameRules(HOUSE_SETTINGS)).toMatchObject({ scoringBasis: 'match_table' });
+    expect(toFullRules(HOUSE_SETTINGS)).toMatchObject({ scoringBasis: 'match_table', kimEnabled: true });
   });
 });
 
@@ -87,6 +87,14 @@ describe('Round 2 · practice defaults never overwrite an explicit choice', () =
     expect(practice.scoringBasis).toBe('match_table');
   });
 
+  it('silently migrates an old own-seat setting and preserves unrelated preferences', () => {
+    const store = new MemoryStorage();
+    store.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ bonusTileRule: 'own_seat_only', soundEnabled: false, scoringBasis: 'hand_kim_usage' }));
+    expect(loadSettings(store)).toMatchObject({ bonusTileRule: 'rulebook_per_tile', soundEnabled: false });
+    expect(stored(store)).toEqual({ bonusTileRule: 'rulebook_per_tile', soundEnabled: false, scoringBasis: 'hand_kim_usage' });
+    expect(withPracticeScoringDefaults({ ...HOUSE_SETTINGS, bonusTileRule: 'own_seat_only' }, store).bonusTileRule).toBe('rulebook_per_tile');
+  });
+
   it('legacy records without the fields and corrupted values fall back safely', () => {
     const store = new MemoryStorage();
     store.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ kimEnabled: true, scoringBasis: 'nonsense', bonusTileRule: 7 }));
@@ -118,7 +126,7 @@ describe('Round 2 · a match freezes its rules until the next hand', () => {
     const house: GameSettings = { ...HOUSE_SETTINGS, soundEnabled: false };
     const c = new GameController({ settings: house, seed: 7, saveHistory: false });
     c.setSettings({ ...house, scoringBasis: 'hand_kim_usage', bonusTileRule: 'rulebook_per_tile', kimEnabled: false });
-    expect(c.getSettings()).toMatchObject({ scoringBasis: 'match_table', bonusTileRule: 'own_seat_only', kimEnabled: true });
+    expect(c.getSettings()).toMatchObject({ scoringBasis: 'match_table', bonusTileRule: 'rulebook_per_tile', kimEnabled: true });
     c.newGame();
     expect(c.getSettings()).toMatchObject({ scoringBasis: 'hand_kim_usage', bonusTileRule: 'rulebook_per_tile', kimEnabled: false });
   });
@@ -132,7 +140,7 @@ describe('Round 2 · a match freezes its rules until the next hand', () => {
         const o = c.outcome;
         if (!o || o.kind !== 'hu') continue;
         expect(o.scoring.scoringBasis).toBe('match_table');
-        expect(o.scoring.bonusTileRule).toBe('own_seat_only');
+        expect(o.scoring.bonusTileRule).toBe('rulebook_per_tile');
         expect(o.scoring.mode).toBe(kimEnabled ? 'K' : 'NK');
         const kims = [...o.hand, ...o.melds.flatMap((m) => m.tiles)].filter((t) => t.type === 'kim').length;
         expect(o.scoring.handKimCount).toBe(kims);
@@ -156,9 +164,9 @@ describe('Round 2 · results and history explain the column vs actual Kim usage'
     const outcome: HuOutcome = { kind: 'hu', winner: 'nan', winningTile: win, winMethod: 'ron', discarder: 'dong', hand: [...hand, win], melds: [], flowers: [], scoring, durationSeconds: 10 };
     const text = buildHuReceipt(outcome);
     expect(text).toContain('Kolom tabel Ada Kim (pilihan pertandingan) · Kim di tangan: 0');
-    expect(text).toContain('hanya posisi sendiri');
+    expect(text).toContain('per tile sesuai PDF');
     expect(text).toContain('Catatan: Hand tanpa Kim (Bo KIM terdeteksi)');
-    expect(activeRulesSummary(HOUSE_SETTINGS)).toBe('Tabel Ada Kim untuk semua Hu (semua Kim natural: Bo KIM/NK) · Bunga/Musim hanya posisi sendiri');
+    expect(activeRulesSummary(HOUSE_SETTINGS)).toBe('Tabel Ada Kim untuk semua Hu (semua Kim natural: Bo KIM/NK) · Bunga/Musim per tile (PDF)');
     expect(activeRulesSummary(TOURNAMENT_SETTINGS)).toBe('Kolom menurut Kim di tangan · Bunga/Musim per tile (PDF)');
   });
 
@@ -169,7 +177,7 @@ describe('Round 2 · results and history explain the column vs actual Kim usage'
     saveGameRecord({ ...base, id: 'old', timestamp: 1 }, store);
     store.setItem('itm.history.v1', JSON.stringify([...JSON.parse(store.getItem('itm.history.v1')!), { ...base, id: 'bad', timestamp: 0, tableColumn: 'X', handKimCount: -2 }]));
     const [fresh, legacy, bad] = loadGameHistory(store);
-    expect(fresh).toMatchObject({ scoringBasis: 'match_table', tableColumn: 'K', bonusTileRule: 'own_seat_only', handKimCount: 0 });
+    expect(fresh).toMatchObject({ scoringBasis: 'match_table', tableColumn: 'K', bonusTileRule: 'rulebook_per_tile', handKimCount: 0 });
     expect(historyColumnLabel(fresh!)).toBe('Tabel Ada Kim · 0 Kim di tangan');
     expect(legacy).not.toHaveProperty('tableColumn');
     expect(legacy).not.toHaveProperty('handKimCount');

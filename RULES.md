@@ -97,9 +97,9 @@ The column only decides values. Kim usage is still counted from the hand (`Scori
 - #8 Bo KIM is detected from the hand and awards +3 in either column and either scoring basis, overriding the blank Ada KIM PDF cell (player feedback 2026-11-12). It is awarded once and never together with joker-use awards.
 - Example, Kim match, concealed Tuei Tuei with a number pair and no Kim, won on a discard completing the pair: hand usage gives #15 10, #34 30, #8 3; match table gives #15 5, #34 20 and #8 3.
 
-The **Mode Kim** setting decides how Kim is selected and whether it exists. Settings are frozen for a hand: changes made during a match (including the basis and the flower rule) apply from the next `newGame`, and the table header says so. `toGameRules` / `toFullRules` include `scoringBasis` and `bonusTileRule` only when they differ from the legacy defaults, which is what an omitted field means to the engine.
+The **Mode Kim** setting decides how Kim is selected and whether it exists. Settings are frozen for a hand: changes made during a match (including the basis) apply from the next `newGame`, and the table header says so. `toGameRules` / `toFullRules` include `scoringBasis` only when it differs from the legacy default; omitted `bonusTileRule` means the sole live PDF rule.
 
-**Persistence.** The two scoring choices are written to settings only once the user actually chooses them (a settings save that changes them, the menu flower toggle, or a preset). Until then practice follows the house defaults (`withPracticeScoringDefaults`), and unrelated saves (sound, pace, Kim choice) do not write the fallback value. An explicitly stored choice, including the PDF reference values, is never replaced. History rows store `scoringBasis`, `tableColumn`, `bonusTileRule` and `handKimCount` when the saver provides them (`historyScoringFields`). Rows saved earlier keep their original label (the hand's Kim usage) and no Kim count is invented for them.
+**Persistence.** The scoring-basis choice is preserved when explicitly stored; otherwise practice uses `match_table`. Bonus tiles always use `rulebook_per_tile`; stored `own_seat_only` settings silently migrate to it. The old own-seat-only prompt was incorrect (players, 2026-11-12). History retains its original scoring fields, labels and totals, including legacy bonus rules; no historical Kim count is invented.
 
 **Bo KIM natural use (#8, p. 8): confirmed by the user (2026-11-11).** Row #8 says “Tidak ada Kim / Joker ATAU Kim dipakai untuk melengkapi set sesuai dengan nomer/jenis kim tersebut.” Every Kim used at its own face earns Bo KIM (3 Tay) and reads the Tidak ada KIM column, including under the match-table house rule. Exception, #39 Se Sam Pu Tat: its "tidak ada kim" condition is met the same way, so such a hand reads the same column as a Kim-free hand in both bases (40 Tay). `handKimCount` still records physical Kim; `isWithKim` records joker use for this interpretation. Zero-Kim hands retain the existing match-table house rule described above. The solver enumerates natural and wildcard uses and the scorer chooses the highest total Tay legal interpretation; a possible natural reading does not force it over a higher scoring joker reading.
 
@@ -107,11 +107,9 @@ The **Mode Kim** setting decides how Kim is selected and whether it exists. Sett
 
 **Shi Kim decision (implementation interpretation).** Holding four physical Kim permits instant Shi Kim Hu (10 Tay), regardless of their potential natural use, since no completed decomposition is being declared. In a completed hand, all four used naturally earn Bo KIM/NK and no Kim-specific awards; any joker use permits Shi Kim (40 Tay/K). Kim Thi and Kim Ciok follow the row text literally: three Kim forming a tris is "Kim dijadikan tris" (#30) and two Kim forming the pair is "Kim dijadikan pair" (#32), even when the Kim are all one natural face (three natural Kim are always the same face). The scorer keeps the highest-total reading, so three Zhong Kim score Kim Thi 30 (Ada KIM column) rather than Bo KIM + Tris Zhong. Pyong Pi needs a Kim paired with the drawn winning tile. #7 Tile KIM counts every physical Kim held whenever the hand reads the Ada KIM column (1 Tay each, including any Kim used at its own face in a mixed hand). An all-natural reading never awards these K-only patterns together with Bo KIM; the four-Kim instant reading remains an interpretation pending further expert clarification.
 
-**Flowers and seasons (#1, #2, p. 8; setting `bonusTileRule`).** Two labelled rules:
-- `rulebook_per_tile` (PDF reference, and the default for callers that do not pass the option): each Bunga (kembang hitam) is 0 Tay, each Musim (kembang merah) is 1 Tay, and a tile whose number matches the seat (Dong = 1, Nan = 2, Xi = 3, Bei = 4) adds +1.
-- `own_seat_only` (**user house rule**, the practice default): only an individual Bunga or Musim whose number matches the seat earns +1; every off-seat tile earns 0. The off-seat tiles are still listed on the receipt with 0.
+**Flowers and seasons (#1, #2, p. 8): confirmed by players after a full round (2026-11-12).** `rulebook_per_tile` is the only live rule: each Bunga (kembang hitam) has base 0, each Musim (kembang merah) has base 1, and matching the current seat number adds +1. Thus off-seat Bunga = 0, own-seat Bunga = 1, off-seat Musim = 1, own-seat Musim = 2. The seat follows the rotated wind for this hand: Dong = 1, Nan = 2, Xi = 3, Bei = 4. The earlier `own_seat_only` house rule came from an incorrect prompt and is retired.
 
-**Bonus posisi +1** means exactly one extra Tay for each individual Bunga or Musim whose number equals the seat, added to that tile's base. So an own-seat Musim is 1 + 1 = 2 under `rulebook_per_tile` and 0 + 1 = 1 under `own_seat_only`; an own-seat Bunga is 0 + 1 = 1 under both. No second +1 is ever added.
+The players' game 6 regression: prevailing Nan, winner seated Xi (3), Bunga 3 + Bunga 1 + Musim 3 scores Tile Bunga 1 and Tile Musim 2. Prevailing wind does not decide the bonus seat number.
 
 **Reading the bonus tiles (aligned with tiles rev2.pdf).** The rulebook row text calls the two families "Kembang hitam" (#1 Bunga) and "Kembang merah" (#2 Musim). As confirmed in `tiles rev2.pdf`:
 - **Musim** (`season`, "kembang merah"): red number and glyph. 1 春 Spring/Semi, 2 夏 Summer/Panas, 3 秋 Autumn/Gugur, 4 冬 Winter/Dingin. Base 1 Tay, seat match +1 Tay.
@@ -156,7 +154,7 @@ Natural Kim cannot be discarded or used to claim Jia/Pung/Kong, even if a casual
 
 ## 6. Questions that need an answer
 
-1. Flowers/seasons: the user chose own-seat only for individual tiles. Still open: do collection awards (#4, #5, #6) change under that rule?
+1. Resolved (old question #3, players 2026-11-12): bonus-tile scoring follows the PDF per-tile rule; collection awards stay #4 = 10, #5 = 20, #6 = 30 with the existing supersede behaviour.
 2. Does "posisi Dong" (Thien Fu) confirm the dealer-relative seat-wind convention used by the app?
 
 The #39 column placement, #12 first self-draw, #36 winning fourth tile, #33/#34 discard completion, #31 pair meaning and pattern stacking questions are confirmed in §2–3. Random Kim selection was also confirmed by players (see Kim model).
@@ -164,6 +162,8 @@ The #39 column placement, #12 first self-draw, #36 winning fourth tile, #33/#34 
 ## 7. Match flow (continuous game)
 
 Code: `src/ui/match.ts`, `GameController.startMatch` / `nextHand`.
+
+**Confirmed in play (players, 2026-11-12):** prevailing wind Dong for games 1–4, then Nan from game 5; a dealer who wins keeps the deal.
 
 Match policy (player answers 2026-11-12; supersedes PDF section 4's 8-game / Hu-count choices):
 - Every match has exactly **16 games**, unless the optional 90-minute Waktu ends it earlier at a hand boundary. There is no match-length choice or saved length; the old `itm.match-length.v1` preference is silently removed on app startup.

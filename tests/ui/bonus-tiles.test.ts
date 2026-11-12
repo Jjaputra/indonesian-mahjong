@@ -152,13 +152,13 @@ describe('bonus posisi +1 is unaffected by the visual correction', () => {
   };
   const tay = (r: ScoringResult, id: number) => r.patterns.find((p) => p.id === id)?.tay ?? 0;
 
-  it('own_seat_only: the own-seat Bunga and Musim each earn exactly +1, off-seat tiles 0, for every seat', () => {
+  it('legacy own_seat_only callers use the confirmed PDF rule for every seat', () => {
     SEATS.forEach((seat, i) => {
       const own = i + 1;
       const off = (i + 1) % 4 + 1;
-      expect(tay(score(seat, [keyToTile(`M${own}`)], 'own_seat_only'), 2), `${seat} M${own}`).toBe(1);
+      expect(tay(score(seat, [keyToTile(`M${own}`)], 'own_seat_only'), 2), `${seat} M${own}`).toBe(2);
       expect(tay(score(seat, [keyToTile(`F${own}`)], 'own_seat_only'), 1), `${seat} F${own}`).toBe(1);
-      expect(tay(score(seat, [keyToTile(`M${off}`)], 'own_seat_only'), 2), `${seat} M${off}`).toBe(0);
+      expect(tay(score(seat, [keyToTile(`M${off}`)], 'own_seat_only'), 2), `${seat} M${off}`).toBe(1);
       expect(tay(score(seat, [keyToTile(`F${off}`)], 'own_seat_only'), 1), `${seat} F${off}`).toBe(0);
     });
   });

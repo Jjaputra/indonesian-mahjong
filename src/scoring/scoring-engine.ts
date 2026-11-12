@@ -69,29 +69,22 @@ function award(
 // Pattern detectors
 // ============================================================================
 
-function detectBonus({ mode, flowers, context, bonusTileRule }: ScoringInput): DetectedPattern[] {
+function detectBonus({ mode, flowers, context }: ScoringInput): DetectedPattern[] {
   const out: (DetectedPattern | null)[] = [];
   const seatNo = SEAT_NUMBER[context.seatWind];
   const bunga = flowers.filter((t) => t.type === 'flower');
   const musim = flowers.filter((t) => t.type === 'season');
-  const seatOnly = bonusTileRule === 'own_seat_only';
   const individual = (id: 1 | 2, label: string, tiles: Tile[]) => {
     if (tiles.length === 0) return;
-    const own = tiles.filter((t) => t.value === seatNo).length;
-    const seatBonus = own * (getPattern(id).seatMatchBonus ?? 0);
-    if (seatOnly) {
-      const off = tiles.length - own;
-      const parts = [own ? `${own} sesuai posisi duduk (+1)` : '', off ? `${off} posisi lain (0)` : ''].filter(Boolean);
-      out.push(award(id, mode, `${tiles.length} ${label}: ${parts.join(', ')} — aturan rumah: hanya posisi sendiri`, seatBonus));
-      return;
-    }
     const perTile = tableTay(id, mode) ?? 0;
-    out.push(
-      award(id, mode, `${tiles.length} ${label} (${perTile} Tay/tile)${own ? `, ${own} sesuai posisi duduk (+1)` : ''}`, tiles.length * perTile + seatBonus)
-    );
+    const points = (tile: Tile) => perTile + (tile.value === seatNo ? 1 : 0);
+    const detail = (tile: Tile) => `Tile ${label} ${tile.value}${tile.value === seatNo ? ' (sesuai tempat duduk)' : ''}`;
+    const pattern = award(id, mode, tiles.map(t => `${detail(t)} ${points(t)}`).join(', '), tiles.reduce((sum, t) => sum + points(t), 0));
+    if (pattern && tiles.length === 1) pattern.name = detail(tiles[0]!);
+    out.push(pattern);
   };
-  individual(1, 'bunga', bunga);
-  individual(2, 'musim', musim);
+  individual(1, 'Bunga', bunga);
+  individual(2, 'Musim', musim);
   if (bunga.length === 4) out.push(award(4, mode, 'Memiliki keempat tile bunga'));
   if (musim.length === 4) out.push(award(5, mode, 'Memiliki keempat tile musim'));
   if (bunga.length + musim.length >= 7) out.push(award(6, mode, `${bunga.length + musim.length} tile bunga/musim dalam Hu lengkap`));
@@ -308,7 +301,7 @@ export class ScoringEngine implements IScoringEngine {
     const kimCount = countKims(allTiles);
     const rawMode: KimMode = kimCount > 0 ? 'K' : 'NK';
     const scoringBasis: ScoringBasis = r.scoringBasis ?? 'hand_kim_usage';
-    const bonusTileRule: BonusTileRule = r.bonusTileRule ?? 'rulebook_per_tile';
+    const bonusTileRule: BonusTileRule = 'rulebook_per_tile';
     // Match table: every hand of the match reads the column of the match choice.
     const tableColumn: KimMode | null = scoringBasis === 'match_table' ? (r.kimEnabled ? 'K' : 'NK') : null;
     const isInstantHu = !!context.isInstantHu;
