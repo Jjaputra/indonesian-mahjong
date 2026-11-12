@@ -42,8 +42,8 @@ export function nextSeating(current: Seating, _result: HandResult, _dealerWinRul
   return { dealer, prevailingWind, dealerPasses: 0 };
 }
 
-export { roundScore, type RoundScore, type RoundScoreKind } from '../core/round-score';
-import { roundScore, deriveRoundScore, type RoundScore } from '../core/round-score';
+export { roundScore, type RoundScore, type RoundScoreKind, kongPayment, type KongPayment, type KongPaymentKind } from '../core/round-score';
+import { roundScore, deriveRoundScore, type RoundScore, type KongPayment, gameDeltas, migrateKongPayments } from '../core/round-score';
 
 export interface MatchHandRecord {
   /** 1-based hand number */
@@ -56,6 +56,8 @@ export interface MatchHandRecord {
   lewFit?: boolean;
   totalTay: number;
   roundScore: RoundScore | null;
+  kongPayments: KongPayment[];
+  gameDeltas: Record<Seat, number>;
 }
 
 export interface MatchState {
@@ -100,10 +102,10 @@ export function isMatchOver(match: MatchState): boolean {
 
 /**
  * Record a finished hand and rotate the seating for the next one. `winner` is the declarer of a
- * Hu; `validHu` false means a Lew Fit, which scores nothing and rotates the dealer.
- * The raw Tay minimum is checked before applying win facts. Legacy callers without win facts receive zero koin.
+ * Hu; `validHu` false means a Lew Fit: no Hu payment, but completed Kong payments remain.
+ * The raw Tay minimum is checked before applying win facts. Legacy callers without win facts receive zero Hu koin.
  */
-export function recordHand(match: MatchState, winner: Seat | null, validHu: boolean, totalTay: number, now = Date.now(), win?: { winMethod: 'tsumo' | 'ron' | 'chiong_kong'; discarder?: Seat }): MatchState {
+export function recordHand(match: MatchState, winner: Seat | null, validHu: boolean, totalTay: number, now = Date.now(), win?: { winMethod: 'tsumo' | 'ron' | 'chiong_kong'; discarder?: Seat }, kongPayments: KongPayment[] = []): MatchState {
   if (isMatchOver(match)) return match;
   if (!match.koinTotal) match = migrateMatchState(match);
   const hand = currentHandNumber(match);
@@ -117,12 +119,14 @@ export function recordHand(match: MatchState, winner: Seat | null, validHu: bool
     ...(winner !== null && !credited ? { lewFit: true } : {}),
     totalTay: credited ? totalTay : 0,
     roundScore: score,
+    kongPayments: [...kongPayments],
+    gameDeltas: gameDeltas(score, kongPayments),
   };
   const huCount = { ...match.huCount };
   const tayTotal = { ...match.tayTotal };
   const koinTotal = { ...match.koinTotal };
-  if (score) for (const seat of SEAT_ORDER) {
-    koinTotal[seat] += score.deltas[seat];
+  for (const seat of SEAT_ORDER) {
+    koinTotal[seat] += record.gameDeltas[seat];
   }
   if (credited) {
     huCount[credited]++;
@@ -240,10 +244,10 @@ export function migrateMatchState(raw: MatchState): MatchState {
   const hands = (raw.hands ?? []).map((old): MatchHandRecord => {
     const score = old.winner && !old.lewFit ? deriveRoundScore(old.winner, old.totalTay, old) : null;
     if (old.winner && !old.lewFit) { tayTotal[old.winner] += old.totalTay; huCount[old.winner]++; }
-    if (score) for (const seat of SEAT_ORDER) {
-      koinTotal[seat] += score.deltas[seat];
-    }
-    return { hand: old.hand, dealer: old.dealer, prevailingWind: old.prevailingWind, winner: old.winner, ...(old.lewFit ? { lewFit: true } : {}), totalTay: old.totalTay, roundScore: score };
+    const kongPayments = migrateKongPayments(old.kongPayments);
+    const deltas = gameDeltas(score, kongPayments);
+    for (const seat of SEAT_ORDER) koinTotal[seat] += deltas[seat];
+    return { hand: old.hand, dealer: old.dealer, prevailingWind: old.prevailingWind, winner: old.winner, ...(old.lewFit ? { lewFit: true } : {}), totalTay: old.totalTay, roundScore: score, kongPayments, gameDeltas: deltas };
   });
   return { ...raw, hands, koinTotal, tayTotal, huCount, reachedAt: firstReached(hands, koinTotal) };
 }
@@ -253,7 +257,7 @@ function firstReached(hands: MatchHandRecord[], final: Record<Seat, number>): Re
   const balance = zero(), reached = zero();
   const found = new Set(SEAT_ORDER.filter(seat => final[seat] === 0));
   for (const hand of hands) for (const seat of SEAT_ORDER) {
-    balance[seat] += hand.roundScore?.deltas[seat] ?? 0;
+    balance[seat] += hand.gameDeltas?.[seat] ?? hand.roundScore?.deltas[seat] ?? 0;
     if (!found.has(seat) && balance[seat] === final[seat]) { reached[seat] = hand.hand; found.add(seat); }
   }
   return reached;

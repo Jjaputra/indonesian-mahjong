@@ -4,7 +4,7 @@ import { computeHistoryStats, concealedHistoryTiles, type MatchHistoryRecord } f
 import { PLAYER_NAME, WIN_METHOD_LABEL } from '../labels';
 import { modeLabel } from '../tay-calculator';
 import { Modal } from './Modal';
-import { tayKoinText } from './points';
+import { KONG_KIND_LABEL, kongFaceText, kongNote, kongPaymentsOf, tayKoinText } from './points';
 import { MeldView, TileRow, TileView } from './TileView';
 
 interface HistoryModalProps {
@@ -48,6 +48,13 @@ export function HistoryDetail({ record, onDelete }: { record: MatchHistoryRecord
             ))}
           </tbody>
         </table>
+      )}
+      {kongPaymentsOf(record).length > 0 && (
+        <ul className="history-kongs" aria-label="Pembayaran Kong">
+          {kongPaymentsOf(record).map((p, i) => (
+            <li key={i}>{KONG_KIND_LABEL[p.kind]} {kongFaceText(p)} · {PLAYER_NAME[p.owner]} +{p.perPlayer * 3} koin (tiap pemain {p.perPlayer})</li>
+          ))}
+        </ul>
       )}
       <p className="muted small">Durasi: {record.durationSeconds} detik</p>
       <button type="button" className="btn btn-danger" onClick={() => onDelete(record.id)}>
@@ -105,7 +112,7 @@ export function HistoryModal({ history, onDelete, onClear, onClose }: HistoryMod
                 <strong>{r.winner ? `${PLAYER_NAME[r.winner]} Hu` : 'Seri'}</strong>
                 <span>{WIN_METHOD_LABEL[r.winMethod].split(' (')[0]}</span>
                 {r.winner && <span className="badge badge-kim">{modeLabel(r.tableColumn ?? (r.isWithKim ? 'K' : 'NK'))}</span>}
-                <span className="num">{tayKoinText(r)}</span>
+                <span className="num">{r.winner || !kongPaymentsOf(r).length ? tayKoinText(r) : ''}{kongPaymentsOf(r).length > 0 && `${r.winner ? ' · ' : ''}${kongNote(kongPaymentsOf(r))}`}</span>
               </button>
               {open && <HistoryDetail record={r} onDelete={onDelete} />}
             </li>

@@ -180,7 +180,7 @@ Match policy (player answers 2026-11-12; supersedes PDF section 4's 8-game / Hu-
 - Every match has exactly **16 games**, unless the optional 90-minute Waktu ends it earlier at a hand boundary. There is no match-length choice or saved length; the old `itm.match-length.v1` preference is silently removed on app startup.
 - Every completed hand is one game: dealer Hu, other valid Hu, Seri and Lew Fit all count once. Seri moves straight to the next game without replay. Every result (dealer Hu, other Hu, Lew Fit and Seri) rotates the dealer one chair and the seat winds. This player house rule supersedes PDF section 4 "angin duduk tidak berputar" for Seri in this app. The removed dealer-rotation preference is still discarded on load; legacy dealer-stays values cannot override this policy.
 - **Round Score totals use koin**, separately from cumulative raw Tay and valid Hu count.
-- Ranking uses **highest cumulative koin**, then **more valid Hu**, then **whoever first reached their final koin total** (the first hand where their balance equalled that total, including the opening zero balance), then seat order. Seri and Lew Fit add zero; every valid payout updates all four balances.
+- Ranking uses **highest cumulative koin**, then **more valid Hu**, then **whoever first reached their final koin total** (the first hand where their balance equalled that total, including the opening zero balance), then seat order. Seri and Lew Fit retain completed Kong payments; every valid payout updates all four balances.
 - MatchBoard, hand results and final standings share this order and display Koin · Tay · Hu.
 
 Implementation conventions and practice choices (**not stated in the PDF**; seating policy is in `nextSeating`):
@@ -216,3 +216,22 @@ K | pung 555s | kong 7777p | ankong NNNN | jia 234s | bunga 1 3 | musim 2 | win 
 Validator menolak token tak dikenal, lebih dari empat salinan wajah yang sama (termasuk Kim), meld salah, bunga/musim ganda, pembuang yang sama dengan pemenang, atau jumlah bentuk selain 14 + jumlah Kong. Validasi bentuk tidak menjamin Hu; sandbox menggunakan mesin Tay yang sama dengan permainan, termasuk batas minimum Hu dan Round Score (null untuk Hu tidak sah). Dalam sandbox dealer selalu E sehingga kursi identik dengan angin kursi; hasil dari permainan dengan dealer berotasi dipetakan ke angin kursi saat diekspor.
 
 Rig `devSetHand` mengganti tangan tertutup manusia hanya pada gilirannya dan mempertahankan panjang tangan saat ini. Ubin diambil dari tangan sendiri dan tembok secara atomik; jika salinan yang diperlukan ada di pemain lain, discard, meld, atau indikator Kim yang disisihkan, permintaan ditolak dengan pesan Indonesia. Urutan kode menjadi urutan tangan, dengan ubin terakhir sebagai ubin kemenangan Ce Mo saat tangan berstatus baru menarik. `devSetNextDraw` memindahkan salinan fisik dalam tembok ke penarikan biasa berikutnya (kepala tembok); penggantian Kong/bunga tetap mengambil ekor. Kedua API memerlukan mode developer aktif dan mempertahankan inventaris fisik 143/144/148, atribut Kim, indikator, dan cadangan tembok mati.
+
+## Kong koin (house rule, players 2026-11-12)
+
+Kong gives **0 Tay** and counts as a Pung/triplet for patterns. On completion, each of the other three players pays the owner immediately:
+
+| Kong | Each opponent pays | Owner receives |
+| --- | ---: | ---: |
+| Ankong (di dalam) | 2 koin | 6 koin |
+| Kong makan dari orang / added Kong (Kakan) | 1 koin | 3 koin |
+| Ankong Zhong | 4 koin | 12 koin |
+| Kong Zhong makan dari orang / added | 2 koin | 6 koin |
+
+Zhong means **red dragon 中 only**, not Fat or Pat. Added Kong counts as “makan dari orang”; its payment happens only after the Chiong Kong window passes. A robbed added Kong never completes and has **no Kong payment**. Payments remain even on **Seri or Lew Fit**, and add to the Hu Round Score for that game; all game balances sum to zero. Kim cannot be claimed, so no claimed Kong of the Kim face is possible; a concealed Kong of four natural Kim tiles follows the same table (including Zhong if that is the Kim face).
+
+For Sam Am Kang (#33) and Si Am Kang (#34), an Ankong still counts as a concealed triplet: “dihitung pung/tris jadi sendiri, bukan makan dari org”. Exposed Kongs are not concealed triplets.
+
+The players' tournament reference confirms the v0.5.5 Hu Round Score: “1 tay = 1 koin; dimakan (Hu dari buangan) yang dimakan bayar 2× total tay, yang lain 1×; zemo semua bayar 2×”. Kong koin is separate from these Hu payments and does not change Tay.
+
+API: Hu/Seri outcomes and match/history records expose `kongPayments` (completed payments only) and `gameDeltas` (Hu plus all Kong payments); `roundScore` remains the Hu part. `GameController.currentKongPayments` is available during play and resets on the next game. Sandbox payments assume all kong/ankong melds were completed by the winner; hand codes retain their existing format. Legacy records load with an empty payment list and Hu-only (or zero) game deltas.

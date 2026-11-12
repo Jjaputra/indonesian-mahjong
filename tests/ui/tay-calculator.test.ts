@@ -165,7 +165,7 @@ describe('Hu receipt', () => {
       melds: [],
       flowers,
       scoring,
-      roundScore: null,
+      roundScore: null, kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 },
       durationSeconds: 90,
     };
     const text = buildHuReceipt(outcome);

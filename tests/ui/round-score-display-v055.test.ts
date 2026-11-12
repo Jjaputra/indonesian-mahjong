@@ -37,15 +37,17 @@ function validHu(): HuOutcome {
   throw new Error('no valid Hu found');
 }
 
+/** v0.5.5 shapes are kong-free; Kong koin (v0.5.7) has its own tests in kong-koin-display-v057. */
 function withWin(o: HuOutcome, winMethod: HuOutcome['winMethod'], discarder?: Seat): HuOutcome {
-  return { ...o, winMethod, discarder, roundScore: roundScore(o.winner, o.scoring.totalTay, { winMethod, discarder }) };
+  const rs = roundScore(o.winner, o.scoring.totalTay, { winMethod, discarder });
+  return { ...o, winMethod, discarder, roundScore: rs, kongPayments: [], gameDeltas: rs.deltas };
 }
 
 const render = (outcome: HuOutcome) => renderToStaticMarkup(createElement(HuResultModal, { outcome, onClose: noop, onNewGame: noop }));
 const koinCells = (html: string) => [...html.matchAll(/class="rs-koin [^"]*">([^<]+) <small>/g)].map((m) => m[1]);
 
 describe('v0.5.5 Round Score display', () => {
-  const base = validHu();
+  const base: HuOutcome = { ...validHu(), kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 } };
   const tay = base.scoring.totalTay;
   const opp = (k: number) => ORDER[(ORDER.indexOf(base.winner) + k) % 4]!;
 
@@ -79,7 +81,7 @@ describe('v0.5.5 Round Score display', () => {
   it('Lew Fit and Seri: Round Score 0 koin semua', () => {
     const lewFit: HuOutcome = { ...base, winMethod: 'tsumo', scoring: { ...base.scoring, isValidHu: false }, roundScore: null };
     expect(render(lewFit)).toContain('Round Score: 0 koin semua');
-    const seri = renderToStaticMarkup(createElement(HuResultModal, { outcome: { kind: 'seri', durationSeconds: 3 }, onClose: noop, onNewGame: noop }));
+    const seri = renderToStaticMarkup(createElement(HuResultModal, { outcome: { kind: 'seri', kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 }, durationSeconds: 3 }, onClose: noop, onNewGame: noop }));
     expect(seri).toContain('Round Score: 0 koin semua');
   });
 
@@ -110,7 +112,7 @@ describe('v0.5.5 Round Score display', () => {
       const rs = roundScore('xi', totalTay, { winMethod, discarder: winMethod === 'ron' ? 'dong' : undefined });
       return {
         id, timestamp: 1, winner: 'xi', winningHand: [keyToTile('1T')], winningTile: keyToTile('1T'), scoringBreakdown: [], totalTay,
-        roundScore: rs, koin: rs.deltas.xi, isWithKim: false, winMethod, durationSeconds: 1, flowers: [], melds: [],
+        roundScore: rs, kongPayments: [], gameDeltas: rs.deltas, koin: rs.deltas.xi, isWithKim: false, winMethod, durationSeconds: 1, flowers: [], melds: [],
       };
     };
     const html = renderToStaticMarkup(createElement(HistoryModal, { history: [rec('a', 6, 'tsumo'), rec('b', 5, 'ron')], onDelete: noop, onClear: noop, onClose: noop }));

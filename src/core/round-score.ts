@@ -1,5 +1,5 @@
 import { SEAT_ORDER } from './tiles';
-import type { Seat } from './types';
+import type { Seat, TileFace } from './types';
 
 export type RoundScoreKind = 'ce_mo' | 'buangan' | 'chiong_kong';
 export interface RoundScore { kind: RoundScoreKind; tay: number; deltas: Record<Seat, number>; payer: Seat | null }
@@ -24,4 +24,36 @@ export function deriveRoundScore(winner: Seat | null, tay: number, raw: { winMet
   const discarder = raw.discarder ?? stored?.payer;
   if (winMethod !== 'tsumo' && winMethod !== 'ron' && winMethod !== 'chiong_kong') return null;
   try { return roundScore(winner, tay, { winMethod, discarder: discarder as Seat }); } catch { return null; }
+}
+
+export type KongPaymentKind = 'ankong' | 'kong' | 'ankong_zhong' | 'kong_zhong';
+export interface KongPayment { owner: Seat; kind: KongPaymentKind; face: TileFace; perPlayer: number; deltas: Record<Seat, number> }
+
+/** Completed Kongs only: a robbed added Kong never reaches this payment step. */
+export function kongPayment(owner: Seat, face: TileFace, concealed: boolean): KongPayment {
+  if (!SEAT_ORDER.includes(owner)) throw new Error('Invalid Kong owner');
+  const zhong = face.type === 'dragon' && face.value === 1;
+  const perPlayer = (concealed ? 2 : 1) * (zhong ? 2 : 1);
+  const kind: KongPaymentKind = concealed ? (zhong ? 'ankong_zhong' : 'ankong') : (zhong ? 'kong_zhong' : 'kong');
+  const deltas = { dong: 0, nan: 0, xi: 0, bei: 0 };
+  for (const seat of SEAT_ORDER) deltas[seat] = seat === owner ? 3 * perPlayer : -perPlayer;
+  return { owner, kind, face: { type: face.type, value: face.value }, perPlayer, deltas };
+}
+
+/** Full game balance: Hu plus every completed Kong, including on Seri/Lew Fit. */
+export function gameDeltas(score: RoundScore | null, payments: readonly KongPayment[]): Record<Seat, number> {
+  const deltas = { dong: 0, nan: 0, xi: 0, bei: 0 };
+  for (const seat of SEAT_ORDER) deltas[seat] = (score?.deltas[seat] ?? 0) + payments.reduce((sum, p) => sum + p.deltas[seat], 0);
+  return deltas;
+}
+
+/** Rebuild stored payments from facts, ignoring untrusted stored amounts. */
+export function migrateKongPayments(raw: unknown): KongPayment[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap(p => {
+    if (!p || !SEAT_ORDER.includes(p.owner) || !p.face || !['ankong', 'kong', 'ankong_zhong', 'kong_zhong'].includes(p.kind)) return [];
+    const f = p.face;
+    if (!Number.isInteger(f.value) || !((['tong', 'sok', 'ban'].includes(f.type) && f.value >= 1 && f.value <= 9) || (f.type === 'wind' && f.value >= 1 && f.value <= 4) || (f.type === 'dragon' && f.value >= 1 && f.value <= 3) || (f.type === 'kim' && f.value === 0))) return [];
+    return [kongPayment(p.owner, f, p.kind.startsWith('ankong'))];
+  });
 }

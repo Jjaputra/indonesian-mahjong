@@ -1,14 +1,16 @@
 import { keyToTile } from '../core/tiles';
 import type { Meld, Seat, Tile } from '../core/types';
 import type { GameController } from './game-controller';
-import { isMatchOver, recordHand, roundScore } from './match';
+import { isMatchOver, recordHand, roundScore, kongPayment, type KongPayment } from './match';
+import { gameDeltas } from '../core/round-score';
+import type { DevHand } from '../dev/hand-code';
 import type { OpeningRoll } from './components/DiceRoll';
 
 /**
  * Dev-only screenshot hook: `?demo=table|late|claim|hu|dice|melds|final[&seed=n][&win=ce_mo|buangan|chiong_kong]` deals a
  * seeded match and plays the human seat forward to a reproducible table state; `win` restyles the Hu for Round Score shots. App only loads this behind import.meta.env.DEV.
  */
-export type DemoMode = 'table' | 'late' | 'claim' | 'hu' | 'dice' | 'melds' | 'final';
+export type DemoMode = 'table' | 'late' | 'claim' | 'hu' | 'seri' | 'dice' | 'melds' | 'final';
 
 /** Sample opening roll with one tie re-roll, for `?demo=dice` before a match exposes its own. */
 export const DEMO_OPENING_ROLL: OpeningRoll = {
@@ -21,13 +23,48 @@ export const DEMO_OPENING_ROLL: OpeningRoll = {
 
 export type DemoWin = 'ce_mo' | 'buangan' | 'chiong_kong';
 
-export function demoFromUrl(search: string): { mode: DemoMode; seed: number; win: DemoWin | null } | null {
+export function demoFromUrl(search: string): { mode: DemoMode; seed: number; win: DemoWin | null; kong: boolean } | null {
   const params = new URLSearchParams(search);
   const mode = params.get('demo');
-  if (mode !== 'table' && mode !== 'late' && mode !== 'claim' && mode !== 'hu' && mode !== 'dice' && mode !== 'melds' && mode !== 'final') return null;
+  if (mode !== 'table' && mode !== 'late' && mode !== 'claim' && mode !== 'hu' && mode !== 'seri' && mode !== 'dice' && mode !== 'melds' && mode !== 'final') return null;
   const win = params.get('win');
-  return { mode, seed: Number(params.get('seed') ?? 7) || 7, win: win === 'ce_mo' || win === 'buangan' || win === 'chiong_kong' ? win : null };
+  return { mode, seed: Number(params.get('seed') ?? 7) || 7, win: win === 'ce_mo' || win === 'buangan' || win === 'chiong_kong' ? win : null, kong: params.get('kong') === '1' };
 }
+
+/** `?demo=seri`: ends the current hand as a wall-out Seri (fabricated, for screenshots). */
+export function seriDemo(controller: GameController): void {
+  if (!controller.match || controller.outcome) return;
+  controller.outcome = { kind: 'seri', kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 }, durationSeconds: 312 };
+  controller.match = recordHand(controller.match, null, false, 0);
+}
+
+/**
+ * `&kong=1`: sample Kong koin, Anda Kong 5 Tong makan dari orang (1 per pemain) then Bot Kanan
+ * Kong Zhong di dalam (4 per pemain). Mid-hand they become the live payments; after a Hu or Seri they
+ * are folded into the outcome, its match record and the koin totals.
+ */
+export function addDemoKongs(controller: GameController): void {
+  const payments: KongPayment[] = [kongPayment('dong', { type: 'tong', value: 5 }, false), kongPayment('nan', { type: 'dragon', value: 1 }, true)];
+  const o = controller.outcome;
+  if (!o) { controller.currentKongPayments = payments; return; }
+  const match = controller.match;
+  const last = match?.hands[match.hands.length - 1];
+  const score = o.kind === 'hu' && o.scoring.isValidHu ? o.roundScore : null;
+  const deltas = gameDeltas(score, payments);
+  controller.outcome = { ...o, kongPayments: payments, gameDeltas: deltas };
+  if (!match || !last) return;
+  const koinTotal = { ...match.koinTotal };
+  for (const s of ['dong', 'nan', 'xi', 'bei'] as Seat[]) koinTotal[s] += deltas[s] - last.gameDeltas[s];
+  controller.match = { ...match, koinTotal, hands: [...match.hands.slice(0, -1), { ...last, kongPayments: payments, gameDeltas: deltas }] };
+}
+
+/** `&sandbox=kong`: Uji Tangan sample with a concealed Kong Zhong and an open Kong. */
+export const DEMO_KONG_HAND: DevHand = {
+  concealed: [{ type: 'tong', value: 1 }, { type: 'tong', value: 2 }, { type: 'tong', value: 3 }, { type: 'ban', value: 7 }, { type: 'ban', value: 8 }, { type: 'ban', value: 9 }, { type: 'sok', value: 5 }],
+  melds: [{ type: 'ankong', faces: Array.from({ length: 4 }, () => ({ type: 'dragon' as const, value: 1 })) }, { type: 'kong', faces: Array.from({ length: 4 }, () => ({ type: 'wind' as const, value: 2 })) }],
+  bonus: { bunga: [], musim: [] }, winningTile: { type: 'sok', value: 5 },
+  win: { method: 'tsumo' }, kimFace: null, seatWind: 'nan', roundWind: 'dong', flags: {},
+};
 
 /**
  * `&win=`: rewrites a valid demo Hu as Ce Mo, Buangan (from the next seat) or Chiong Kong, and its
@@ -43,9 +80,10 @@ export function restyleDemoWin(controller: GameController, win: DemoWin): void {
   const discarder = win === 'ce_mo' ? undefined : order[(order.indexOf(o.winner) + 1) % 4]!;
   const score = roundScore(o.winner, o.scoring.totalTay, { winMethod, discarder });
   const koinTotal = { ...match.koinTotal };
-  for (const s of order) koinTotal[s] += score.deltas[s] - (last.roundScore?.deltas[s] ?? 0);
-  controller.outcome = { ...o, winMethod, discarder, roundScore: score };
-  controller.match = { ...match, koinTotal, hands: [...match.hands.slice(0, -1), { ...last, roundScore: score }] };
+  const deltas = gameDeltas(score, o.kongPayments);
+  for (const s of order) koinTotal[s] += deltas[s] - last.gameDeltas[s];
+  controller.outcome = { ...o, winMethod, discarder, roundScore: score, gameDeltas: deltas };
+  controller.match = { ...match, koinTotal, hands: [...match.hands.slice(0, -1), { ...last, roundScore: score, gameDeltas: deltas }] };
 }
 
 /** Plays the human seat with simple choices until the requested state is on the table. */

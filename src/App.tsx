@@ -11,6 +11,7 @@ import {
 } from './storage';
 import { ActionHud, CenterArea, HumanArea, OpponentPanel, PracticeCoach, seatPositions } from './ui/components/GameTable';
 import { HistoryModal } from './ui/components/HistoryModal';
+import { KongToast } from './ui/components/CallToast';
 import { HuResultModal } from './ui/components/HuResultModal';
 import { HandSandbox } from './ui/components/HandSandbox';
 import { DevTools } from './ui/components/DevTools';
@@ -197,12 +198,12 @@ export function App() {
     controller.setSettings(stored);
   };
 
-  // Dev-only: `?demo=table|claim|hu|dice|final[&win=ce_mo|buangan]` opens a seeded table state for reproducible screenshots.
+  // Dev-only: `?demo=table|claim|hu|seri|dice|final[&win=ce_mo|buangan][&kong=1]` opens a seeded table state for reproducible screenshots.
   const demoStarted = useRef(false);
   useEffect(() => {
     if (!import.meta.env.DEV || demoStarted.current) return;
     demoStarted.current = true;
-    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, stackDemoMelds, finishDemoMatch, restyleDemoWin, DEMO_OPENING_ROLL }) => {
+    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, stackDemoMelds, finishDemoMatch, restyleDemoWin, seriDemo, addDemoKongs, DEMO_OPENING_ROLL, DEMO_KONG_HAND }) => {
       const demo = demoFromUrl(window.location.search);
       if (!demo) return;
       // `&view=flat|3d` previews a table view without changing the stored preference.
@@ -214,15 +215,19 @@ export function App() {
       if (demo.mode === 'dice') setDice({ roll: openingRollOf(controller.match) ?? DEMO_OPENING_ROLL, autoClose: false });
       else {
         setDice(null);
-        driveDemo(controller, demo.mode === 'melds' ? 'table' : demo.mode === 'final' ? 'hu' : demo.mode);
+        driveDemo(controller, demo.mode === 'melds' || demo.mode === 'seri' ? 'table' : demo.mode === 'final' ? 'hu' : demo.mode);
         if (demo.mode === 'melds') stackDemoMelds(controller);
+        if (demo.mode === 'seri') seriDemo(controller);
         if (demo.win) restyleDemoWin(controller, demo.win);
+        if (demo.kong) addDemoKongs(controller);
         if (demo.mode === 'final') { finishDemoMatch(controller); setStandingsOpen(true); }
       }
       // `&result=closed` shows the table behind a finished hand; `&modal=history` opens the history.
       const params = new URLSearchParams(window.location.search);
       if (params.get('result') === 'closed') setTimeout(() => setResultOpen(false), 300);
       if (params.get('modal') === 'history') setModal('history');
+      // `&sandbox=kong` opens Uji Tangan on a sample hand with a Kong Zhong and an open Kong.
+      if (params.get('sandbox') === 'kong') setSandbox({ initial: DEMO_KONG_HAND });
     });
   }, []);
 
@@ -295,6 +300,7 @@ export function App() {
         </main>
       )}
 
+      {view === 'table' && <KongToast payments={controller.currentKongPayments} />}
       {view === 'table' && outcome && resultOpen && !standingsOpen && !modal && !sandbox && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)}
         onNewGame={controller.match && !controller.matchOver ? () => { setResultOpen(false); setAbandonOpen(true); } : newGame}
         onNextHand={controller.match && !controller.matchOver ? nextHand : undefined}

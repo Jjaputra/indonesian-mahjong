@@ -6,7 +6,8 @@ import type { GameOutcome } from '../game-controller';
 import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIN_METHOD_LABEL } from '../labels';
 import { classifyHand, modeLabel } from '../tay-calculator';
 import { Modal } from './Modal';
-import { PAYER_TAG, koinSum, koinTone, roundScoreHint, roundScoreOrder, signedKoin, windOf } from './points';
+import { SEAT_ORDER } from '../../core/tiles';
+import { KONG_KIND_LABEL, PAYER_TAG, gameDeltasOf, kongDeltas, kongFaceText, kongPaymentsOf, koinSum, koinTone, roundScoreHint, roundScoreOrder, signedKoin, windOf, type KongPaymentView } from './points';
 import { MeldView, TileRow, TileView } from './TileView';
 
 export async function copyText(text: string): Promise<boolean> {
@@ -33,9 +34,13 @@ interface HuResultModalProps {
 }
 
 function roundScoreLines(outcome: Extract<GameOutcome, { kind: 'hu' }>): string[] {
-  const rs = outcome.roundScore;
-  if (!rs) return ['Round Score: 0 koin semua'];
-  return ['Round Score (' + roundScoreHint(rs) + ')', ...roundScoreOrder(outcome.winner, rs.payer).map((s) => PLAYER_NAME[s] + ': ' + signedKoin(rs.deltas[s]) + ' koin')];
+  const rs = outcome.scoring.isValidHu ? outcome.roundScore : null;
+  const kongs = kongPaymentsOf(outcome);
+  const lines = rs ? ['Round Score (' + roundScoreHint(rs) + ')', ...roundScoreOrder(outcome.winner, rs.payer).map((s) => PLAYER_NAME[s] + ': ' + signedKoin(rs.deltas[s]) + ' koin')] : ['Round Score: 0 koin semua'];
+  if (!kongs.length) return lines;
+  const total = gameDeltasOf({ roundScore: rs, kongPayments: kongs });
+  return [...lines, ...kongs.map((p) => `Kong ${kongFaceText(p)} ${PLAYER_NAME[p.owner]} (${KONG_KIND_LABEL[p.kind]}): tiap pemain ${p.perPlayer} koin`),
+    'Total game (Hu + Kong)', ...SEAT_ORDER.map((s) => PLAYER_NAME[s] + ': ' + signedKoin(total[s]) + ' koin')];
 }
 
 /** Receipt Tay table (pattern rows, Total Tay) plus the minimum-Hu / Lew Fit line. */
@@ -76,11 +81,13 @@ export function TayBreakdown({ scoring: r }: { scoring: ScoringResult }) {
 }
 
 /** Each player's koin for this game, winner first and the payer tagged; sums to 0. `nameOf` relabels rows (sandbox). */
-export function RoundScoreBlock({ outcome, nameOf = (s) => PLAYER_NAME[s] }: {
+export function RoundScoreBlock({ outcome, kongPayments = [], nameOf = (s) => PLAYER_NAME[s] }: {
   outcome: Pick<Extract<GameOutcome, { kind: 'hu' }>, 'winner' | 'seatWind' | 'roundScore'> | null; nameOf?: (seat: Seat) => string;
+  /** Kong koin paid during the hand; listed under the Hu rows with a Hu + Kong total per player. */
+  kongPayments?: readonly KongPaymentView[];
 }) {
   const rs = outcome?.roundScore ?? null;
-  if (!outcome || !rs) {
+  if (!rs && !kongPayments.length) {
     return (
       <section className="round-score is-empty" aria-label="Round Score">
         <h3>Round Score</h3>
@@ -88,28 +95,61 @@ export function RoundScoreBlock({ outcome, nameOf = (s) => PLAYER_NAME[s] }: {
       </section>
     );
   }
-  const winnerWind = outcome.seatWind ?? outcome.winner;
-  const sum = koinSum(rs.deltas);
+  const order = outcome && rs ? roundScoreOrder(outcome.winner, rs.payer) : SEAT_ORDER;
+  const huSum = rs ? koinSum(rs.deltas) : 0;
   return (
-    <section className="round-score" aria-label="Round Score">
-      <h3>Round Score <small>{roundScoreHint(rs)}</small></h3>
-      <ul className="round-score-rows">
-        {roundScoreOrder(outcome.winner, rs.payer).map((s) => {
-          const d = rs.deltas[s];
-          return (
-            <li key={s} className={`round-score-row${s === outcome.winner ? ' is-winner' : ''}${s === rs.payer ? ' is-payer' : ''}`}>
-              <span className="rs-name">{nameOf(s)}</span>
-              <span className="rs-wind">{SEAT_SHORT[windOf(s, outcome.winner, winnerWind)]}</span>
-              {s === outcome.winner && <span className="rs-tag is-win">Hu</span>}
-              {s === rs.payer && <span className="rs-tag">{PAYER_TAG[rs.kind]}</span>}
-              <span className={`rs-koin ${koinTone(d)}`}>{signedKoin(d)} <small>koin</small></span>
-            </li>
-          );
-        })}
-      </ul>
-      <p className={`round-score-sum${sum === 0 ? '' : ' is-off'}`}>Σ {signedKoin(sum)}{sum === 0 ? ' · kit-kit ✓' : ' · tidak seimbang'}</p>
+    <section className={`round-score${kongPayments.length ? ' has-kong' : ''}`} aria-label="Round Score">
+      {outcome && rs ? <>
+        <h3>Round Score <small>{roundScoreHint(rs)}</small></h3>
+        <ul className="round-score-rows">
+          {order.map((s) => {
+            const d = rs.deltas[s];
+            return (
+              <li key={s} className={`round-score-row${s === outcome.winner ? ' is-winner' : ''}${s === rs.payer ? ' is-payer' : ''}`}>
+                <span className="rs-name">{nameOf(s)}</span>
+                <span className="rs-wind">{SEAT_SHORT[windOf(s, outcome.winner, outcome.seatWind ?? outcome.winner)]}</span>
+                {s === outcome.winner && <span className="rs-tag is-win">Hu</span>}
+                {s === rs.payer && <span className="rs-tag">{PAYER_TAG[rs.kind]}</span>}
+                <span className={`rs-koin ${koinTone(d)}`}>{signedKoin(d)} <small>koin</small></span>
+              </li>
+            );
+          })}
+        </ul>
+        {!kongPayments.length && <p className={`round-score-sum${huSum === 0 ? '' : ' is-off'}`}>Σ {signedKoin(huSum)}{huSum === 0 ? ' · kit-kit ✓' : ' · tidak seimbang'}</p>}
+      </> : <h3>Round Score <small>Hu 0 koin · hanya Kong</small></h3>}
+      {kongPayments.length > 0 && <KongSection payments={kongPayments} hu={rs?.deltas ?? null} order={order} nameOf={nameOf} />}
     </section>
   );
+}
+
+/** Kong lines (owner, tile, kind, per-player koin) and each player's game total = Hu + Kong. */
+function KongSection({ payments, hu, order, nameOf }: { payments: readonly KongPaymentView[]; hu: Record<Seat, number> | null; order: readonly Seat[]; nameOf: (seat: Seat) => string }) {
+  const kong = kongDeltas(payments);
+  const total = (s: Seat) => (hu?.[s] ?? 0) + kong[s];
+  const sum = order.reduce((n, s) => n + total(s), 0);
+  return <>
+    <h4 className="rs-sub">Kong <small>0 Tay · dibayar langsung</small></h4>
+    <ul className="kong-pay-rows" aria-label="Pembayaran Kong">
+      {payments.map((p, i) => (
+        <li key={i} className="kong-pay-row">
+          <TileView tile={{ ...p.face, id: `kong-pay-${i}`, isKim: false }} size="sm" />
+          <span className="kp-text"><span><b>{nameOf(p.owner)}</b> · {KONG_KIND_LABEL[p.kind]}</span><small>tiap pemain bayar {p.perPlayer} koin</small></span>
+          <span className="rs-koin is-plus">{signedKoin(p.perPlayer * 3)}</span>
+        </li>
+      ))}
+    </ul>
+    <h4 className="rs-sub">Total game <small>{hu ? 'Hu + Kong' : 'Kong saja'}</small></h4>
+    <ul className="round-score-rows game-total-rows">
+      {order.map((s) => (
+        <li key={s} className="round-score-row">
+          <span className="rs-name">{nameOf(s)}</span>
+          <span className="rs-parts">{hu && <>Hu {signedKoin(hu[s])} · </>}Kong {signedKoin(kong[s])}</span>
+          <span className={`rs-koin ${koinTone(total(s))}`}>{signedKoin(total(s))} <small>koin</small></span>
+        </li>
+      ))}
+    </ul>
+    <p className={`round-score-sum${sum === 0 ? '' : ' is-off'}`}>Σ {signedKoin(sum)}{sum === 0 ? ' · kit-kit ✓' : ' · tidak seimbang'}</p>
+  </>;
 }
 
 export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStandings, matchSummary, onOpenSandbox }: HuResultModalProps) {
@@ -161,7 +201,7 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
       <Modal title="Seri — Tembok Habis" onClose={onClose} footer={footer}>
         {matchSummary}
         <p>Tidak ada pemain yang Hu sebelum tembok habis. Permainan berakhir Seri.</p>
-        <RoundScoreBlock outcome={null} />
+        <RoundScoreBlock outcome={null} kongPayments={kongPaymentsOf(outcome)} />
         <p className="muted">Durasi: {outcome.durationSeconds} detik</p>
       </Modal>
     );
@@ -170,12 +210,13 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
   const r = outcome.scoring;
   const valid = r.isValidHu;
   const rs = valid ? outcome.roundScore : null;
+  const kongs = kongPaymentsOf(outcome);
   return (
     <Modal title={valid ? `HU! ${PLAYER_NAME[outcome.winner]}` : `LEW FIT — ${PLAYER_NAME[outcome.winner]}`} onClose={onClose} footer={footer} wide>
       <div className="receipt">
         <p className={`hu-banner${valid ? '' : ' is-lew-fit'}`} aria-hidden="true">
           {valid ? 'HU' : 'LEW FIT'}
-          <small>{PLAYER_NAME[outcome.winner]} · {r.totalTay} Tay{rs && ` · ${signedKoin(rs.deltas[outcome.winner])} koin`}</small>
+          <small>{PLAYER_NAME[outcome.winner]} · {r.totalTay} Tay{(rs || kongs.length > 0) && ` · ${signedKoin(gameDeltasOf({ roundScore: rs, kongPayments: kongs })[outcome.winner])} koin`}</small>
         </p>
         {matchSummary}
         <dl className="receipt-meta">
@@ -215,7 +256,7 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
 
         <TayBreakdown scoring={r} />
 
-        <RoundScoreBlock outcome={valid ? outcome : null} />
+        <RoundScoreBlock outcome={valid ? outcome : null} kongPayments={kongs} />
       </div>
     </Modal>
   );

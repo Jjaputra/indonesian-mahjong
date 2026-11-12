@@ -126,7 +126,7 @@ describe('UI render smoke tests', () => {
   });
 
   it('Seri modal renders', () => {
-    const html = renderToString(createElement(HuResultModal, { outcome: { kind: 'seri', durationSeconds: 5 }, onClose: noop, onNewGame: noop }));
+    const html = renderToString(createElement(HuResultModal, { outcome: { kind: 'seri', kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 }, durationSeconds: 5 }, onClose: noop, onNewGame: noop }));
     expect(html).toContain('Seri');
   });
 
@@ -182,7 +182,7 @@ describe('UI render smoke tests', () => {
           winningTile: hand,
           scoringBreakdown: [{ id: 4, name: '4 Tiles Bunga', tay: 10 }],
           totalTay: 10,
-          roundScore: null,
+          roundScore: null, kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 },
           koin: 0,
           isWithKim: false,
           winMethod: 'tsumo',

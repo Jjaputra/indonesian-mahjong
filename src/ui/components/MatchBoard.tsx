@@ -6,7 +6,7 @@ import { standings, isMatchOver, remainingMatchMs, type MatchState } from '../ma
 import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, matchProgressLabel, tileText } from '../labels';
 import { Modal } from './Modal';
 import { TileView } from './TileView';
-import { koinTone, recordDeltas, signedKoin, tayKoinText } from './points';
+import { kongDeltas, kongNote, kongPaymentsOf, koinTone, recordDeltas, signedKoin, tayKoinText, type KongPaymentView } from './points';
 
 /** Keep lower training thresholds visible wherever the match ranking is shown. */
 function MatchMinimumNote({ match }: { match: MatchState }) {
@@ -45,14 +45,19 @@ export function TableInfo({ roundWind, kimEnabled, kimFace, kimIndicator, minHuT
   );
 }
 
-/** Σ koin over all players; every game is kit-kit, so the match total stays 0. */
-function KoinSum({ match }: { match: MatchState }) {
-  const sum = standings(match).reduce((total, row) => total + row.koin, 0);
+/** Σ koin over all players; every game is kit-kit, so the match total stays 0. `live` adds this hand's Kong koin. */
+function KoinSum({ match, live }: { match: MatchState; live?: Record<Seat, number> }) {
+  const sum = standings(match).reduce((total, row) => total + row.koin + (live?.[row.seat] ?? 0), 0);
   return <>Σ {signedKoin(sum)}{sum === 0 ? ' · kit-kit ✓' : ' · tidak seimbang'}</>;
 }
 
-/** "Tabel Total Poin": progress, clock, and each player's koin, raw Tay and Hu in match-ranking order. */
-export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = 'dong' }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat; human?: Seat }) {
+/**
+ * "Tabel Total Poin": progress, clock, and each player's koin, raw Tay and Hu in match-ranking order.
+ * `liveKong` is the hand in progress's Kong payments: already paid, so they count in the koin column,
+ * with a "+6 kong" chip beside each owner until the hand is recorded.
+ */
+export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = 'dong', liveKong = [] }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat; human?: Seat; liveKong?: readonly KongPaymentView[] }) {
+  const live = kongDeltas(liveKong);
   return (
     <div className="match-board" aria-label="Papan skor pertandingan">
       <h3 className="match-board-title">Tabel Total Poin{match.dev && <span className="dev-badge is-inline" title="Pertandingan dengan alat developer tidak dicatat ke riwayat">DEV · tidak dicatat</span>}</h3>
@@ -62,17 +67,18 @@ export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = '
       <table className="match-scores">
         <thead><tr><th scope="col">#</th><th scope="col">Pemain</th><th scope="col" className="num">Koin</th><th scope="col" className="num">Tay</th><th scope="col" className="num">Hu</th></tr></thead>
         <tbody>
-          {standings(match).map((row) => { const { seat, rank, hu, tay, koin } = row; return (
+          {standings(match).map((row) => { const { seat, rank, hu, tay } = row; const koin = row.koin + live[seat]; const owns = liveKong.some((p) => p.owner === seat); return (
             <tr key={seat} className={`match-score${seat === dealer ? ' is-dealer' : ''}${rank === 1 && koin > 0 ? ' is-leader' : ''}${seat === human ? ' is-human' : ''}`}>
               <td className="rank">#{rank}</td>
-              <th scope="row">{PLAYER_NAME[seat]}{seat === dealer && <Crown size={11} aria-label="Dealer" className="dealer-mark" />}</th>
+              <th scope="row">{PLAYER_NAME[seat]}{seat === dealer && <Crown size={11} aria-label="Dealer" className="dealer-mark" />}
+                {owns && <span className="kong-chip" title="Koin Kong game ini, sudah dibayar">{signedKoin(live[seat])} kong</span>}</th>
               <td className={`num koin ${koinTone(koin)}`}><b>{signedKoin(koin)}</b></td>
               <td className="num">{tay}</td>
               <td className="num">{hu}</td>
             </tr>
           ); })}
         </tbody>
-        <tfoot><tr><td colSpan={5} className="koin-sum"><KoinSum match={match} /></td></tr></tfoot>
+        <tfoot><tr><td colSpan={5} className="koin-sum"><KoinSum match={match} live={live} /></td></tr></tfoot>
       </table>
     </div>
   );
@@ -164,12 +170,13 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: Mat
       <ol className="match-history" aria-label="Riwayat game">
         {match.hands.map((h) => (
           <li key={h.hand}>
-            Game {h.hand} · Dealer {PLAYER_NAME[h.dealer]} · {h.winner ? `${PLAYER_NAME[h.winner]} Hu ${tayKoinText(h)}` : h.lewFit ? 'Lew Fit (0 Hu / 0 Tay) · 0 koin' : 'Seri · 0 koin'}
-            {h.winner && <small className="hand-koin">{SEAT_ORDER.map((s) => { const d = recordDeltas(h)[s]; return <span key={s} className={koinTone(d)}>{PLAYER_NAME[s]} {signedKoin(d)}</span>; })}</small>}
+            Game {h.hand} · Dealer {PLAYER_NAME[h.dealer]} · {h.winner ? `${PLAYER_NAME[h.winner]} Hu ${tayKoinText(h)}` : h.lewFit ? 'Lew Fit (0 Hu / 0 Tay)' : 'Seri'}
+            {!h.winner && !kongPaymentsOf(h).length && ' · 0 koin'}{kongPaymentsOf(h).length > 0 && ` · ${kongNote(kongPaymentsOf(h))}`}
+            {(h.winner || kongPaymentsOf(h).length > 0) && <small className="hand-koin">{SEAT_ORDER.map((s) => { const d = recordDeltas(h)[s]; return <span key={s} className={koinTone(d)}>{PLAYER_NAME[s]} {signedKoin(d)}</span>; })}</small>}
           </li>
         ))}
       </ol>
-      <p className="muted">Round Score (koin) per game: Ce Mo, pemenang +6 × Tay dan tiap lawan −2 × Tay; buangan atau Chiong Kong, pemenang +4 × Tay, yang buang/Kong −2 × Tay, dua lainnya −1 × Tay. Seri dan Lew Fit 0. Peringkat: koin tertinggi; jika sama, Hu sah terbanyak, lalu yang lebih dulu mencapai total akhir.</p>
+      <p className="muted">Round Score (koin) per game: Ce Mo, pemenang +6 × Tay dan tiap lawan −2 × Tay; buangan atau Chiong Kong, pemenang +4 × Tay, yang buang/Kong −2 × Tay, dua lainnya −1 × Tay. Kong: tiap pemain langsung bayar pemilik 2 (di dalam) atau 1 (makan dari orang), Kong Zhong 4 atau 2; tetap berlaku saat Seri atau Lew Fit. Hu Seri dan Lew Fit 0. Peringkat: koin tertinggi; jika sama, Hu sah terbanyak, lalu yang lebih dulu mencapai total akhir.</p>
     </Modal>
   );
 }

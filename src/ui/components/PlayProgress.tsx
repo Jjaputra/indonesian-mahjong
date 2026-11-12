@@ -4,6 +4,7 @@ import type { PracticePace } from '../practice-pace';
 import { SEAT_SHORT } from '../labels';
 import { seatWindOf } from '../win-context';
 import { MatchScoreboard, TableInfo } from './MatchBoard';
+import { kongPaymentsOf } from './points';
 
 const PHASE: Record<string, string> = {
   FLOWER_REPLACEMENT: 'Mengganti Bunga', TURN_DRAW: 'Menarik tile',
@@ -27,7 +28,7 @@ export function PlayProgress({ controller, paused, blocked, pace, onPaceChange, 
   const match = controller.match;
   return <div className="play-progress">
     <TableInfo roundWind={state.roundWind} kimEnabled={controller.getSettings().kimEnabled} kimFace={state.kimFace} kimIndicator={state.kimIndicator} minHuTay={match?.minHuTay ?? controller.getSettings().minHuTay} />
-    {match && <MatchScoreboard match={match} hand={match.hands.length + (finished ? 0 : 1)} prevailingWind={state.roundWind} dealer={state.dealerSeat} human={controller.humanSeat} />}
+    {match && <MatchScoreboard match={match} hand={match.hands.length + (finished ? 0 : 1)} prevailingWind={state.roundWind} dealer={state.dealerSeat} human={controller.humanSeat} liveKong={finished ? [] : kongPaymentsOf({ kongPayments: controller.currentKongPayments })} />}
     <details className="table-tools"><summary>Tempo & aktivitas</summary>
     <div className="play-controls" role="group" aria-label="Kendali tempo bot">
       <label>Tempo bot <select aria-label="Tempo bot" value={pace} onChange={e => onPaceChange(e.target.value as PracticePace)}>
