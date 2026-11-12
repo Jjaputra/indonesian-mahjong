@@ -38,10 +38,10 @@ describe('Lew Fit rotation', () => {
       }
     }
   });
-  it('advances the prevailing wind on a Lew Fit that completes the circuit, and never on Seri', () => {
+  it('advances the prevailing wind on a Lew Fit that completes the circuit, including Seri', () => {
     const seating = { dealer: 'bei' as const, prevailingWind: 'dong' as const, dealerPasses: 3 };
     expect(nextSeating(seating, { kind: 'lew_fit' })).toEqual({ dealer: 'dong', prevailingWind: 'nan', dealerPasses: 0 });
-    expect(nextSeating(seating, { kind: 'none' }, 'rotate')).toEqual(seating);
+    expect(nextSeating(seating, { kind: 'none' }, 'rotate')).toEqual({ dealer: 'dong', prevailingWind: 'nan', dealerPasses: 0 });
   });
 });
 
@@ -106,7 +106,7 @@ describe('optional real-time match limit', () => {
     expect(c.match!.endedBy).toBe('time');
   });
 
-  it('counts a live wall-out Seri after expiry without rotating or awarding points', () => {
+  it('counts a live wall-out Seri after expiry with rotation and no points', () => {
     vi.useFakeTimers(); vi.setSystemTime(epoch);
     const c = freshController(); c.startMatch('rotate', 90);
     const seating = { ...c.match!.seating };
@@ -118,7 +118,7 @@ describe('optional real-time match limit', () => {
     c.humanDraw();
     expect(c.outcome?.kind).toBe('seri');
     expect(c.match!.hands).toHaveLength(1);
-    expect(c.match!.seating).toEqual(seating);
+    expect(c.match!.seating).toEqual(nextSeating(seating, { kind: 'none' }));
     expect(c.match!.huCount.dong).toBe(0);
     expect(c.match!.tayTotal.dong).toBe(0);
     expect(c.match!.endedBy).toBe('time');

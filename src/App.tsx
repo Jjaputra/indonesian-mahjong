@@ -251,7 +251,7 @@ export function App() {
           lastResult={history[0] ? history[0].winner === null ? 'Seri' : `${history[0].totalTay} Tay` : null} />
       ) : (
         <main className="table-felt">
-          {controller.getState().kimFace && <div className="kim-indicator">Kim: {tileText({ ...controller.getState().kimFace!, id: 'kim-indicator', isKim: false })}</div>}
+          {controller.getState().kimFace && <div className="kim-indicator">Kim: {tileText({ ...controller.getState().kimFace!, id: 'kim-indicator', isKim: false })}{controller.getState().kimIndicator && <span className="kim-pointer"> · Penunjuk {tileText({ ...controller.getState().kimIndicator!, id: 'kim-pointer', isKim: false })}</span>}</div>}
           <OpponentPanel seat={pos.top} position="top" controller={controller} />
           <OpponentPanel seat={pos.left} position="left" controller={controller} />
           <CenterArea controller={controller} progress={<PlayProgress controller={controller} paused={paused} blocked={automationBlocked} pace={pace} onPaceChange={changePace} onToggleMotion={toggleMotion}

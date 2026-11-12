@@ -863,7 +863,7 @@ export class GameController {
   /** Number of copies of a kind visible to the human (own hand + public), used by tooltips. */
   countVisible(tile: Tile): number {
     const s = this.getState();
-    let n = 0;
+    let n = s.kimIndicator && isSameKind({ ...s.kimIndicator, id: 'kim-indicator' }, tile) ? 1 : 0;
     for (const seat of SEAT_ORDER) {
       const p = s.players[seat];
       const pub = [...p.discards, ...p.melds.flatMap((m) => m.tiles), ...(seat === this.humanSeat ? p.hand : [])];

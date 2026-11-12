@@ -57,8 +57,8 @@ describe('match rotation policy (nextSeating)', () => {
     expect(nextSeating({ dealer: 'bei', prevailingWind: 'dong', dealerPasses: 2 }, { kind: 'hu', winner: 'nan' }).dealer).toBe('dong');
   });
 
-  it('draw (Seri) keeps seating, while Lew Fit rotates without crediting a Hu', () => {
-    expect(nextSeating({ dealer: 'xi', prevailingWind: 'nan', dealerPasses: 2 }, { kind: 'none' })).toEqual({ dealer: 'xi', prevailingWind: 'nan', dealerPasses: 2 });
+  it('draw (Seri) and Lew Fit rotate without crediting a Hu', () => {
+    expect(nextSeating({ dealer: 'xi', prevailingWind: 'nan', dealerPasses: 2 }, { kind: 'none' })).toEqual({ dealer: 'bei', prevailingWind: 'nan', dealerPasses: 3 });
     const m = recordHand(createMatch(), 'nan', false, 3);
     expect(m.seating).toEqual({ dealer: 'nan', prevailingWind: 'dong', dealerPasses: 1 });
     expect(m.huCount.nan).toBe(0);
@@ -81,7 +81,7 @@ describe('match rotation policy (nextSeating)', () => {
     expect(SEAT_ORDER.map((seat) => seatWindOf({ dealerSeat: 'nan' }, seat))).toEqual(['bei', 'dong', 'nan', 'xi']);
   });
 
-  it.each(['dealer', 'non-dealer', 'lew_fit'] as const)('16 games without Seri give four games per wind after %s results', (result) => {
+  it.each(['dealer', 'non-dealer', 'lew_fit', 'seri'] as const)('16 games give four games per wind after %s results', (result) => {
     let match = createMatch();
     for (let game = 0; game < 16; game++) {
       const dealer = SEAT_ORDER[game % 4]!;
@@ -89,7 +89,7 @@ describe('match rotation policy (nextSeating)', () => {
       expect(SEAT_ORDER.map(seat => seatWindOf({ dealerSeat: dealer }, seat))).toEqual(
         SEAT_ORDER.map((_, chair) => SEAT_ORDER[(chair - game % 4 + 4) % 4]),
       );
-      match = recordHand(match, result === 'non-dealer' ? SEAT_ORDER[(game + 1) % 4]! : dealer, result !== 'lew_fit', 5);
+      match = recordHand(match, result === 'seri' ? null : result === 'non-dealer' ? SEAT_ORDER[(game + 1) % 4]! : dealer, result !== 'lew_fit', 5);
     }
     expect(match.hands.map(hand => hand.prevailingWind)).toEqual([
       'dong', 'dong', 'dong', 'dong', 'nan', 'nan', 'nan', 'nan',
@@ -99,15 +99,11 @@ describe('match rotation policy (nextSeating)', () => {
     expect(isMatchOver(match)).toBe(true);
   });
 
-  it('Seri counts a game but delays the fourth dealer change and prevailing wind', () => {
+  it('Seri advances the fourth dealer change and prevailing wind', () => {
     let match = createMatch();
     for (let i = 0; i < 3; i++) match = recordHand(match, match.seating.dealer, true, 5);
-    const before = match.seating;
     match = recordHand(match, null, false, 0);
     expect(match.hands).toHaveLength(4);
-    expect(match.seating).toEqual(before);
-    expect(match.seating.prevailingWind).toBe('dong');
-    match = recordHand(match, match.seating.dealer, true, 5);
     expect(match.seating).toEqual({ dealer: 'dong', prevailingWind: 'nan', dealerPasses: 0 });
   });
 
@@ -178,12 +174,7 @@ describe('GameController continuous match', () => {
       const dealer = s.dealerSeat;
       playHand(c);
       expect(c.match!.hands).toHaveLength(hand);
-      const o = c.outcome!;
-      if (o.kind === 'hu') {
-        expect(c.match!.seating.dealer).toBe(SEAT_ORDER[(SEAT_ORDER.indexOf(dealer) + 1) % 4]);
-      } else {
-        expect(c.match!.seating.dealer).toBe(dealer);
-      }
+      expect(c.match!.seating.dealer).toBe(SEAT_ORDER[(SEAT_ORDER.indexOf(dealer) + 1) % 4]);
       if (hand < 16) {
         expect(c.matchOver).toBe(false);
         expect(c.nextHand()).toBe(true);
@@ -325,7 +316,7 @@ describe('match review regressions', () => {
     expect(c.match!.seating.dealer).toBe(SEAT_ORDER[(SEAT_ORDER.indexOf(c.getState().dealerSeat) + 1) % 4]);
   });
 
-  it('a controller wall-out draw counts exactly once without rotating seating', () => {
+  it('a controller wall-out draw counts exactly once and rotates seating', () => {
     const c = new GameController({ settings: settings({ kimEnabled: false, kimMode: 'off', startingSeatWind: 'xi', roundWind: 'nan' }), seed: 5, saveHistory: false, autoStart: false });
     c.startMatch();
     const seating = { ...c.match!.seating };
@@ -337,11 +328,11 @@ describe('match review regressions', () => {
     c.humanDraw();
     expect(c.outcome?.kind).toBe('seri');
     expect(c.match!.hands).toHaveLength(1);
-    expect(c.match!.seating).toEqual(seating);
+    expect(c.match!.seating).toEqual(nextSeating(seating, { kind: 'none' }));
     c.step(); c.humanDraw();
     expect(c.match!.hands).toHaveLength(1);
     expect(c.nextHand()).toBe(true);
-    expect(c.getState().dealerSeat).toBe(seating.dealer);
+    expect(c.getState().dealerSeat).toBe(nextSeating(seating, { kind: 'none' }).dealer);
     expect(c.getState().roundWind).toBe('nan');
     expect(c.getHumanActions().canDraw || c.getHumanActions().canDiscard || c.getState().currentTurn !== c.humanSeat).toBe(true);
   });
@@ -356,7 +347,7 @@ describe('match review regressions', () => {
     c.nextHand();
     expect(c.getState().kimFace).toMatchObject(createGameWall('natural', 93).kimFace!);
     expect(c.getState().wall.serialize().tiles).toEqual(createGameWall('natural', 93).wall.serialize().tiles);
-    expect(c.getState().wall.totalCount).toBe(144);
+    expect(c.getState().wall.totalCount).toBe(143);
     expect(c.getSettings()).toMatchObject({ kimMode: 'natural', animationSpeed: 'slow', aiDifficulty: 'hard' });
   });
 

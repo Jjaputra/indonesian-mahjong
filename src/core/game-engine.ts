@@ -43,6 +43,7 @@ export interface GameEngineState {
   dealerSeat: Seat;
   wall: Wall;
   kimFace?: TileFace | null;
+  kimIndicator: TileFace | null;
   players: Record<Seat, PlayerState>;
   discardPending: DiscardPendingState | null;
   pendingClaims: Partial<Record<Seat, ClaimDeclaration>>;
@@ -362,6 +363,7 @@ export class GameEngine {
       currentTurn: dealerSeat,
       dealerSeat,
       wall,
+      kimIndicator: wall.kimIndicator,
       kimFace: wall.serialize().tiles.find(t => t.isKim && t.type !== 'kim') ?? null,
       players,
       discardPending: null,
@@ -411,6 +413,7 @@ export class GameEngine {
       this.state.wall = createGameWall(this.state.rules.kimMode ?? (this.state.rules.kimEnabled ? 'dedicated' : 'off')).wall;
     }
 
+    this.state.kimIndicator = this.state.wall.kimIndicator;
     this.state.kimFace = this.state.wall.serialize().tiles.find(t => t.isKim && t.type !== 'kim') ?? null;
 
     // Reset player state

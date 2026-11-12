@@ -18,7 +18,7 @@ export const MATCH_GAMES = 16;
 export type DealerWinRule = 'stay' | 'rotate';
 export const DEFAULT_DEALER_WIN_RULE: DealerWinRule = 'rotate';
 
-/** Distinguish wall-out Seri (`none`) from Lew Fit, since only Seri keeps the seating. */
+/** Distinguish wall-out Seri (`none`) from Lew Fit, for result reporting. */
 export type HandResult = { kind: 'hu'; winner: Seat } | { kind: 'none' } | { kind: 'lew_fit' };
 export type MatchTimeLimit = 90 | null;
 
@@ -30,15 +30,11 @@ export interface Seating {
 }
 
 /**
- * PDF section 4: Seri keeps the seating. Lew Fit rotates (user-approved inference
- * from PlayLeh, where False Win is distinct from dealer Hu and stalemate).
- * Player decision 2026-11-12: plain 16 games rotates after every valid Hu, including dealer Hu.
- * This supersedes the earlier dealer-stays confirmation and MahjongLeh reference;
- * legacy dealer-win preference arguments are ignored.
- * The prevailing wind advances after four dealer changes (implementation convention).
+ * Player house rule 2026-11-12: every completed game rotates the dealer, including
+ * Seri, dealer Hu, other Hu and Lew Fit. This supersedes PDF section 4 for Seri.
+ * Legacy dealer-win preferences are ignored. Four games advance the prevailing wind.
  */
-export function nextSeating(current: Seating, result: HandResult, _dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE): Seating {
-  if (result.kind === 'none') return { ...current };
+export function nextSeating(current: Seating, _result: HandResult, _dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE): Seating {
   const dealer = SEAT_ORDER[(SEAT_ORDER.indexOf(current.dealer) + 1) % 4]!;
   const passes = current.dealerPasses + 1;
   if (passes < 4) return { dealer, prevailingWind: current.prevailingWind, dealerPasses: passes };

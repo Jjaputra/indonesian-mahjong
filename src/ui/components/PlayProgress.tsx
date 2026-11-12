@@ -26,7 +26,7 @@ export function PlayProgress({ controller, paused, blocked, pace, onPaceChange, 
   const finished = !!controller.outcome;
   const match = controller.match;
   return <div className="play-progress">
-    <TableInfo roundWind={state.roundWind} kimEnabled={controller.getSettings().kimEnabled} kimFace={state.kimFace} minHuTay={match?.minHuTay ?? controller.getSettings().minHuTay} />
+    <TableInfo roundWind={state.roundWind} kimEnabled={controller.getSettings().kimEnabled} kimFace={state.kimFace} kimIndicator={state.kimIndicator} minHuTay={match?.minHuTay ?? controller.getSettings().minHuTay} />
     {match && <MatchScoreboard match={match} hand={match.hands.length + (finished ? 0 : 1)} prevailingWind={state.roundWind} dealer={state.dealerSeat} human={controller.humanSeat} />}
     <details className="table-tools"><summary>Tempo & aktivitas</summary>
     <div className="play-controls" role="group" aria-label="Kendali tempo bot">

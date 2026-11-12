@@ -9,7 +9,7 @@
 import { tileText } from './labels';
 import type { GameEngineState } from '../core/game-engine';
 import { SEAT_ORDER, isHonor, isSameKind, isSuited, isTerminal } from '../core/tiles';
-import type { ClaimDeclaration, LegalActions, Meld, Seat, Suit, Tile, Wind } from '../core/types';
+import type { ClaimDeclaration, LegalActions, Meld, Seat, Suit, Tile, TileFace, Wind } from '../core/types';
 import { isKim } from '../kim/wildcard-solver';
 import type { OverlapPolicy as ScoringOverlapPolicy, ScoringResult } from '../scoring';
 import type { AIDifficulty } from '../storage';
@@ -40,6 +40,8 @@ export interface AIObservation {
   isPaoChin: boolean;
   opponents: PublicSeatInfo[];
   wallRemaining: number;
+  /** Public removed indicator, unavailable for any hand. */
+  kimIndicator?: TileFace | null;
   consecutiveKongs: number;
   isFirstGoAround: boolean;
   /** Own hand is still exactly as dealt to the dealer (Thien Fu window); omitted = isFirstGoAround */
@@ -93,6 +95,7 @@ export function buildObservation(
       };
     }),
     wallRemaining: state.wall.remainingCount,
+    kimIndicator: state.kimIndicator ? { ...state.kimIndicator } : null,
     consecutiveKongs: state.consecutiveKongs,
     isFirstGoAround: isFirstGoAround(state),
     isInitialDealtHand: isInitialDealtHand(state, seat),
@@ -157,6 +160,7 @@ export function visibleKindCounts(obs: AIObservation): Map<string, number> {
     if (isKim(t)) return;
     counts.set(kindKey(t), (counts.get(kindKey(t)) ?? 0) + 1);
   };
+  if (obs.kimIndicator) add({ ...obs.kimIndicator, id: 'kim-indicator' });
   obs.hand.forEach(add);
   obs.melds.forEach((m) => m.tiles.forEach(add));
   obs.discards.forEach(add);
