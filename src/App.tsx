@@ -186,14 +186,18 @@ export function App() {
   useEffect(() => {
     if (!import.meta.env.DEV || demoStarted.current) return;
     demoStarted.current = true;
-    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, DEMO_OPENING_ROLL }) => {
+    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, stackDemoMelds, DEMO_OPENING_ROLL }) => {
       const demo = demoFromUrl(window.location.search);
       if (!demo) return;
       startPractice();
       setPaused(true);
       // The dice demo holds on the announcement; before the match exposes a roll it shows a sample.
       if (demo.mode === 'dice') setDice({ roll: openingRollOf(controller.match) ?? DEMO_OPENING_ROLL, autoClose: false });
-      else { setDice(null); driveDemo(controller, demo.mode); }
+      else {
+        setDice(null);
+        driveDemo(controller, demo.mode === 'melds' ? 'table' : demo.mode);
+        if (demo.mode === 'melds') stackDemoMelds(controller);
+      }
     });
   }, []);
 

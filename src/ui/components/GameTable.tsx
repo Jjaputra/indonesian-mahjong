@@ -68,7 +68,7 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
       </div>
       <div data-meld-anchor={seat} className="melds">
         {p.melds.map((m, i) => (
-          <MeldView key={i} meld={m} />
+          <MeldView key={i} meld={m} owner={seat} />
         ))}
       </div>
       <div className="rack">
@@ -191,7 +191,7 @@ export function HumanArea({ controller, actions, selectedId, onSelect }: HumanAr
       </div>
       <div data-meld-anchor={seat} className="melds">
         {p.melds.map((m, i) => (
-          <MeldView key={i} meld={m} size="md" />
+          <MeldView key={i} meld={m} size="md" owner={seat} />
         ))}
       </div>
       <div data-hand-anchor={seat} className="hand-row" role="group" aria-label="Tile di tangan">
