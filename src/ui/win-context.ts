@@ -75,7 +75,7 @@ export interface WinFlags {
   isInitialDealtHand?: boolean;
 }
 
-export function buildWinContext(seat: Seat, roundWind: Wind, winningTile: Tile, flags: WinFlags): WinContext {
+export function buildWinContext(seat: Seat, roundWind: Wind, winningTile: Tile, flags: WinFlags, melds: readonly Meld[] = []): WinContext {
   const kongDraw = flags.isSelfDraw ? flags.consecutiveKongs : 0;
   return {
     winningTile,
@@ -84,7 +84,8 @@ export function buildWinContext(seat: Seat, roundWind: Wind, winningTile: Tile, 
     isInitialDeal: flags.isFirstGoAround,
     isPaoChin: flags.isPaoChin,
     isRobbingKong: flags.isRobbingKong,
-    isSelfRobbingKong: false,
+    isSelfRobbingKong: flags.isSelfDraw && melds.some(m => m.type === 'pung'
+      && m.tiles.every(t => t.type === winningTile.type && t.value === winningTile.value)),
     isKongReplacement: kongDraw >= 1,
     isDoubleKongReplacement: kongDraw >= 2,
     seatWind: seat,
@@ -115,7 +116,7 @@ export function scoreHu(
     [...candidate.hand],
     [...candidate.melds],
     [...candidate.flowers],
-    buildWinContext(seat, roundWind, candidate.winningTile, flags),
+    buildWinContext(seat, roundWind, candidate.winningTile, flags, candidate.melds),
     rules
   );
 }

@@ -99,12 +99,12 @@ describe('Round 2 · match without Kim', () => {
 });
 
 describe('Round 2 · #39 Se Sam Pu Tat printed placement', () => {
-  it('printed cell is K 40 / NK blank; the hand-usage table keeps the documented NK 40', () => {
+  it('printed cell is K 40 / NK blank; effective values correct the layout error', () => {
     expect(PRINTED_PLACEMENT.get(39)).toEqual({ K: 40, NK: null });
     expect(tableTay(39, 'K', 'match_table')).toBe(40);
-    expect(tableTay(39, 'NK', 'match_table')).toBeNull();
+    expect(tableTay(39, 'NK', 'match_table')).toBe(40);
     expect(tableTay(39, 'NK')).toBe(40);
-    expect(tableTay(39, 'K')).toBeNull();
+    expect(tableTay(39, 'K')).toBe(40);
     // Every other row is identical under both bases.
     for (let id = 1; id <= 44; id++) {
       if (id === 39) continue;
@@ -127,13 +127,13 @@ describe('Round 2 · #39 Se Sam Pu Tat printed placement', () => {
     expect(r.isValidHu).toBe(true);
   });
 
-  it('match table, Kim-off match: the printed Tanpa KIM cell is blank, so #39 scores nothing and the note says so', () => {
+  it('match table, Kim-off match: #39 scores 40 despite the printed blank', () => {
     const r = score(SSPT, SSPT_WIN, rules(false, 'match_table'));
     expect(r.mode).toBe('NK');
-    expect(ids(r)).not.toContain(39);
-    expect(r.notes.join(' ')).toContain('Se Sam Pu Tat');
-    expect(r.isValidHu).toBe(false);
-    expect(r.lewFitReason).toBe('below-minimum');
+    expect(tay(r, 39)).toBe(40);
+    expect(r.notes.join(' ')).not.toContain('sel ini kosong');
+    expect(r.isValidHu).toBe(true);
+    expect(r.lewFitReason).toBeUndefined();
   });
 });
 
@@ -215,11 +215,11 @@ describe('Round 2 · hand preview and calculator agree with live scoring', () =>
     expect(table).not.toBe(legacy);
   });
 
-  it('calculator #39 follows the basis: NK under hand usage, printed K under the match table', () => {
+  it('calculator #39 scores 40 under both bases and match choices', () => {
     expect(isSelectable(39, false)).toBe(true);
-    expect(isSelectable(39, true)).toBe(false);
+    expect(isSelectable(39, true)).toBe(true);
     expect(isSelectable(39, true, false, 'match_table')).toBe(true);
-    expect(isSelectable(39, false, false, 'match_table')).toBe(false);
+    expect(isSelectable(39, false, false, 'match_table')).toBe(true);
     expect(calculateTay([39], true, 5, { scoringBasis: 'match_table' }).total).toBe(40);
   });
 

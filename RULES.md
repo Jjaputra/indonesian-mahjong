@@ -74,18 +74,15 @@ Values are `Ada KIM / Tidak ada KIM`; `—` means the cell is blank. Column plac
 
 ## 2. Decisions on conflicting or unclear rows
 
-**#39 Se Sam Pu Tat column conflict (p. 9).** The only value, 40, sits in the **Ada KIM** column, but the row text requires "tidak ada kim". What the engine does depends on the scoring basis (§3):
-- *Hand usage* (legacy, and the PDF reference preset): stored as `K: null, NK: 40`. A Se Sam Pu Tat hand never holds Kim, so it is always NK, and the printed column would make the pattern unreachable. This deviation is unchanged.
-- *Match table*: the printed placement is respected (`PRINTED_PLACEMENT` in `src/scoring/patterns.ts`). In a Kim match a Kim-free Se Sam Pu Tat hand scores the printed 40. In a Kim-off match the Tidak ada KIM cell is blank, so #39 scores nothing; the result carries a note, and the hand is usually Lew Fit below the minimum. That last consequence follows the printed table literally and **needs confirmation**.
+**#39 Se Sam Pu Tat column conflict: confirmed (research decision 2026-11-12).** The printed 40 sits under Ada KIM although the row explicitly requires "tidak ada kim". This is a layout error: every valid Se Sam Pu Tat scores 40 in either match choice and either scoring basis, including all-natural Kim interpretations. Joker use, flowers and seasons still invalidate this shape; a Kim-off match no longer loses #39 or becomes Lew Fit merely because the printed NK cell is blank. `PRINTED_PLACEMENT` preserves the PDF evidence; `tableTay` applies the correction.
 
-`tests/scoring/rulebook-columns.test.ts` pins the printed placement and the hand-usage deviation; `tests/scoring/round2-scoring-basis.test.ts` exercises the same hand under both bases.
+**#12 Thi Fu: confirmed (research decision 2026-11-12).** Thi Fu is the Hokkien reading of 地胡 (tē-hô). Standard 地胡 is a non-dealer's first wall self-draw with no prior calls; 人胡 is a win on the dealer's first discard ([地糊 background](https://zh.wikipedia.org/wiki/地糊)). The PDF's "hasil lew atau discard pertama" covers both: the first self-draw and the existing first-round discard case, each requiring a declared Pao Chin. The live first-go-around window closes after calls or later turns. Thi Fu awards 40 K / 60 NK and supersedes Pao Chin under the exclusive policy; without Thi Fu, Pao Chin remains. Thien Fu still belongs only to the dealer's untouched dealt hand.
 
-**#12 Thi Fu and the word "lew" (p. 8, rows #10 and #12).** Row #12 reads "Hu dari hasil lew atau discard pertama". The meaning of "lew" is not defined in the PDF. One earlier note read it as the wall draw ("lew" = draw); the app glossary (README) uses Lew for passing on a claim. The latest product change (commit 21fbba5) scores Thi Fu only on a first-round discard win after a declared Pao Chin. The engine keeps that rule:
-- First-round discard win after Pao Chin: Thi Fu (40 K / 60 NK). With the supersede policy, Pao Chin is dropped, following row #10 "apabila tidak thi fu, pao chin tetap berlaku".
-- First-round self-draw after Pao Chin (non-dealer): Pao Chin stays, no Thi Fu.
-- No Pao Chin, or a later turn: no Thi Fu.
+**#33/#34 Sam Am Kang / Si Am Kang: confirmed (research decision 2026-11-12).** These names mean 三暗刻 / 四暗刻. The standard definition says "铳和得到的刻子记作明刻" ([Moegirl 四暗刻](https://zh.moegirl.org.cn/麻将/番种/四暗刻)): a triplet completed by the winning discard is exposed for counting concealed triplets. A discard completing the pair leaves all triplets concealed, as does self-draw completion. Identical copies can take different roles; when the winning face can complete a concealed sequence or pair instead, the scorer uses the highest-total-Tay interpretation, independently of physical copy IDs.
 
-Eleven older tests expected the self-draw reading. They now assert the discard-only rule: the discard cases stay positive and the self-draw cases became explicit negatives. The fixture and test comments point here. **Unresolved:** if "hasil lew" means the first wall draw, the self-draw path should be restored.
+**#36 Ce Chiong Kong: confirmed from row text (research decision 2026-11-12).** The player must already have an exposed Pung of X, self-draw the fourth X as the winning tile, and use it inside a concealed sequence in the winning decomposition. "seri harus ada di dalam" requires the sequence to be concealed; "harus ce mo" requires self-draw. `buildWinContext` derives the exposed-Pung opportunity from candidate melds; the scorer validates the winning decomposition, so a flag alone cannot award it. Pair/triplet completion, an exposed sequence, a discard win, or no matching Pung do not qualify.
+
+**#31 Ji Pa Ciok: confirmed (research decision 2026-11-12).** Ciok is 雀, the pair/eyes, as supported by the PDF's own #32 Kim Ciok explanation "Kim dijadikan pair untuk kaki". Ji Pa Ciok requires a suited pair of 2s or 8s; merely holding a 2 or 8 is insufficient. Existing implementation is retained.
 
 **#11 Thien Fu "posisi Dong" (p. 8).** The engine awards it when the seat wind is Dong and the hand is the untouched opening hand of the dealer. Seat winds are relative to the dealer, so a dealer on any physical chair can score Thien Fu. Treating "posisi Dong" as the dealer follows the continuous-match convention in §7; the PDF does not explicitly distinguish a fixed chair from its rotating seat wind.
 
@@ -98,7 +95,7 @@ Eleven older tests expected the self-draw reading. They now assert the discard-o
 The column only decides values. Kim usage is still counted from the hand (`ScoringResult.handKimCount`, `isWithKim`):
 - #7 Tile KIM, #9, #30, #32 and #40 need Kim in the hand. A zero-Kim hand never gets a 0-Tay "Tile KIM" line just because the Ada KIM column is active.
 - #8 Bo KIM is detected from the hand and awards +3 in either column and either scoring basis, overriding the blank Ada KIM PDF cell (player feedback 2026-11-12). It is awarded once and never together with joker-use awards.
-- Example, Kim match, concealed Tuei Tuei with a number pair and no Kim, won on a discard: hand usage gives #15 10, #34 30, #8 3; match table gives #15 5, #34 20 and #8 3.
+- Example, Kim match, concealed Tuei Tuei with a number pair and no Kim, won on a discard completing the pair: hand usage gives #15 10, #34 30, #8 3; match table gives #15 5, #34 20 and #8 3.
 
 The **Mode Kim** setting decides how Kim is selected and whether it exists. Settings are frozen for a hand: changes made during a match (including the basis and the flower rule) apply from the next `newGame`, and the table header says so. `toGameRules` / `toFullRules` include `scoringBasis` and `bonusTileRule` only when they differ from the legacy defaults, which is what an omitted field means to the engine.
 
@@ -124,6 +121,8 @@ The family is read from the ink of the number and glyph, not from the petal or b
 
 Collection awards are: #4 four Bunga 10, #5 four Musim 20, #6 seven bonus tiles 30. Per user rule ("kalau uda 4 musim +20, musim gak diitung +1 lagi"), a 4-of-a-kind collection supersedes the individual bonus tile points (#5 supersedes #2, #4 supersedes #1, and #6 supersedes #1, #2, #4, #5).
 
+**Pattern stacking confirmed (research decision 2026-11-12).** Tuei Tuei stacks with Sam Am Kang, as in standard Chinese definitions; it also remains independent of Si Am Kang. Si Am Kang supersedes Sam Am Kang only; no additional pattern exclusion is introduced. The existing other exclusions remain as listed below.
+
 **Overlap policy.** The rulebook exclusive policy (`SUPERSEDES`) applies:
 - Thi Fu replaces Pao Chin (#12 → #10)
 - 4 Tiles Bunga replaces individual Tile Bunga (#4 → #1)
@@ -135,7 +134,6 @@ Collection awards are: #4 four Bunga 10, #5 four Musim 20, #6 seven bonus tiles 
 - Chicken Hand (#13) is only awarded when no other hand-shape pattern fires and the hand mixes sequences and triplets. The PDF says "tanpa membentuk pola yang lain"; it does not say which patterns count. The value is 0 either way. Per user instruction ("chicken hand ga usah di tulis"), Pattern #13 is suppressed from being rendered or written in the winning receipt breakdown and copied receipt text.
 - #17 Chao It, #18 It Set and #19 Yau Kiu are not awarded on Cap Sa Yau Kiu or Se Sam Pu Tat shapes.
 - #25 to #29 ignore a pure KIM-KIM-KIM triplet (Kim Thi), because it has no wind or dragon identity.
-- #33/#34 count a triplet completed by the winning discard as concealed. Many rulesets do not. Unresolved.
 - Se Sam Pu Tat with any flower or season is not a legal Hu (the row requires none, and the shape is not otherwise a winning hand).
 - #6 is awarded at 7 or more bonus tiles.
 
@@ -152,20 +150,16 @@ Natural Kim cannot be discarded or used to claim Jia/Pung/Kong, even if a casual
 
 **Random selection confirmed acceptable by players (2026-11-12).** Asked how Kim should be chosen, the playtest group answered that random is fine ("toh mau ambil dari mana2 juga sama aja random dapetnya") and that no flipped indicator needs to be shown. The game keeps the random face plus the small "Kim: <face>" indicator; no dice/indicator procedure is modelled.
 
-## 5. Gaps found in this audit
+## 5. Resolved implementation gap
 
-- **#36 Ce Chiong Kong cannot happen in live play.** `buildWinContext` always passes `isSelfRobbingKong: false`; only the manual calculator and direct scorer calls can award it. The likely meaning is: self-draw the 4th tile of an exposed Pung and use it in a concealed sequence. Whether the winning tile itself must be that 4th tile is unconfirmed, so live detection was not added.
+#36 Ce Chiong Kong now detects the exposed Pung from live candidate melds and validates the concealed winning sequence (see confirmed definition in §2).
 
 ## 6. Questions that need an answer
 
-1. The user chose the match table for practice. Still open: should #39 Se Sam Pu Tat score in a Kim-off match (the printed Tidak ada KIM cell is blank)?
-2. What does "lew" mean in rows #10 and #12? Does a first-round self-draw after Pao Chin score Thi Fu?
-3. Flowers/seasons: the user chose own-seat only for individual tiles. Still open: do collection awards (#4, #5, #6) change under that rule?
-4. Does "posisi Dong" (Thien Fu) confirm the dealer-relative seat-wind convention used by the app?
-5. ~~The dice-Kim procedure~~ — resolved: players confirmed random Kim selection is fine (see Kim model).
-6. Ce Chiong Kong: must the winning tile be the 4th tile of the exposed Pung?
-7. Is a triplet completed by the winning discard concealed for Sam/Si Am Kang?
-8. Which pattern pairs exclude each other beyond Thi Fu → Pao Chin?
+1. Flowers/seasons: the user chose own-seat only for individual tiles. Still open: do collection awards (#4, #5, #6) change under that rule?
+2. Does "posisi Dong" (Thien Fu) confirm the dealer-relative seat-wind convention used by the app?
+
+The #39 column placement, #12 first self-draw, #36 winning fourth tile, #33/#34 discard completion, #31 pair meaning and pattern stacking questions are confirmed in §2–3. Random Kim selection was also confirmed by players (see Kim model).
 
 ## 7. Match flow (continuous game)
 

@@ -82,7 +82,7 @@ export function baseTay(id: number, mode: KimMode): number | null {
  * Cells where the stored hand-usage value differs from the printed PDF placement.
  * #39 Se Sam Pu Tat: printed 40 under Ada KIM, Tidak ada KIM blank (see RULES.md §2).
  * Under hand usage a Se Sam Pu Tat hand is always NK, so the value is moved there; under the
- * match table a Kim match scores the printed cell and a Kim-off match finds it blank.
+ * match table a Kim match scores the printed cell and the layout error is corrected to 40 in both columns.
  */
 export const PRINTED_PLACEMENT: ReadonlyMap<number, { readonly K: number | null; readonly NK: number | null }> = new Map([
   [39, { K: 40, NK: null }],
@@ -92,6 +92,8 @@ export const PRINTED_PLACEMENT: ReadonlyMap<number, { readonly K: number | null;
 export function tableTay(id: number, column: KimMode, basis: ScoringBasis = 'hand_kim_usage'): number | null {
   // Player feedback 2026-11-12: Bo KIM is +3 in either column, overriding the PDF blank.
   if (id === 8) return 3;
+  // #39 demands no joker use: the single printed value is a layout error.
+  if (id === 39) return 40;
   const printed = basis === 'match_table' ? PRINTED_PLACEMENT.get(id) : undefined;
   return printed ? printed[column] : baseTay(id, column);
 }
