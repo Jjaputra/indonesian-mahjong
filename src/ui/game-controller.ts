@@ -13,7 +13,7 @@ import { historyScoringFields, saveGameRecord, type GameSettings, type StorageLi
 import { buildObservation, builtInStrategy, chooseDiscard, isFirstGoAround, explainDiscardChoice, type AIStrategy } from './ai-controller';
 import { MELD_LABEL, PLAYER_NAME, SEAT_SHORT, tileText } from './labels';
 import { isInitialDealtHand, scoreHu, seatWindOf, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
-import { createMatch, currentHandNumber, isMatchOver, recordHand, finishMatchAtBoundary, type MatchTimeLimit, type DealerWinRule, type MatchLength, type MatchState } from './match';
+import { createMatch, currentHandNumber, isMatchOver, recordHand, finishMatchAtBoundary, rollOpeningDealer, type DeadWallOption, type MatchTimeLimit, type DealerWinRule, type MatchLength, type MatchState } from './match';
 
 export type GameEventType = 'draw' | 'discard' | 'jia' | 'pung' | 'kong' | 'flower' | 'hu' | 'lewFit' | 'seri';
 
@@ -237,13 +237,18 @@ export class GameController {
     this.changed();
   }
 
+  get remainingDrawable(): number { return this.engine.getState().wall.remainingDrawable; }
+
   getState(): Readonly<GameEngineState> {
     return this.engine.getState();
   }
 
   /** Start a match of `length` hands (null = endless) and deal its first hand. */
-  startMatch(length: MatchLength, dealerWinRule: DealerWinRule = 'stay', timeLimitMinutes: MatchTimeLimit = null): void {
-    this.match = createMatch(length, this.nextSettings.startingSeatWind, this.nextSettings.roundWind, this.nextSettings.minHuTay, dealerWinRule, timeLimitMinutes, this.now());
+  startMatch(length: MatchLength, dealerWinRule: DealerWinRule = 'stay', timeLimitMinutes: MatchTimeLimit = null, deadWall: DeadWallOption = 'none'): void {
+    const openingRoll = rollOpeningDealer(this.baseSeed === undefined ? Math.random : createMulberry32(this.baseSeed));
+    this.match = createMatch(length, openingRoll.dealer, this.nextSettings.roundWind, this.nextSettings.minHuTay, dealerWinRule, timeLimitMinutes, this.now());
+    this.match.openingRoll = openingRoll;
+    this.match.deadWall = deadWall;
     this.matchKim = { kimEnabled: this.nextSettings.kimEnabled, kimMode: this.nextSettings.kimMode };
     this.newGame();
   }
@@ -294,6 +299,7 @@ export class GameController {
     });
     const auto = this.settings.flowerReplacementMode === 'auto';
     const { wall } = this.dealWall(rules, seed);
+    wall.reservedCount = this.match?.deadWall === '14' ? 14 : 0;
     const records = this.engine.startNewGame(auto, wall);
     this.initialWallCount = this.getState().wall.remainingCount;
     this.discardCount = 0;
@@ -784,7 +790,7 @@ export class GameController {
         this.humanDrawnTileId = result.winningAction === 'kong' ? hand[hand.length - 1]?.id ?? null : null;
       }
     } else if (pending.isPromotedKong) {
-      this.addLog(`Kong ${PLAYER_NAME[pending.discarder]} sah; ambil tile pengganti dari ekor tembok.`, pending.discarder);
+      this.addLog(`Kong ${PLAYER_NAME[pending.discarder]} sah; ambil tile pengganti.`, pending.discarder);
       if (pending.discarder === this.humanSeat) {
         const hand = this.getState().players[this.humanSeat].hand;
         this.humanDrawnTileId = hand[hand.length - 1]?.id ?? null;

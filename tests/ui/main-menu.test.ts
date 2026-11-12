@@ -46,14 +46,14 @@ describe('MainMenu', () => {
     expect(partial).not.toContain('Ada Kim');
   });
 
-  it('renders the pregame Ada Kim / Tanpa Kim choice without development explanations', () => {
+  it('renders the pregame three-mode Kim choice without development explanations', () => {
     const on = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: true, onKimChange: noop }));
-    expect(on).toMatch(/aria-pressed="true">Ada Kim<\/button>/);
-    expect(on).toMatch(/aria-pressed="false">Tanpa Kim<\/button>/);
+    expect(on).toContain('<option value="natural" selected="">Kim dari tile</option>');
+    expect(on).toContain('<option value="off">Tanpa Kim</option>');
     expect(on).not.toMatch(/model lama|belum diterapkan|menunggu konfirmasi/);
     const off = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: false, onKimChange: noop }));
-    expect(off).toMatch(/aria-pressed="false">Ada Kim<\/button>/);
-    expect(off).toMatch(/aria-pressed="true">Tanpa Kim<\/button>/);
+    expect(off).toContain('<option value="natural">Kim dari tile</option>');
+    expect(off).toContain('<option value="off" selected="">Tanpa Kim</option>');
   });
 
 

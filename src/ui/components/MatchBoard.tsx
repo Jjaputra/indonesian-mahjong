@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Home, RotateCcw } from 'lucide-react';
 import type { Seat, Wind } from '../../core/types';
 import { SEAT_ORDER } from '../../core/tiles';
-import { standings, isMatchOver, remainingMatchMs, type MatchState } from '../match';
+import { standings, countedGames, isMatchOver, remainingMatchMs, type MatchState } from '../match';
 import { PLAYER_NAME, SEAT_SHORT, matchProgressLabel } from '../labels';
 import { Modal } from './Modal';
 
@@ -27,13 +27,13 @@ export function MatchClock({ match }: { match: MatchState }) {
 export function MatchScoreboard({ match, hand, prevailingWind, dealer }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat }) {
   return (
     <div className="match-board" aria-label="Papan skor pertandingan">
-      <strong>{matchProgressLabel(hand, match.length, prevailingWind)}</strong>
+      <strong>{matchProgressLabel(match.length === '16++' ? countedGames(match) + (isMatchOver(match) ? 0 : 1) : hand, match.length, prevailingWind)}</strong>
       <MatchMinimumNote match={match} />
       <MatchClock match={match} />
       <span className="match-scores">
         {SEAT_ORDER.map((seat) => (
           <span key={seat} className={`match-score${seat === dealer ? ' is-dealer' : ''}`} title={seat === dealer ? 'Dealer game ini' : undefined}>
-            {PLAYER_NAME[seat]}: <b>{match.huCount[seat]}</b> Hu
+            {PLAYER_NAME[seat]}: <b>{match.huCount[seat]}</b> Hu · {match.tayTotal[seat]} Tay
           </span>
         ))}
       </span>
@@ -49,14 +49,17 @@ export function MatchResultNote({ match }: { match: MatchState }) {
   const next = match.seating;
   const rotation = last.lewFit ? 'Lew Fit: dealer dan angin duduk berputar satu langkah.' : last.winner === null
     ? 'Tidak ada Hu sah: angin duduk tidak berputar.'
-    : last.winner === last.dealer && match.dealerWinRule === 'stay'
+    : last.winner === last.dealer
       ? `${PLAYER_NAME[last.winner]} (dealer) menang: dealer tetap.`
       : 'Angin duduk berputar satu langkah.';
   return (
-    <p className="match-note">
-      <strong>{`Game ${last.hand}${match.length === null ? '' : `/${match.length}`} selesai.`}</strong>{' '}
+    <div className="match-note"><p>
+      <strong>{`Game ${last.hand}${match.length === null || match.length === '16++' ? '' : `/${match.length}`} selesai.`}</strong>{' '}
       {over ? match.endedBy === 'time' ? 'Pertandingan berakhir karena batas waktu 90 menit.' : 'Ini game terakhir pertandingan.' : `${rotation} Berikutnya dealer: ${PLAYER_NAME[next.dealer]} · Angin putaran ${SEAT_SHORT[next.prevailingWind]}.`}
     </p>
+    {match.length === '16++' && <p>{countedGames(match)}/16 game dihitung · kemenangan dealer tidak menambah hitungan.</p>}
+    <p>{standings(match).map(r => `${PLAYER_NAME[r.seat]}: ${r.hu} Hu · ${r.tay} Tay`).join(' / ')}</p>
+    </div>
   );
 }
 

@@ -1,15 +1,25 @@
 import type { GameController } from './game-controller';
+import type { OpeningRoll } from './components/DiceRoll';
 
 /**
- * Dev-only screenshot hook: `?demo=table|claim|hu[&seed=n]` deals a seeded match and plays the
+ * Dev-only screenshot hook: `?demo=table|claim|hu|dice[&seed=n]` deals a seeded match and plays the
  * human seat forward to a reproducible table state. App only loads this behind import.meta.env.DEV.
  */
-export type DemoMode = 'table' | 'claim' | 'hu';
+export type DemoMode = 'table' | 'claim' | 'hu' | 'dice';
+
+/** Sample opening roll with one tie re-roll, for `?demo=dice` before a match exposes its own. */
+export const DEMO_OPENING_ROLL: OpeningRoll = {
+  rounds: [
+    [{ seat: 'dong', dice: [5, 4] }, { seat: 'nan', dice: [6, 3] }, { seat: 'xi', dice: [2, 2] }, { seat: 'bei', dice: [1, 6] }],
+    [{ seat: 'dong', dice: [3, 2] }, { seat: 'nan', dice: [6, 5] }],
+  ],
+  dealer: 'nan',
+};
 
 export function demoFromUrl(search: string): { mode: DemoMode; seed: number } | null {
   const params = new URLSearchParams(search);
   const mode = params.get('demo');
-  if (mode !== 'table' && mode !== 'claim' && mode !== 'hu') return null;
+  if (mode !== 'table' && mode !== 'claim' && mode !== 'hu' && mode !== 'dice') return null;
   return { mode, seed: Number(params.get('seed') ?? 7) || 7 };
 }
 

@@ -1914,7 +1914,7 @@ select {
   padding: 0 2px;
 }
 
-/* ---------- Centre: wall square and discards, lying in perspective ---------- */
+/* ---------- Centre: discards lying in perspective, no wall (players prefer a clean centre) ---------- */
 .table-felt .center-area {
   grid-area: center;
   position: relative;
@@ -1937,67 +1937,27 @@ select {
     repeating-conic-gradient(rgba(255, 255, 255, 0.03) 0 3deg, transparent 3deg 10deg);
   border-radius: 50%;
 }
-.wall-ring {
-  --stack-depth: 30px;
-  --stack-gap: 2px;
+/* Remaining-tile counter: a brass plate on the felt, upright so it stays legible. */
+.table-felt .wall-counter {
   position: absolute;
-  inset: 2% 4%;
-  pointer-events: none;
+  z-index: 2;
+  top: 2%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 3px 14px;
+  border: 2px solid #d9a441;
+  border-radius: 999px;
+  background: rgba(10, 36, 22, 0.82);
+  color: var(--felt-ink);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
 }
-.wall-side {
-  position: absolute;
-  display: flex;
-  justify-content: center;
-  gap: var(--stack-gap);
-}
-/* Sides are as long as the square; each stack takes an equal share of its side. */
-.wall-bottom,
-.wall-top { left: calc(var(--stack-depth) + 6px); right: calc(var(--stack-depth) + 6px); height: var(--stack-depth); }
-.wall-bottom { bottom: 0; }
-.wall-top { top: 0; }
-.wall-left,
-.wall-right { top: 0; bottom: 0; width: calc(var(--stack-depth) * 0.9); flex-direction: column; }
-.wall-left { left: 0; }
-.wall-right { right: 0; }
-/* A 2-high stack seen from the player's side: two navy backs, each over an ivory face edge. */
-.wall-stack {
-  display: block;
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 0;
-  max-width: 26px;
-  border-radius: 3px;
-  background: linear-gradient(var(--tile-back) 0 34%, var(--tile-side) 34% 48%, var(--tile-back) 48% 84%, var(--tile-side) 84%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 1px var(--tile-back-edge), 0 3px 4px rgba(0, 0, 0, 0.35);
-}
-/* Side walls run away from the player: the slabs show their long edge. */
-.wall-left .wall-stack,
-.wall-right .wall-stack {
-  max-width: none;
-  max-height: 22px;
-  background: linear-gradient(90deg, var(--tile-back) 0 34%, var(--tile-side) 34% 48%, var(--tile-back) 48% 84%, var(--tile-side) 84%);
-}
-.wall-right .wall-stack {
-  background: linear-gradient(90deg, var(--tile-side) 0 16%, var(--tile-back) 16% 52%, var(--tile-side) 52% 66%, var(--tile-back) 66%);
-}
-/* Top tile taken: a single tile is left, half the height of a stack. */
-.wall-stack.is-single {
-  background: linear-gradient(transparent 0 48%, var(--tile-back) 48% 84%, var(--tile-side) 84%);
-  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.3);
-}
-.wall-left .wall-stack.is-single {
-  background: linear-gradient(90deg, transparent 0 48%, var(--tile-back) 48% 84%, var(--tile-side) 84%);
-}
-.wall-right .wall-stack.is-single {
-  background: linear-gradient(90deg, var(--tile-side) 0 16%, var(--tile-back) 16% 52%, transparent 52%);
-}
-/* Taken stacks keep a faint outline so each side visibly empties in order. */
-.wall-stack.is-empty,
-.wall-left .wall-stack.is-empty,
-.wall-right .wall-stack.is-empty {
-  background: rgba(0, 0, 0, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(243, 231, 201, 0.16);
-}
+.table-felt .wall-counter b { color: #ffd56b; font-size: 1.25em; font-variant-numeric: tabular-nums; }
+.table-felt .wall-counter.is-low { border-color: #ff8a6b; }
+.table-felt .wall-counter.is-low b { color: #ffb199; }
 .felt-wind {
   position: absolute;
   color: var(--felt-gold);
@@ -2010,13 +1970,14 @@ select {
 .felt-wind b { font-size: 1.1em; font-weight: 700; color: #ffcf7d; }
 .felt-wind small { font-size: 11px; color: var(--felt-ink); }
 .felt-wind.is-turn { color: #ffe08a; text-shadow: 0 0 10px rgba(255, 213, 107, 0.8), 0 1px 0 rgba(0, 0, 0, 0.5); }
-.felt-bottom { bottom: 12%; left: 50%; transform: translateX(-50%); }
+/* Your own wind sits in the near-left corner: the action pills take the near edge's centre. */
+.felt-bottom { bottom: 9%; left: 13%; }
 .felt-top { top: 12%; left: 50%; transform: translateX(-50%); }
-.felt-left { left: 14%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
-.felt-right { right: 14%; top: 50%; transform: translate(50%, -50%) rotate(-90deg); }
+.felt-left { left: 10%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+.felt-right { right: 10%; top: 50%; transform: translate(50%, -50%) rotate(-90deg); }
 .table-felt .discard-pool {
   position: absolute;
-  inset: 20% 19%;
+  inset: 19% 16%;
   display: flex;
   flex-wrap: wrap;
   align-content: center;
@@ -2345,15 +2306,13 @@ select {
 /* ---------- Size steps ---------- */
 @media (min-width: 1600px) {
   :root { --hud-rail: 340px; --felt-persp: 1500px; }
-  .table-felt .discard-pool .tile-sm { --w: 32px; --h: 43px; }
+  .table-felt .discard-pool .tile-sm { --w: 38px; --h: 51px; }
   .table-felt .hand-row > .tile { --w: 62px; --h: 84px; }
   .table-felt .seat-panel .tile-back { --w: 27px; --h: 37px; }
   .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 34px; --h: 17px; }
   .table-felt .tile-sm { --w: 28px; --h: 38px; }
   .board-plane { width: min(100%, 800px); }
-  .wall-ring { --stack-depth: 40px; }
-  .wall-stack { max-width: 34px; }
-  .wall-left .wall-stack, .wall-right .wall-stack { max-height: 28px; }
+  .table-felt .wall-counter { font-size: 16px; }
   .felt-wind { font-size: 19px; }
   .table-felt .seat-head { font-size: 14px; }
   .table-felt .hud-btn { min-height: 60px; font-size: 26px; }
@@ -2434,13 +2393,16 @@ select {
   .table-felt .seat-panel .tile-sm { --w: 14px; --h: 20px; }
   .table-felt .seat-panel .meld { flex-wrap: wrap; max-width: 44px; justify-content: center; }
   .table-felt .seat-top .meld { flex-wrap: nowrap; max-width: none; }
-  .table-felt > .kim-indicator { margin: 0; font-size: 10px; padding: 1px 8px; }
+  /* On the felt's far-left corner, clear of the top seat's rack. */
+  .table-felt > .kim-indicator { grid-area: center; margin: 6px 0 0 2px; font-size: 10px; padding: 1px 8px; }
   .table-felt .center-area::before { inset: -4px -50px; }
   .board-plane { aspect-ratio: 0.95; }
-  .wall-ring { --stack-depth: 17px; --stack-gap: 1px; }
+  .table-felt .wall-counter { font-size: 11px; padding: 2px 10px; }
   .felt-wind { font-size: 10px; }
   .felt-wind small { font-size: 8px; }
-  .table-felt .discard-pool { inset: 18% 16%; gap: 4px 1px; }
+  .table-felt .discard-pool { inset: 18% 14%; gap: 4px 1px; }
+  .felt-left { left: 6%; }
+  .felt-right { right: 6%; }
   /* Side slabs stay a few px inside the felt: less lean, and room for the count. */
   .table-felt .seat-left { padding-left: 6px; }
   .table-felt .seat-right { padding-right: 6px; }
@@ -2463,4 +2425,132 @@ select {
   .table-felt .claim-banner { flex-basis: 100%; justify-content: center; font-size: 11px; }
   .hu-burst { font-size: 48px; padding: 4px 26px 8px; }
   .hu-banner { font-size: 40px; padding: 4px 24px 8px; }
+}
+
+/* ---------- Opening dice: who becomes the first dealer ---------- */
+.dice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 16px;
+  background: rgba(8, 20, 12, 0.72);
+  cursor: pointer;
+}
+.dice-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 1fr;
+  grid-template-rows: auto auto auto;
+  grid-template-areas: '. top .' 'left status right' '. bottom .';
+  gap: 14px;
+  width: min(100%, 620px);
+  padding: 22px 18px;
+  border: 10px solid var(--rim-wood);
+  border-radius: 26px;
+  background: radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, 0.1), transparent 65%), linear-gradient(var(--felt-deep), var(--felt-green));
+  box-shadow: 0 0 0 3px var(--rim-dark), 0 24px 50px rgba(0, 0, 0, 0.55);
+  color: var(--felt-ink);
+}
+.dice-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  border-radius: 14px;
+  transition: opacity 0.3s, background 0.3s;
+}
+.dice-top { grid-area: top; }
+.dice-left { grid-area: left; }
+.dice-right { grid-area: right; }
+.dice-bottom { grid-area: bottom; }
+.dice-seat strong { font-size: 14px; }
+.dice-seat.is-out { opacity: 0.4; }
+.dice-seat.is-dealer { background: rgba(255, 213, 107, 0.16); box-shadow: 0 0 0 2px #ffd56b; }
+.dice-seat.is-dealer strong { color: #ffd56b; }
+.dice-pair { display: flex; gap: 18px; min-height: 40px; }
+.dice-total { font-size: 20px; font-weight: 900; color: #ffd56b; font-variant-numeric: tabular-nums; }
+.dice-status {
+  grid-area: status;
+  align-self: center;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+}
+.dice-status.is-final {
+  padding: 8px 10px;
+  border: 3px solid var(--call-ink);
+  border-radius: 14px;
+  background: #fffdf6;
+  color: var(--call-red);
+  font-size: 17px;
+  box-shadow: 0 4px 0 var(--call-ink);
+}
+.dice-skip { min-width: 140px; border: 2px solid #ffd56b; background: #fffdf6; color: var(--call-ink); font-weight: 800; }
+
+/* A CSS cube: six faces, the shown face turned to the front with a slight tilt. */
+.die { --s: 38px; width: var(--s); height: var(--s); perspective: 260px; }
+.die-cube {
+  --face: rotateX(0deg);
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateX(-16deg) rotateY(20deg) var(--face);
+  animation: die-land 0.35s ease-out;
+}
+.die[data-value='2'] .die-cube { --face: rotateY(-90deg); }
+.die[data-value='3'] .die-cube { --face: rotateX(-90deg); }
+.die[data-value='4'] .die-cube { --face: rotateX(90deg); }
+.die[data-value='5'] .die-cube { --face: rotateY(90deg); }
+.die[data-value='6'] .die-cube { --face: rotateY(180deg); }
+.die.is-rolling .die-cube { animation: die-tumble 0.55s linear infinite; }
+.die.is-rolling + .die.is-rolling .die-cube { animation-duration: 0.47s; animation-direction: reverse; }
+.die-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  place-items: center;
+  padding: 14%;
+  border-radius: 18%;
+  background: linear-gradient(145deg, #fffef8, #ece2c8);
+  box-shadow: inset 0 0 0 1px #cdbf9c, inset -2px -3px 5px rgba(0, 0, 0, 0.12);
+  backface-visibility: hidden;
+}
+.face-1 { transform: translateZ(calc(var(--s) / 2)); }
+.face-6 { transform: rotateY(180deg) translateZ(calc(var(--s) / 2)); }
+.face-2 { transform: rotateY(90deg) translateZ(calc(var(--s) / 2)); }
+.face-5 { transform: rotateY(-90deg) translateZ(calc(var(--s) / 2)); }
+.face-3 { transform: rotateX(90deg) translateZ(calc(var(--s) / 2)); }
+.face-4 { transform: rotateX(-90deg) translateZ(calc(var(--s) / 2)); }
+.die-face .pip { width: 72%; aspect-ratio: 1; border-radius: 50%; background: #1d1d1d; box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.6); }
+/* Traditional Chinese dice: the one and the four are red. */
+.face-1 .pip { width: 100%; background: #c0161e; }
+.face-4 .pip { background: #c0161e; }
+@keyframes die-tumble {
+  from { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+  to { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); }
+}
+@keyframes die-land {
+  from { transform: rotateX(-16deg) rotateY(20deg) var(--face) scale(1.25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .die-cube, .die.is-rolling .die-cube { animation: none; }
+}
+@media (max-width: 560px) {
+  .dice-board { gap: 8px; padding: 14px 8px; border-width: 7px; grid-template-columns: 1fr 1.4fr 1fr; }
+  .die { --s: 28px; }
+  .dice-pair { gap: 12px; min-height: 30px; }
+  .dice-seat strong { font-size: 12px; }
+  .dice-status { font-size: 12px; }
+  .dice-status.is-final { font-size: 13px; padding: 6px; }
 }

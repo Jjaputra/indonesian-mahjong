@@ -15,6 +15,7 @@ import { HuResultModal } from '@/ui/components/HuResultModal';
 import { SettingsModal, withPreset } from '@/ui/components/SettingsModal';
 import { TayCalculator } from '@/ui/components/TayCalculator';
 import { TileView } from '@/ui/components/TileView';
+import { DiceRoll, openingRollOf } from '@/ui/components/DiceRoll';
 import { GameController } from '@/ui/game-controller';
 
 const noop = () => undefined;
@@ -41,7 +42,7 @@ describe('UI render smoke tests', () => {
     const html = renderToString(createElement(App));
     expect(html).toContain('Mahjong Tradisional Indonesia');
     expect(html).toContain('Mulai bermain');
-    expect(html).toContain('Ada Kim');
+    expect(html).toContain('Kim dari tile');
     expect(html).toContain('Tanpa Kim');
     expect(html).not.toMatch(/Kalkulator|Rulebook|ver06|PDF|aturan rumah|model lama/);
     expect(html).not.toContain('Tembok');
@@ -79,12 +80,32 @@ describe('UI render smoke tests', () => {
     expect(html).toContain('Buang');
     expect(html).toContain('practice-coach');
     expect(html).toContain('is-coached');
-    expect(html).toContain('Tembok');
+    expect(html).toContain('wall-counter');
+    expect(html).not.toContain('wall-stack');
     expect(html).toContain('Selatan');
     expect(html).toContain('Timur');
-    expect(html).toContain(`<b>${c.getState().wall.remainingCount}</b>`);
+    expect(html).toContain(`Sisa <b>${c.remainingDrawable}</b> tile`);
     expect(html).toContain('Ada Kim');
     expect((html.match(/tile-lg/g) ?? []).length).toBe(c.getState().players.dong.hand.length);
+  });
+
+  it('opening dice overlay rolls two dice per seat from the match roll and can be skipped', () => {
+    const c = new GameController({ settings: settings(), autoStart: false, seed: 5, saveHistory: false });
+    c.startMatch(16);
+    const roll = openingRollOf(c.match)!;
+    expect(roll.rounds[0]).toHaveLength(4);
+    const html = renderToString(createElement(DiceRoll, { roll, humanSeat: c.humanSeat, onDone: noop }));
+    expect((html.match(/class="die is-rolling"/g) ?? []).length).toBe(8);
+    expect(html).toContain('Lempar dadu: angka tertinggi jadi dealer');
+    expect(html).toContain('Lewati');
+    for (const name of ['Anda', 'Bot Kanan', 'Bot Seberang', 'Bot Kiri']) expect(html).toContain(name);
+  });
+
+  it('table centre has no wall, only the drawable-tile counter', () => {
+    const c = new GameController({ settings: settings(), seed: 11, saveHistory: false });
+    const html = renderToString(createElement(CenterArea, { controller: c }));
+    expect(html).not.toMatch(/wall-ring|wall-stack/);
+    expect(html).toMatch(/class="wall-counter[^"]*" aria-label="Sisa \d+ tile di tembok"/);
   });
 
   it('Kim tile shows its KIM badge and drawn Kim face', () => {

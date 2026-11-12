@@ -11,6 +11,7 @@ export interface SerializedWall {
   readonly headIndex: number;
   readonly tailIndex: number;
   readonly initialCount: number;
+  readonly reservedCount?: number;
 }
 
 /**
@@ -42,6 +43,10 @@ export function shuffleTiles(tiles: readonly Tile[], rng: () => number = Math.ra
 }
 
 export class Wall {
+  /** Reserved tiles cannot be used for turn or replacement draws. */
+  reservedCount = 0;
+  get remainingDrawable(): number { return Math.max(0, this.remainingCount - this.reservedCount); }
+
   private tiles: Tile[];
   private headIndex: number;
   private tailIndex: number;
@@ -98,7 +103,7 @@ export class Wall {
    * True if no tiles remain in the wall.
    */
   get isEmpty(): boolean {
-    return this.remainingCount === 0;
+    return this.remainingDrawable === 0;
   }
 
   /**
@@ -179,6 +184,7 @@ export class Wall {
    */
   clone(): Wall {
     const cloned = new Wall(this.tiles, null);
+    cloned.reservedCount = this.reservedCount;
     cloned.headIndex = this.headIndex;
     cloned.tailIndex = this.tailIndex;
     return cloned;
@@ -193,6 +199,7 @@ export class Wall {
       headIndex: this.headIndex,
       tailIndex: this.tailIndex,
       initialCount: this.initialCount,
+      reservedCount: this.reservedCount,
     };
   }
 
@@ -201,6 +208,7 @@ export class Wall {
    */
   static deserialize(state: SerializedWall): Wall {
     const wall = new Wall(state.tiles, null);
+    wall.reservedCount = state.reservedCount ?? 0;
     (wall as any).headIndex = state.headIndex;
     (wall as any).tailIndex = state.tailIndex;
     (wall as any).initialCount = state.initialCount;

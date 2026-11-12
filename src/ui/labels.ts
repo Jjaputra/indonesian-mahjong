@@ -42,12 +42,12 @@ export const WIN_METHOD_LABEL: Record<WinMethod, string> = {
 export const DIFFICULTY_LABEL: Record<AIDifficulty, string> = { easy: 'Mudah', normal: 'Normal', hard: 'Sulit' };
 
 /** Match length choice; `null` = endless practice. */
-export function matchLengthLabel(length: number | null): string {
-  return length === null ? 'Tanpa batas' : `${length} game`;
+export function matchLengthLabel(length: number | '16++' | null): string {
+  return length === null ? 'Tanpa batas' : length === '16++' ? '16 game ++' : `${length} game`;
 }
 
 /** Compact match indicator, e.g. "Game 3/8 · Angin putaran Timur". */
-export function matchProgressLabel(hand: number, length: number | null, prevailingWind: Wind): string {
+export function matchProgressLabel(hand: number, length: number | '16++' | null, prevailingWind: Wind): string {
   return `Game ${hand}${length === null ? '' : `/${length}`} · Angin putaran ${SEAT_SHORT[prevailingWind]}`;
 }
 

@@ -44,9 +44,9 @@ function playHand(c: GameController): void {
 const start: Seating = { dealer: 'dong', prevailingWind: 'dong', dealerPasses: 0 };
 
 describe('match rotation policy (nextSeating)', () => {
-  it('dealer win: default retention and optional rotation are both supported', () => {
+  it('dealer wins retain the deal even with a legacy rotate argument', () => {
     expect(nextSeating(start, { kind: 'hu', winner: 'dong' })).toEqual(start);
-    expect(nextSeating(start, { kind: 'hu', winner: 'dong' }, 'rotate')).toEqual({ dealer: 'nan', prevailingWind: 'dong', dealerPasses: 1 });
+    expect(nextSeating(start, { kind: 'hu', winner: 'dong' }, 'rotate')).toEqual(start);
   });
 
   it('non-dealer win: the dealer passes to the next seat in turn order', () => {
@@ -176,6 +176,7 @@ describe('GameController continuous match', () => {
     const c = new GameController({ settings: settings({ kimEnabled: false, kimMode: 'off', startingSeatWind: 'nan' }), seed: 5, saveHistory: false, autoStart: false });
     c.startMatch(8);
     const s = mutable(c);
+    s.dealerSeat = 'nan'; // Fixture for rotated-seat scoring, independent of opening dice.
     expect(s.dealerSeat).toBe('nan');
     const prepare = (tiles: string) => {
       s.currentTurn = 'dong';
@@ -214,7 +215,7 @@ describe('match UI wiring', () => {
   it('menu offers the match length choice', () => {
     const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, matchLength: 8, onMatchLengthChange: noop }));
     expect(html).toContain('Panjang pertandingan');
-    for (const label of ['4 game', '8 game', '16 game', 'Tanpa batas']) expect(html).toContain(label);
+    for (const label of ['8 game', '16 game', '16 game ++', 'Tanpa batas']) expect(html).toContain(label);
     expect(html).toMatch(/aria-pressed="true"[^>]*>8 game/);
   });
 
@@ -280,7 +281,7 @@ describe('match review regressions', () => {
     expect(c.outcome?.kind).toBe('hu');
     expect(c.match!.huCount.dong).toBe(1);
     expect(c.match!.tayTotal.dong).toBe(4);
-    expect(c.match!.seating.dealer).toBe('xi');
+    expect(c.match!.seating.dealer).toBe(c.getState().dealerSeat === 'dong' ? 'dong' : SEAT_ORDER[(SEAT_ORDER.indexOf(c.getState().dealerSeat) + 1) % 4]);
   });
 
   it('a controller wall-out draw counts exactly once without rotating seating', () => {
@@ -299,7 +300,7 @@ describe('match review regressions', () => {
     c.step(); c.humanDraw();
     expect(c.match!.hands).toHaveLength(1);
     expect(c.nextHand()).toBe(true);
-    expect(c.getState().dealerSeat).toBe('xi');
+    expect(c.getState().dealerSeat).toBe(seating.dealer);
     expect(c.getState().roundWind).toBe('nan');
     expect(c.getHumanActions().canDraw || c.getHumanActions().canDiscard || c.getState().currentTurn !== c.humanSeat).toBe(true);
   });
@@ -377,49 +378,20 @@ describe('match review regressions', () => {
 });
 
 
-describe('dealer-win option', () => {
-  it('repeated dealer wins do not advance the circuit or prevailing wind in the default mode', () => {
-    let match = createMatch(null);
-    for (let i = 0; i < 8; i++) match = recordHand(match, match.seating.dealer, true, 5);
-    expect(match.seating).toEqual(start);
-    expect(match.hands).toHaveLength(8);
-    let rotate = createMatch(null, 'dong', 'dong', 5, 'rotate');
-    for (let i = 0; i < 4; i++) rotate = recordHand(rotate, rotate.seating.dealer, true, 5);
-    expect(rotate.seating).toEqual({ dealer: 'dong', prevailingWind: 'nan', dealerPasses: 0 });
-    expect(nextSeating(rotate.seating, { kind: 'none' }, 'rotate')).toEqual(rotate.seating);
-  });
-
-  it('persists the choice and falls back to dealer-stays for missing or malformed preferences', () => {
+describe('legacy dealer-win migration', () => {
+  it('ignores rotate and removes its saved preference', () => {
     const store = new MemoryStorage();
+    store.setItem('itm.match-dealer-win.v1', 'rotate');
     expect(loadDealerWinRule(store)).toBe('stay');
+    expect(store.getItem('itm.match-dealer-win.v1')).toBeNull();
     saveDealerWinRule('rotate', store);
-    expect(loadDealerWinRule(store)).toBe('rotate');
-    saveDealerWinRule('stay', store);
-    expect(loadDealerWinRule(store)).toBe('stay');
-    store.setItem('itm.match-dealer-win.v1', 'invalid');
-    expect(loadDealerWinRule(store)).toBe('stay');
+    expect(store.getItem('itm.match-dealer-win.v1')).toBeNull();
+    let match = createMatch(null, 'dong', 'dong', 5, 'rotate');
+    for (let i = 0; i < 4; i++) match = recordHand(match, 'dong', true, 5);
+    expect(match.seating).toEqual(start);
   });
-
-  it('the pregame menu exposes both policies with the default selected', () => {
+  it('does not render the removed dealer control', () => {
     const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: () => {}, dealerWinRule: 'stay', onDealerWinRuleChange: () => {} }));
-    expect(html).toContain('Dealer menang');
-    expect(html).toContain('<option value="stay" selected="">Tetap jadi dealer (default)</option>');
-    expect(html).toContain('<option value="rotate">Tetap berputar</option>');
-  });
-
-  it('controller startMatch snapshots the option and applies it to dealer Hu', () => {
-    for (const rule of ['stay', 'rotate'] as const) {
-      const c = new GameController({ settings: settings({ kimEnabled: false, kimMode: 'off' }), seed: 6, saveHistory: false, autoStart: false });
-      c.startMatch(4, rule);
-      const s = mutable(c);
-      s.players.dong.hand = parseTileHand('1T 2T 3T 4T 5T 6T 7B 8B 9B 2S 3S 4S 9T 9T');
-      s.players.dong.flowers = []; s.players.dong.melds = [];
-      expect(c.getHumanActions().canSelfDrawHu).toBe(true);
-      c.humanSelfDrawHu();
-      expect(c.match!.dealerWinRule).toBe(rule);
-      expect(c.match!.seating.dealer).toBe(rule === 'stay' ? 'dong' : 'nan');
-      c.nextHand();
-      expect(c.getState().dealerSeat).toBe(rule === 'stay' ? 'dong' : 'nan');
-    }
+    expect(html).not.toContain('Dealer menang');
   });
 });
