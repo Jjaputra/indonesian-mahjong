@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { History, RotateCcw, Settings, Volume2, VolumeX } from 'lucide-react';
+import { Box, History, RotateCcw, Settings, Square, Volume2, VolumeX } from 'lucide-react';
 import { playSound, type SoundEffectName } from './audio';
 import {
   clearGameHistory,
@@ -23,6 +23,7 @@ import { migrateMatchLengthPreference, loadDealerWinRule, loadDeadWall, saveDead
 import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsForPace, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
 import { DIFFICULTY_LABEL, tileText } from './ui/labels';
 import { releaseVersion } from './ui/release';
+import { loadTableView, saveTableView, TABLE_VIEW_LABEL, type TableView } from './ui/table-view';
 
 type View = 'menu' | 'table';
 type ModalName = 'settings' | 'history' | null;
@@ -75,6 +76,8 @@ export function App() {
   const [resultOpen, setResultOpen] = useState(false);
   const [abandonOpen, setAbandonOpen] = useState(false);
   const [standingsOpen, setStandingsOpen] = useState(false);
+  const [tableView, setTableView] = useState<TableView>(loadTableView);
+  const changeTableView = (next: TableView) => { setTableView(next); saveTableView(next); };
   const [dice, setDice] = useState<{ roll: OpeningRoll; autoClose: boolean } | null>(null);
   const [deadWall, setDeadWall] = useState<DeadWallOption>(() => { migrateMatchLengthPreference(); loadDealerWinRule(); return loadDeadWall(); });
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<MatchTimeLimit>(loadMatchTimeLimit);
@@ -189,6 +192,8 @@ export function App() {
     void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, stackDemoMelds, DEMO_OPENING_ROLL }) => {
       const demo = demoFromUrl(window.location.search);
       if (!demo) return;
+      // `&view=flat` previews the flat table without changing the stored preference.
+      if (new URLSearchParams(window.location.search).get('view') === 'flat') setTableView('flat');
       startPractice();
       setPaused(true);
       // The dice demo holds on the announcement; before the match exposes a roll it shows a sample.
@@ -203,7 +208,7 @@ export function App() {
 
   const pos = seatPositions(controller.humanSeat);
   return (
-    <div className={`app${view === 'table' ? ' is-table' : ''}`}>
+    <div className={`app${view === 'table' ? ' is-table' : ''}${tableView === 'flat' ? ' view-flat' : ''}`}>
       <header className="app-header">
         <div className="brand">
           <span className="brand-tile">金</span>
@@ -217,6 +222,10 @@ export function App() {
           <button type="button" className="icon-btn" onClick={() => setModal('history')} title="Riwayat Permainan">
             <History size={18} />
           </button>
+          {view === 'table' && <button type="button" className="icon-btn" aria-pressed={tableView === 'flat'} onClick={() => changeTableView(tableView === '3d' ? 'flat' : '3d')}
+            title={`Tampilan meja: ${TABLE_VIEW_LABEL[tableView]} — ganti ke ${TABLE_VIEW_LABEL[tableView === '3d' ? 'flat' : '3d']}`} aria-label={`Tampilan meja: ${TABLE_VIEW_LABEL[tableView]}`}>
+            {tableView === '3d' ? <Box size={18} /> : <Square size={18} />}
+          </button>}
           <button type="button" className="icon-btn" onClick={toggleSound} title={settings.soundEnabled ? 'Matikan suara' : 'Nyalakan suara'}>
             {settings.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
@@ -266,7 +275,7 @@ export function App() {
       {view === 'table' && standingsOpen && controller.match && !modal && <MatchStandingsModal match={controller.match} onPlayAgain={startPractice} onMenu={newGame} />}
       {view === 'table' && dice && <DiceRoll roll={dice.roll} humanSeat={controller.humanSeat} autoClose={dice.autoClose} onDone={() => setDice(null)} />}
       {abandonOpen && <AbandonMatchDialog onStay={() => setAbandonOpen(false)} onLeave={newGame} />}
-      {modal === 'settings' && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setModal(null)} />}
+      {modal === 'settings' && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setModal(null)} tableView={tableView} onTableViewChange={changeTableView} />}
       {modal === 'history' && (
         <HistoryModal
           history={history}

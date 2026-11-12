@@ -2489,6 +2489,19 @@ select {
   .hu-banner { font-size: 40px; padding: 4px 24px 8px; }
 }
 
+/* ---------- Flat table ("Datar"): same table, seen straight from above ---------- */
+.app.view-flat { --felt-tilt: 0deg; --board-tilt: 0deg; }
+.app.view-flat .table-felt::before { top: 4px; transform: none; }
+.app.view-flat .board-plane { transform: none; }
+/* Side hands lie flat along the table edge, unskewed. */
+.app.view-flat .table-felt :is(.seat-left, .seat-right) .concealed { transform: none; }
+@media (min-width: 901px) {
+  /* Without foreshortening the board keeps its full height: size it by the centre cell instead. */
+  .app.view-flat .board-plane { width: auto; height: 100%; max-width: 100%; max-height: 100%; }
+  .app.view-flat .table-felt .center-area { align-self: stretch; }
+  .app.view-flat .table-felt .discard-pool { inset: 17% 12%; }
+}
+
 /* ---------- Opening dice: who becomes the first dealer ---------- */
 .dice-overlay {
   position: fixed;
