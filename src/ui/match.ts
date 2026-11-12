@@ -6,8 +6,8 @@
  * same chair. Each hand's seat wind is derived from the dealer chair (`seatWindOf` in
  * win-context.ts), so the scorer always sees the rotated seat wind.
  *
- * Player answers 2026-11-12: 16 games, ranking by total Tay, then valid Hu,
- * then first to reach the final Tay total. Seri and dealer wins each count once.
+ * Player answers 2026-11-12: 16 games, ranking by total points, then valid Hu,
+ * then first to reach the final points total. Seri and dealer wins each count once.
  */
 import { SEAT_ORDER } from '../core/tiles';
 import type { Seat, Wind } from '../core/types';
@@ -42,6 +42,16 @@ export function nextSeating(current: Seating, _result: HandResult, _dealerWinRul
   return { dealer, prevailingWind, dealerPasses: 0 };
 }
 
+export type PointMultiplierReason = 'ce_mo' | 'mun' | null;
+export interface HandPoints { tay: number; multiplier: 1 | 2; reason: PointMultiplierReason; points: number }
+
+/** Player feedback 2026-11-12: apply once, independently of pattern exclusions. */
+export function handPoints(totalTay: number, win: { isSelfDraw: boolean; isConcealed: boolean }): HandPoints {
+  const reason: PointMultiplierReason = win.isSelfDraw ? 'ce_mo' : win.isConcealed ? 'mun' : null;
+  const multiplier = reason === null ? 1 : 2;
+  return { tay: totalTay, multiplier, reason, points: totalTay * multiplier };
+}
+
 export interface MatchHandRecord {
   /** 1-based hand number */
   hand: number;
@@ -52,6 +62,8 @@ export interface MatchHandRecord {
   /** Lew Fit (Hu declared below the minimum or malformed): no Hu credited */
   lewFit?: boolean;
   totalTay: number;
+  multiplier: 1 | 2;
+  points: number;
 }
 
 export interface MatchState {
@@ -70,8 +82,9 @@ export interface MatchState {
   /** Hands already finished, oldest first */
   hands: MatchHandRecord[];
   huCount: Record<Seat, number>;
+  /** Accumulated points; legacy key retained for compatibility. */
   tayTotal: Record<Seat, number>;
-  /** Hand number at which each seat reached its current Tay total (final tie-break) */
+  /** Hand number at which each seat reached its current points total (final tie-break) */
   reachedAt: Record<Seat, number>;
 }
 
@@ -93,11 +106,13 @@ export function isMatchOver(match: MatchState): boolean {
 /**
  * Record a finished hand and rotate the seating for the next one. `winner` is the declarer of a
  * Hu; `validHu` false means a Lew Fit, which scores nothing and rotates the dealer.
+ * The raw Tay minimum is checked before applying win facts. Legacy callers default to x1.
  */
-export function recordHand(match: MatchState, winner: Seat | null, validHu: boolean, totalTay: number, now = Date.now()): MatchState {
+export function recordHand(match: MatchState, winner: Seat | null, validHu: boolean, totalTay: number, now = Date.now(), win: { isSelfDraw: boolean; isConcealed: boolean } = { isSelfDraw: false, isConcealed: false }): MatchState {
   if (isMatchOver(match)) return match;
   const hand = currentHandNumber(match);
   const credited = winner !== null && validHu && Number.isFinite(totalTay) && totalTay >= match.minHuTay ? winner : null;
+  const creditedPoints = handPoints(credited ? totalTay : 0, credited ? win : { isSelfDraw: false, isConcealed: false });
   const record: MatchHandRecord = {
     hand,
     dealer: match.seating.dealer,
@@ -105,13 +120,15 @@ export function recordHand(match: MatchState, winner: Seat | null, validHu: bool
     winner: credited,
     ...(winner !== null && !credited ? { lewFit: true } : {}),
     totalTay: credited ? totalTay : 0,
+    multiplier: creditedPoints.multiplier,
+    points: creditedPoints.points,
   };
   const huCount = { ...match.huCount };
   const tayTotal = { ...match.tayTotal };
   const reachedAt = { ...match.reachedAt };
   if (credited) {
     huCount[credited]++;
-    tayTotal[credited] += totalTay;
+    tayTotal[credited] += creditedPoints.points;
     reachedAt[credited] = hand;
   }
   return finishMatchAtBoundary({
@@ -129,11 +146,11 @@ export interface Standing {
   rank: number;
   hu: number;
   tay: number;
-  /** Hand at which the Tay total was reached (0 = no Hu) */
+  /** Hand at which the points total was reached (0 = no Hu) */
   reachedAt: number;
 }
 
-/** Total Tay first, then valid Hu count, then first to reach the final Tay total. */
+/** Total points first, then valid Hu count, then first to reach the final points total. */
 export function standings(match: MatchState): Standing[] {
   const rows = SEAT_ORDER.map((seat) => ({ seat, hu: match.huCount[seat], tay: match.tayTotal[seat], reachedAt: match.reachedAt[seat] }));
   rows.sort((a, b) => b.tay - a.tay || b.hu - a.hu || a.reachedAt - b.reachedAt || SEAT_ORDER.indexOf(a.seat) - SEAT_ORDER.indexOf(b.seat));

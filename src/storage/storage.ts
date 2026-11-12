@@ -94,6 +94,8 @@ export interface MatchHistoryRecord {
   winningTile: Tile | null;
   scoringBreakdown: ScoringBreakdownItem[];
   totalTay: number;
+  multiplier: 1 | 2;
+  points: number;
   /** True when the winning hand held at least one Kim (actual usage, not the table column) */
   isWithKim: boolean;
   winMethod: WinMethod;
@@ -123,10 +125,10 @@ export interface MatchHistoryRecord {
 
 /**
  * Input to `saveGameRecord`. `id` and `timestamp` are generated when omitted.
- * `flowers` and `melds` are optional so legacy callers keep compiling; loads always fill them.
+ * `flowers`, `melds`, `multiplier` and `points` are optional for legacy callers; loads fill them.
  */
-export type NewMatchHistoryRecord = Omit<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds'> &
-  Partial<Pick<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds'>>;
+export type NewMatchHistoryRecord = Omit<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds' | 'multiplier' | 'points'> &
+  Partial<Pick<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds' | 'multiplier' | 'points'>>;
 
 /** Minimal subset of the Web Storage API used by this module. */
 export interface StorageLike {
@@ -647,6 +649,8 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
         .filter((b): b is ScoringBreakdownItem => b !== null)
     : [];
 
+  const totalTay = isFiniteNumber(raw.totalTay) ? raw.totalTay : scoringBreakdown.reduce((sum, b) => sum + b.tay, 0);
+  const multiplier = raw.multiplier === 2 ? 2 : 1;
   return {
     id: raw.id,
     timestamp: raw.timestamp,
@@ -654,9 +658,9 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
     winningHand,
     winningTile: sanitizeTile(raw.winningTile),
     scoringBreakdown,
-    totalTay: isFiniteNumber(raw.totalTay)
-      ? raw.totalTay
-      : scoringBreakdown.reduce((sum, b) => sum + b.tay, 0),
+    totalTay,
+    multiplier,
+    points: isFiniteNumber(raw.points) && raw.points >= 0 ? raw.points : totalTay * multiplier,
     isWithKim: pickBool(raw.isWithKim, false),
     winMethod: pickEnum(raw.winMethod, WIN_METHODS, winner === null ? 'draw' : 'ron'),
     durationSeconds:

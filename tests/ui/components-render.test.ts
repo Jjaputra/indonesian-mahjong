@@ -182,6 +182,8 @@ describe('UI render smoke tests', () => {
           winningTile: hand,
           scoringBreakdown: [{ id: 4, name: '4 Tiles Bunga', tay: 10 }],
           totalTay: 10,
+          multiplier: 1,
+          points: 10,
           isWithKim: false,
           winMethod: 'tsumo',
           durationSeconds: 12,
