@@ -49,7 +49,7 @@ describe('Tay calculator data', () => {
     expect(isSelectable(8, true)).toBe(true);
     expect(isSelectable(8, false)).toBe(true);
     expect(isSelectable(9, false)).toBe(false);
-    expect(isSelectable(39, true)).toBe(false);
+    expect(isSelectable(39, true)).toBe(true);
   });
 });
 

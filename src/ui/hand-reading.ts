@@ -21,7 +21,7 @@ export function handReadingLine(input: HandReadingInput): string {
     isFirstGoAround: false,
     isPaoChin: false,
     ...input.flags,
-  });
+  }, input.melds);
   const result = getScoringEngine(input.overlapPolicy ?? 'additive').evaluateHand(
     [...input.hand],
     [...input.melds],

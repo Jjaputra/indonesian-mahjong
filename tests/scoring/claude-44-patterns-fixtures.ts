@@ -481,6 +481,14 @@ export const PATTERN_FIXTURES: Readonly<Record<PatternId, PatternFixture>> = {
     definitionConfidence: 'authoritative',
     positive: [
       {
+        label: 'Pao Chin declared, first-round self-draw (Thi Fu)',
+        mode: 'NK',
+        hand: withCtx(BASE, { ...SELF_DRAW, isInitialDeal: true, isPaoChin: true }),
+        expectDetected: true,
+        expectedTay: 60,
+      },
+
+      {
         label: 'Pao Chin declared, Ron on the first discard (NK)',
         mode: 'NK',
         hand: withCtx(BASE, { isInitialDeal: true, isPaoChin: true, discarderSeat: 'dong' }),
@@ -503,12 +511,6 @@ export const PATTERN_FIXTURES: Readonly<Record<PatternId, PatternFixture>> = {
         expectDetected: false,
       },
       { label: 'Pao Chin declared but win is not first-round', mode: 'NK', hand: withCtx(BASE, { isPaoChin: true }), expectDetected: false },
-      {
-        label: 'Pao Chin declared, first-round self-draw (Pao Chin stays, no Thi Fu)',
-        mode: 'NK',
-        hand: withCtx(BASE, { ...SELF_DRAW, isInitialDeal: true, isPaoChin: true }),
-        expectDetected: false,
-      },
     ],
   },
 

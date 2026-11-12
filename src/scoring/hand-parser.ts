@@ -1,3 +1,4 @@
+import type { WinContext } from './types';
 import type { Meld, Tile } from '../core/types';
 import { isKim } from '../kim/wildcard-solver';
 import type { MeldComposition, PairComposition, SolvedHand } from '../kim/types';
@@ -25,6 +26,7 @@ export interface HandFeatures {
   readonly representedTiles: readonly TileKind[];
   readonly triplets: readonly TripletInfo[];
   readonly sequenceCount: number;
+  readonly isSelfRobbingKong?: boolean;
   readonly pair?: PairComposition;
   /** Jia/Pung/Kong claimed from discards (Ankong excluded) */
   readonly claimedMeldCount: number;
@@ -51,7 +53,8 @@ export function countKims(tiles: readonly Tile[]): number {
 export function parseHandFeatures(
   solved: SolvedHand,
   rawConcealed: readonly Tile[],
-  openMelds: readonly Meld[]
+  openMelds: readonly Meld[],
+  context?: WinContext
 ): HandFeatures {
   let representedTiles: TileKind[];
   switch (solved.shape) {
@@ -85,7 +88,24 @@ export function parseHandFeatures(
     }
   }
 
+  // Identical physical copies may exchange roles within a decomposition. Prefer a
+  // pair/sequence completion over exposing a triplet: max-Tay arbitration.
+  const matchesWin = (t: Tile) => !!context && t.type === context.winningTile.type
+    && t.value === context.winningTile.value && isKim(t) === isKim(context.winningTile);
+  const concealedSequences = solved.melds.filter(m => !m.isOpen && m.type === 'jia');
+  const nonTripletCompletion = solved.pair?.tiles.some(matchesWin)
+    || concealedSequences.some(m => m.tiles.some(matchesWin));
+  if (context?.isDiscardWin && !context.isSelfDraw && !nonTripletCompletion) {
+    const index = solved.melds.filter(isTripletMeld).findIndex(m => !m.isOpen
+      && m.type !== 'ankong' && m.tiles.some(matchesWin));
+    if (index >= 0) triplets[index] = { ...triplets[index]!, concealed: false };
+  }
+  const isSelfRobbingKong = !!context?.isSelfDraw
+    && openMelds.some(m => m.type === 'pung' && m.tiles.every(matchesWin))
+    && concealedSequences.some(m => m.tiles.some(matchesWin));
+
   return {
+    isSelfRobbingKong,
     shape: solved.shape,
     representedTiles,
     triplets,

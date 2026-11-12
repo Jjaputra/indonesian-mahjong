@@ -30,18 +30,18 @@ describe('Round 2 · calculator column follows the match', () => {
     expect(v.badge).toBe('Ada Kim');
     expect(html).toContain('Mengikuti pertandingan: Ada Kim');
     expect(v.k).toEqual({ active: true, value: '40' });
-    expect(v.nk).toEqual({ active: false, value: '—' });
+    expect(v.nk).toEqual({ active: false, value: '40' });
     expect(v.row39).not.toContain('disabled');
   });
 
-  it('pregame switch to Tanpa Kim opens on Tanpa Kim, where the printed #39 cell is blank', () => {
+  it('pregame switch to Tanpa Kim opens on Tanpa Kim, where #39 also scores 40', () => {
     const html = render(calculatorMatchProps({ ...HOUSE_SETTINGS, kimEnabled: false }));
     const v = read(html);
     expect(v.checked).toBe(false);
     expect(v.badge).toBe('Tanpa Kim');
     expect(html).toContain('Mengikuti pertandingan: Tanpa Kim');
-    expect(v.nk).toEqual({ active: true, value: '—' });
-    expect(v.row39).toContain('disabled');
+    expect(v.nk).toEqual({ active: true, value: '40' });
+    expect(v.row39).not.toContain('disabled');
   });
 
   it('mid-hand next-game edits do not move the column; the next game does', () => {
@@ -77,7 +77,7 @@ describe('Round 2 · calculator column follows the match', () => {
     expect(v.checked).toBe(false);
     expect(v.badge).toBe('Tanpa Kim');
     expect(html).not.toContain('Mengikuti pertandingan');
-    expect(v.k).toEqual({ active: false, value: '—' });
+    expect(v.k).toEqual({ active: false, value: '40' });
     expect(v.nk).toEqual({ active: true, value: '40' });
   });
 

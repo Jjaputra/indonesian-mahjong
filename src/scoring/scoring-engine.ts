@@ -127,7 +127,7 @@ function detectFirstTurn({ mode, context }: ScoringInput): DetectedPattern[] {
   const isThienFu = isDealtHand && context.isSelfDraw && context.seatWind === 'dong';
   if (context.isPaoChin) out.push(award(10, mode, 'Pao Chin dideklarasikan pada pembagian pertama'));
   if (isThienFu) out.push(award(11, mode, 'Dong langsung Hu dari pembagian pertama'));
-  if (context.isInitialDeal && context.isPaoChin && context.isDiscardWin && !isThienFu) {
+  if (context.isInitialDeal && context.isPaoChin && (context.isDiscardWin || (context.isSelfDraw && context.seatWind !== 'dong')) && !isThienFu) {
     out.push(award(12, mode, 'Hu dari lew/discard pertama setelah declare Pao Chin'));
   }
   return out.filter((p): p is DetectedPattern => p !== null);
@@ -221,7 +221,7 @@ function detectMelds({ features, mode, context }: ScoringInput): DetectedPattern
 function detectEvents({ features, mode, context }: ScoringInput): DetectedPattern[] {
   const out: (DetectedPattern | null)[] = [];
   if (context.isRobbingKong) out.push(award(35, mode, 'Hu dengan mencuri tile Kong lawan'));
-  if (context.isSelfRobbingKong && context.isSelfDraw) out.push(award(36, mode, 'Kartu ke-4 dari pung dipakai untuk seri, ce mo'));
+  if (features.isSelfRobbingKong && context.isSelfDraw) out.push(award(36, mode, 'Kartu ke-4 dari pung dipakai untuk seri, ce mo'));
   if (context.isKongReplacement && !context.isDoubleKongReplacement) out.push(award(37, mode, 'Hu dari tile ekor tembok setelah Kong'));
   if (context.isDoubleKongReplacement) out.push(award(38, mode, 'Hu setelah dua Kong berturut-turut'));
 
@@ -266,7 +266,7 @@ export function scoreDecomposition(input: ScoringInput, policy: OverlapPolicy = 
 // ============================================================================
 
 /** Explains cells that a match-table column leaves blank for what the hand actually holds. */
-export function columnNotes(column: KimMode, basis: ScoringBasis, handKimCount: number, shape?: string): string[] {
+export function columnNotes(column: KimMode, basis: ScoringBasis, handKimCount: number, _shape?: string): string[] {
   if (basis !== 'match_table') return [];
   const notes: string[] = [];
   if (column === 'K' && handKimCount === 0) {
@@ -274,9 +274,6 @@ export function columnNotes(column: KimMode, basis: ScoringBasis, handKimCount: 
   }
   if (column === 'NK' && handKimCount > 0) {
     notes.push(`Hand memegang ${handKimCount} Kim, tetapi pola Kim kosong di kolom Tanpa KIM.`);
-  }
-  if (column === 'NK' && shape === 'se_sam_pu_tat') {
-    notes.push('#39 Se Sam Pu Tat tercetak hanya di kolom Ada KIM; di pertandingan Tanpa Kim sel ini kosong.');
   }
   return notes;
 }
@@ -372,7 +369,7 @@ export class ScoringEngine implements IScoringEngine {
     // Arbitration: pick the Kim wildcard decomposition with the highest TOTAL Tay
     let best: { solved: SolvedHand; patterns: DetectedPattern[]; total: number } | null = null;
     for (const solved of validCandidates) {
-      const features = parseHandFeatures(solved, concealed, melds);
+      const features = parseHandFeatures(solved, concealed, melds, context);
       const patterns = scoreDecomposition(
         { features, mode: columnFor(solved), flowers, context, basis: scoringBasis, bonusTileRule },
         this.overlapPolicy

@@ -721,14 +721,14 @@ describe('Pinned scoring bugs', () => {
     lacks(result, 10);
     expect(result.isValidHu).toBe(true);
 
-    // With Pao Chin, non-dealer self-draw keeps Pao Chin and does not score Thi Fu
+    // With Pao Chin, non-dealer first self-draw scores Thi Fu too
     const withPaoChin = score(PING, '5S', {
       ctx: { ...SELF, isInitialDeal: true, isPaoChin: true, seatWind: 'nan' },
     });
     has(withPaoChin, 10, 30);
-    lacks(withPaoChin, 12);
+    has(withPaoChin, 12, 60);
     lacks(withPaoChin, 11);
-    expect(withPaoChin.totalTay).toBe(44);
+    expect(withPaoChin.totalTay).toBe(104);
     expect(withPaoChin.isValidHu).toBe(true);
 
     // On discard win, non-dealer scores Thi Fu

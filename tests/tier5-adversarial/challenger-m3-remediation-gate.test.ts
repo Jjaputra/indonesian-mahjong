@@ -163,7 +163,7 @@ describe('Challenger 2 M3 Remediation Verification Gate', () => {
       expect(tayOf(res, 12)).toBe(60); // 60 NK
     });
 
-    it('non-dealer first-round self-draw WITH Pao Chin keeps #10 but is NOT #12 Thi Fu (discard-only, RULES.md)', () => {
+    it('non-dealer first-round self-draw WITH Pao Chin scores #12 Thi Fu and #10 Pao Chin', () => {
       const res = scoringEngine.evaluateHand(
         validHand,
         [],
@@ -179,7 +179,7 @@ describe('Challenger 2 M3 Remediation Verification Gate', () => {
       );
       expect(res.isValidHu).toBe(true);
       expect(hasPattern(res, 10)).toBe(true);
-      expect(hasPattern(res, 12)).toBe(false);
+      expect(hasPattern(res, 12)).toBe(true);
       expect(hasPattern(res, 11)).toBe(false);
     });
 

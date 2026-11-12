@@ -21,7 +21,7 @@
  * 3. First-turn wins (Thien Fu #11, Thi Fu #12, Pao Chin #10):
  *    - Complete combinatorial matrix across 4 seats (dong, nan, xi, bei)
  *    - With vs without isPaoChin
- *    - Self-draw vs Discard win (Thi Fu is scored on the first-round discard only; "lew" is unresolved, see RULES.md)
+ *    - First wall draw or first-round discard win after Pao Chin (RULES.md)
  *    - Additive vs Supersede overlap policy behavior
  *    - Subsequent-turn decay (initial deal = false)
  */
@@ -693,7 +693,7 @@ describe('Adversarial Deep: 3. First-Turn Wins Matrix (Pao Chin, Thien Fu, Thi F
           expect(hasPattern(r, 10)).toBe(false);
         });
 
-        it('first wall draw WITH Pao Chin: keeps #10 Pao Chin, NO #11, NO #12 (Thi Fu is discard-only, RULES.md)', () => {
+        it('first wall draw WITH Pao Chin: awards #12 Thi Fu and #10 Pao Chin, NO #11', () => {
           const r = scoringEngine.evaluateHand(
             parseTileHand(PING_FU_HAND),
             [],
@@ -712,7 +712,7 @@ describe('Adversarial Deep: 3. First-Turn Wins Matrix (Pao Chin, Thien Fu, Thi F
 
           expect(r.isValidHu).toBe(true);
           expect(hasPattern(r, 11)).toBe(false);
-          expect(hasPattern(r, 12)).toBe(false);
+          expect(hasPattern(r, 12)).toBe(true);
           expect(hasPattern(r, 10)).toBe(true);
           expect(tayOf(r, 10)).toBe(30);
         });
