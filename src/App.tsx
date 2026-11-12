@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Box, History, RotateCcw, Settings, Square, Volume2, VolumeX } from 'lucide-react';
+import { Box, FlaskConical, History, RotateCcw, Settings, Square, Volume2, VolumeX } from 'lucide-react';
 import { playSound, type SoundEffectName } from './audio';
 import {
   clearGameHistory,
@@ -12,6 +12,9 @@ import {
 import { ActionHud, CenterArea, HumanArea, OpponentPanel, PracticeCoach, seatPositions } from './ui/components/GameTable';
 import { HistoryModal } from './ui/components/HistoryModal';
 import { HuResultModal } from './ui/components/HuResultModal';
+import { HandSandbox } from './ui/components/HandSandbox';
+import { DevTools } from './ui/components/DevTools';
+import { devHandFromOutcome, type DevHand } from './dev/hand-code';
 import { SettingsModal } from './ui/components/SettingsModal';
 import { MainMenu } from './ui/components/MainMenu';
 import { AbandonMatchDialog } from './ui/components/AbandonMatchDialog';
@@ -83,6 +86,15 @@ export function App() {
   const [deadWall, setDeadWall] = useState<DeadWallOption>(() => { migrateMatchLengthPreference(); loadDealerWinRule(); return loadDeadWall(); });
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<MatchTimeLimit>(loadMatchTimeLimit);
   const [history, setHistory] = useState(() => loadGameHistory());
+  // Developer mode (Settings): Uji Tangan sandbox, Alat developer, rigged matches kept out of history.
+  const [devMode, setDevMode] = useState(() => controller.devMode);
+  const [sandbox, setSandbox] = useState<{ initial: DevHand | null } | null>(null);
+  const [revealOpponents, setRevealOpponents] = useState(false);
+  const changeDevMode = (on: boolean) => {
+    controller.setDevMode(on);
+    setDevMode(on);
+    if (!on) { setSandbox(null); setRevealOpponents(false); }
+  };
 
   // Sound effects follow the live "Suara" setting.
   const soundRef = useRef(settings.soundEnabled);
@@ -97,7 +109,7 @@ export function App() {
   );
 
   // Each effect owns one timer; dialogs, views, pause, and new games dispose it.
-  const automationBlocked = modal !== null || abandonOpen || dice !== null;
+  const automationBlocked = modal !== null || abandonOpen || dice !== null || sandbox !== null;
   useEffect(() => scheduleAutomation(controller, practiceDelay(pace),
     view !== 'table' || !matchStarted || paused || automationBlocked),
     [controller, version, pace, view, matchStarted, paused, automationBlocked]);
@@ -223,10 +235,14 @@ export function App() {
           <div>
             <h1>Mahjong Indonesia</h1>
             <span className="release-version" aria-label={"Versi " + releaseVersion}>{"v" + releaseVersion}</span>
+            {devMode && <span className="dev-badge" title="Mode developer aktif — game tidak dicatat ke riwayat">DEV</span>}
           </div>
         </div>
 
         <div className="header-actions">
+          {devMode && <button type="button" className="icon-btn is-dev" onClick={() => setSandbox({ initial: null })} title="Uji Tangan (mode developer)" aria-label="Uji Tangan">
+            <FlaskConical size={18} />
+          </button>}
           <button type="button" className="icon-btn" onClick={() => setModal('history')} title="Riwayat Permainan">
             <History size={18} />
           </button>
@@ -258,11 +274,14 @@ export function App() {
       ) : (
         <main className="table-felt">
           {controller.getState().kimFace && <div className="kim-indicator">Kim: {tileText({ ...controller.getState().kimFace!, id: 'kim-indicator', isKim: false })}{controller.getState().kimIndicator && <span className="kim-pointer"> · Penunjuk {tileText({ ...controller.getState().kimIndicator!, id: 'kim-pointer', isKim: false })}</span>}</div>}
-          <OpponentPanel seat={pos.top} position="top" controller={controller} />
-          <OpponentPanel seat={pos.left} position="left" controller={controller} />
-          <CenterArea controller={controller} progress={<PlayProgress controller={controller} paused={paused} blocked={automationBlocked} pace={pace} onPaceChange={changePace} onToggleMotion={toggleMotion}
-            onPause={() => setPaused(p => !p)} onStep={() => singleAutomationStep(controller, automationBlocked || !paused)} />} />
-          <OpponentPanel seat={pos.right} position="right" controller={controller} />
+          <OpponentPanel seat={pos.top} position="top" controller={controller} reveal={devMode && revealOpponents} />
+          <OpponentPanel seat={pos.left} position="left" controller={controller} reveal={devMode && revealOpponents} />
+          <CenterArea controller={controller} progress={<>
+            <PlayProgress controller={controller} paused={paused} blocked={automationBlocked} pace={pace} onPaceChange={changePace} onToggleMotion={toggleMotion}
+              onPause={() => setPaused(p => !p)} onStep={() => singleAutomationStep(controller, automationBlocked || !paused)} />
+            {devMode && <DevTools controller={controller} revealOpponents={revealOpponents} onRevealChange={setRevealOpponents} />}
+          </>} />
+          <OpponentPanel seat={pos.right} position="right" controller={controller} reveal={devMode && revealOpponents} />
           <div className="seat-bottom">
             <HumanArea controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId}
               hud={<ActionHud controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId} />}
@@ -276,15 +295,17 @@ export function App() {
         </main>
       )}
 
-      {view === 'table' && outcome && resultOpen && !standingsOpen && !modal && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)}
+      {view === 'table' && outcome && resultOpen && !standingsOpen && !modal && !sandbox && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)}
         onNewGame={controller.match && !controller.matchOver ? () => { setResultOpen(false); setAbandonOpen(true); } : newGame}
         onNextHand={controller.match && !controller.matchOver ? nextHand : undefined}
         onStandings={controller.matchOver ? openStandings : undefined}
-        matchSummary={controller.match ? <MatchResultNote match={controller.match} /> : undefined} />}
+        matchSummary={controller.match ? <MatchResultNote match={controller.match} /> : undefined}
+        onOpenSandbox={devMode && outcome.kind === 'hu' ? () => setSandbox({ initial: devHandFromOutcome(outcome, controller.getState()) }) : undefined} />}
       {view === 'table' && standingsOpen && controller.match && !modal && <MatchStandingsModal match={controller.match} onPlayAgain={startPractice} onMenu={newGame} />}
       {view === 'table' && dice && <DiceRoll roll={dice.roll} humanSeat={controller.humanSeat} autoClose={dice.autoClose} onDone={() => setDice(null)} />}
       {abandonOpen && <AbandonMatchDialog onStay={() => setAbandonOpen(false)} onLeave={newGame} />}
-      {modal === 'settings' && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setModal(null)} tableView={tableView} onTableViewChange={changeTableView} />}
+      {modal === 'settings' && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setModal(null)} tableView={tableView} onTableViewChange={changeTableView} devMode={devMode} onDevModeChange={changeDevMode} />}
+      {sandbox && <HandSandbox key={sandbox.initial ? 'outcome' : 'blank'} settings={settings} initial={sandbox.initial} onClose={() => setSandbox(null)} />}
       {modal === 'history' && (
         <HistoryModal
           history={history}

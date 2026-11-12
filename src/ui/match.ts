@@ -59,6 +59,8 @@ export interface MatchHandRecord {
 }
 
 export interface MatchState {
+  /** Developer sessions remain in-session only. */
+  dev?: boolean;
   openingRoll: OpeningRoll | null;
   deadWall: DeadWallOption;
   /** Practice minimum fixed for the match; tournament default is 5. */

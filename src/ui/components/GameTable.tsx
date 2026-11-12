@@ -48,7 +48,8 @@ function FlowerRack({ tiles, seat }: { tiles: readonly Tile[]; seat: Seat }) {
   return <span className="bonus-rack"><TileRow tiles={tiles} size="sm" /><small>Nomor sendiri: {ownNumber}</small></span>;
 }
 
-export function OpponentPanel({ seat, position, controller }: { seat: Seat; position: string; controller: GameController }) {
+/** `reveal` (developer mode, display only) shows the concealed tiles face-up. */
+export function OpponentPanel({ seat, position, controller, reveal }: { seat: Seat; position: string; controller: GameController; reveal?: boolean }) {
   const s = controller.getState();
   const p = s.players[seat];
   const active = s.currentTurn === seat && (s.phase === 'ACTION_DECISION' || s.phase === 'TURN_DRAW');
@@ -60,8 +61,8 @@ export function OpponentPanel({ seat, position, controller }: { seat: Seat; posi
         <WindBadges seat={seat} controller={controller} />
         {kimInMelds > 0 && <span className="badge badge-kim">KIM ×{kimInMelds}</span>}
       </div>
-      <div data-hand-anchor={seat} className="concealed" title={`${p.hand.length} tile tertutup`}>
-        {p.hand.map((t) => (
+      <div data-hand-anchor={seat} className={`concealed${reveal ? ' is-revealed' : ''}`} title={`${p.hand.length} tile tertutup`}>
+        {reveal ? sortTiles(p.hand).map((t) => <TileView key={t.id} tile={t} size="sm" />) : p.hand.map((t) => (
           <TileBack key={t.id} size="sm" />
         ))}
         <span className="count">{p.hand.length}</span>

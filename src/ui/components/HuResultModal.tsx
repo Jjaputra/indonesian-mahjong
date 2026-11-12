@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { ArrowRight, Check, Copy, RotateCcw, Trophy } from 'lucide-react';
+import { ArrowRight, Check, Copy, FlaskConical, RotateCcw, Trophy } from 'lucide-react';
+import type { Seat } from '../../core/types';
+import type { ScoringResult } from '../../scoring';
 import type { GameOutcome } from '../game-controller';
 import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIN_METHOD_LABEL } from '../labels';
 import { classifyHand, modeLabel } from '../tay-calculator';
@@ -26,6 +28,8 @@ interface HuResultModalProps {
   onStandings?: () => void;
   /** Match status shown above the receipt, e.g. "Game 3/16 selesai" */
   matchSummary?: ReactNode;
+  /** Developer mode: reopen this hand in the Uji Tangan sandbox */
+  onOpenSandbox?: () => void;
 }
 
 function roundScoreLines(outcome: Extract<GameOutcome, { kind: 'hu' }>): string[] {
@@ -34,8 +38,47 @@ function roundScoreLines(outcome: Extract<GameOutcome, { kind: 'hu' }>): string[
   return ['Round Score (' + roundScoreHint(rs) + ')', ...roundScoreOrder(outcome.winner, rs.payer).map((s) => PLAYER_NAME[s] + ': ' + signedKoin(rs.deltas[s]) + ' koin')];
 }
 
-/** Each player's koin for this game, winner first and the payer tagged; sums to 0. */
-export function RoundScoreBlock({ outcome }: { outcome: Extract<GameOutcome, { kind: 'hu' }> | null }) {
+/** Receipt Tay table (pattern rows, Total Tay) plus the minimum-Hu / Lew Fit line. */
+export function TayBreakdown({ scoring: r }: { scoring: ScoringResult }) {
+  const valid = r.isValidHu;
+  return (
+    <>
+      <table className="tay-table tay-breakdown">
+        <thead>
+          <tr>
+            <th className="pid">#</th>
+            <th>Pola</th>
+            <th className="num">Tay</th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.patterns.filter((p) => p.id !== 13).map((p) => (
+            <tr key={p.id}>
+              <td className="pid">{p.id}</td>
+              <td>{p.name}</td>
+              <td className="num">{p.tay}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="total-row">
+            <td colSpan={2}>Total Tay</td>
+            <td className="num total">{r.totalTay}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <p className={`status-line ${valid ? 'ok' : 'bad'}`}>
+        {valid ? `✓ Memenuhi minimum Hu: ${r.totalTay} ≥ ${r.minHuTay} Tay` : `✗ ${r.rejectionReason ?? `Kurang dari ${r.minHuTay} Tay`}`}
+      </p>
+    </>
+  );
+}
+
+/** Each player's koin for this game, winner first and the payer tagged; sums to 0. `nameOf` relabels rows (sandbox). */
+export function RoundScoreBlock({ outcome, nameOf = (s) => PLAYER_NAME[s] }: {
+  outcome: Pick<Extract<GameOutcome, { kind: 'hu' }>, 'winner' | 'seatWind' | 'roundScore'> | null; nameOf?: (seat: Seat) => string;
+}) {
   const rs = outcome?.roundScore ?? null;
   if (!outcome || !rs) {
     return (
@@ -55,7 +98,7 @@ export function RoundScoreBlock({ outcome }: { outcome: Extract<GameOutcome, { k
           const d = rs.deltas[s];
           return (
             <li key={s} className={`round-score-row${s === outcome.winner ? ' is-winner' : ''}${s === rs.payer ? ' is-payer' : ''}`}>
-              <span className="rs-name">{PLAYER_NAME[s]}</span>
+              <span className="rs-name">{nameOf(s)}</span>
               <span className="rs-wind">{SEAT_SHORT[windOf(s, outcome.winner, winnerWind)]}</span>
               {s === outcome.winner && <span className="rs-tag is-win">Hu</span>}
               {s === rs.payer && <span className="rs-tag">{PAYER_TAG[rs.kind]}</span>}
@@ -69,7 +112,7 @@ export function RoundScoreBlock({ outcome }: { outcome: Extract<GameOutcome, { k
   );
 }
 
-export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStandings, matchSummary }: HuResultModalProps) {
+export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStandings, matchSummary, onOpenSandbox }: HuResultModalProps) {
   const inMatch = !!(onNextHand || onStandings);
   const [copied, setCopied] = useState(false);
 
@@ -90,6 +133,11 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
           }}
         >
           {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Struk disalin' : 'Salin Struk'}
+        </button>
+      )}
+      {outcome.kind === 'hu' && onOpenSandbox && (
+        <button type="button" className="btn btn-dev" onClick={onOpenSandbox}>
+          <FlaskConical size={14} /> Buka di Uji Tangan
         </button>
       )}
       <button type="button" className={inMatch ? 'btn' : 'btn btn-primary'} onClick={onNewGame}>
@@ -165,36 +213,7 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
           )}
         </div>
 
-        <table className="tay-table tay-breakdown">
-          <thead>
-            <tr>
-              <th className="pid">#</th>
-              <th>Pola</th>
-              <th className="num">Tay</th>
-            </tr>
-          </thead>
-          <tbody>
-            {r.patterns.filter((p) => p.id !== 13).map((p) => {
-              return (
-                <tr key={p.id}>
-                  <td className="pid">{p.id}</td>
-                  <td>{p.name}</td>
-                  <td className="num">{p.tay}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="total-row">
-              <td colSpan={2}>Total Tay</td>
-              <td className="num total">{r.totalTay}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <p className={`status-line ${valid ? 'ok' : 'bad'}`}>
-          {valid ? `✓ Memenuhi minimum Hu: ${r.totalTay} ≥ ${r.minHuTay} Tay` : `✗ ${r.rejectionReason ?? `Kurang dari ${r.minHuTay} Tay`}`}
-        </p>
+        <TayBreakdown scoring={r} />
 
         <RoundScoreBlock outcome={valid ? outcome : null} />
       </div>
