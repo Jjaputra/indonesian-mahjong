@@ -6,8 +6,8 @@
  * same chair. Each hand's seat wind is derived from the dealer chair (`seatWindOf` in
  * win-context.ts), so the scorer always sees the rotated seat wind.
  *
- * Player answers 2026-11-12: 16 games, ranking by total points, then valid Hu,
- * then first to reach the final points total. Seri and dealer wins each count once.
+ * Player answers 2026-11-12: 16 games, ranking by total koin, then valid Hu,
+ * then first to reach the final koin total. Seri and dealer wins each count once.
  */
 import { SEAT_ORDER } from '../core/tiles';
 import type { Seat, Wind } from '../core/types';
@@ -42,15 +42,8 @@ export function nextSeating(current: Seating, _result: HandResult, _dealerWinRul
   return { dealer, prevailingWind, dealerPasses: 0 };
 }
 
-export type PointMultiplierReason = 'ce_mo' | 'mun' | null;
-export interface HandPoints { tay: number; multiplier: 1 | 2; reason: PointMultiplierReason; points: number }
-
-/** Player feedback 2026-11-12: apply once, independently of pattern exclusions. */
-export function handPoints(totalTay: number, win: { isSelfDraw: boolean; isConcealed: boolean }): HandPoints {
-  const reason: PointMultiplierReason = win.isSelfDraw ? 'ce_mo' : win.isConcealed ? 'mun' : null;
-  const multiplier = reason === null ? 1 : 2;
-  return { tay: totalTay, multiplier, reason, points: totalTay * multiplier };
-}
+export { roundScore, type RoundScore, type RoundScoreKind } from '../core/round-score';
+import { roundScore, deriveRoundScore, type RoundScore } from '../core/round-score';
 
 export interface MatchHandRecord {
   /** 1-based hand number */
@@ -62,8 +55,7 @@ export interface MatchHandRecord {
   /** Lew Fit (Hu declared below the minimum or malformed): no Hu credited */
   lewFit?: boolean;
   totalTay: number;
-  multiplier: 1 | 2;
-  points: number;
+  roundScore: RoundScore | null;
 }
 
 export interface MatchState {
@@ -82,16 +74,17 @@ export interface MatchState {
   /** Hands already finished, oldest first */
   hands: MatchHandRecord[];
   huCount: Record<Seat, number>;
-  /** Accumulated points; legacy key retained for compatibility. */
+  /** Cumulative raw Tay, before any koin payout. */
   tayTotal: Record<Seat, number>;
-  /** Hand number at which each seat reached its current points total (final tie-break) */
+  koinTotal: Record<Seat, number>;
+  /** Hand number at which each seat reached its current koin total (final tie-break) */
   reachedAt: Record<Seat, number>;
 }
 
 const zero = (): Record<Seat, number> => ({ dong: 0, nan: 0, xi: 0, bei: 0 });
 
 export function createMatch(dealer: Seat = 'dong', prevailingWind: Wind = 'dong', minHuTay = 5, _dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE, timeLimitMinutes: MatchTimeLimit = null, now = Date.now()): MatchState {
-  return { openingRoll: null, deadWall: 'none', minHuTay, dealerWinRule: DEFAULT_DEALER_WIN_RULE, timeLimitMinutes, startedAt: now, finishedAt: null, endedBy: null, seating: { dealer, prevailingWind, dealerPasses: 0 }, hands: [], huCount: zero(), tayTotal: zero(), reachedAt: zero() };
+  return { openingRoll: null, deadWall: 'none', minHuTay, dealerWinRule: DEFAULT_DEALER_WIN_RULE, timeLimitMinutes, startedAt: now, finishedAt: null, endedBy: null, seating: { dealer, prevailingWind, dealerPasses: 0 }, hands: [], huCount: zero(), tayTotal: zero(), koinTotal: zero(), reachedAt: zero() };
 }
 
 /** 1-based number of the hand being played (or about to be dealt). */
@@ -106,13 +99,14 @@ export function isMatchOver(match: MatchState): boolean {
 /**
  * Record a finished hand and rotate the seating for the next one. `winner` is the declarer of a
  * Hu; `validHu` false means a Lew Fit, which scores nothing and rotates the dealer.
- * The raw Tay minimum is checked before applying win facts. Legacy callers default to x1.
+ * The raw Tay minimum is checked before applying win facts. Legacy callers without win facts receive zero koin.
  */
-export function recordHand(match: MatchState, winner: Seat | null, validHu: boolean, totalTay: number, now = Date.now(), win: { isSelfDraw: boolean; isConcealed: boolean } = { isSelfDraw: false, isConcealed: false }): MatchState {
+export function recordHand(match: MatchState, winner: Seat | null, validHu: boolean, totalTay: number, now = Date.now(), win?: { winMethod: 'tsumo' | 'ron' | 'chiong_kong'; discarder?: Seat }): MatchState {
   if (isMatchOver(match)) return match;
+  if (!match.koinTotal) match = migrateMatchState(match);
   const hand = currentHandNumber(match);
   const credited = winner !== null && validHu && Number.isFinite(totalTay) && totalTay >= match.minHuTay ? winner : null;
-  const creditedPoints = handPoints(credited ? totalTay : 0, credited ? win : { isSelfDraw: false, isConcealed: false });
+  const score = credited && win ? roundScore(credited, totalTay, win) : null;
   const record: MatchHandRecord = {
     hand,
     dealer: match.seating.dealer,
@@ -120,16 +114,17 @@ export function recordHand(match: MatchState, winner: Seat | null, validHu: bool
     winner: credited,
     ...(winner !== null && !credited ? { lewFit: true } : {}),
     totalTay: credited ? totalTay : 0,
-    multiplier: creditedPoints.multiplier,
-    points: creditedPoints.points,
+    roundScore: score,
   };
   const huCount = { ...match.huCount };
   const tayTotal = { ...match.tayTotal };
-  const reachedAt = { ...match.reachedAt };
+  const koinTotal = { ...match.koinTotal };
+  if (score) for (const seat of SEAT_ORDER) {
+    koinTotal[seat] += score.deltas[seat];
+  }
   if (credited) {
     huCount[credited]++;
-    tayTotal[credited] += creditedPoints.points;
-    reachedAt[credited] = hand;
+    tayTotal[credited] += totalTay;
   }
   return finishMatchAtBoundary({
     ...match,
@@ -137,7 +132,8 @@ export function recordHand(match: MatchState, winner: Seat | null, validHu: bool
     hands: [...match.hands, record],
     huCount,
     tayTotal,
-    reachedAt,
+    koinTotal,
+    reachedAt: firstReached([...match.hands, record], koinTotal),
   }, now);
 }
 
@@ -146,19 +142,19 @@ export interface Standing {
   rank: number;
   hu: number;
   tay: number;
-  /** Hand at which the points total was reached (0 = no Hu) */
+  koin: number;
+  /** First hand at which the current koin total was reached (0 = opening balance). */
   reachedAt: number;
 }
 
-/** Total points first, then valid Hu count, then first to reach the final points total. */
+/** Total koin first, then valid Hu count, then first to reach the final koin total. */
 export function standings(match: MatchState): Standing[] {
-  const rows = SEAT_ORDER.map((seat) => ({ seat, hu: match.huCount[seat], tay: match.tayTotal[seat], reachedAt: match.reachedAt[seat] }));
-  rows.sort((a, b) => b.tay - a.tay || b.hu - a.hu || a.reachedAt - b.reachedAt || SEAT_ORDER.indexOf(a.seat) - SEAT_ORDER.indexOf(b.seat));
+  if (!match.koinTotal) match = migrateMatchState(match);
+  const rows = SEAT_ORDER.map((seat) => ({ seat, hu: match.huCount[seat], tay: match.tayTotal[seat], koin: match.koinTotal[seat], reachedAt: match.reachedAt[seat] }));
+  rows.sort((a, b) => b.koin - a.koin || b.hu - a.hu || a.reachedAt - b.reachedAt || SEAT_ORDER.indexOf(a.seat) - SEAT_ORDER.indexOf(b.seat));
   const out: Standing[] = [];
   rows.forEach((r, i) => {
-    const prev = out[i - 1];
-    const tied = prev && prev.tay === r.tay && prev.hu === r.hu && prev.reachedAt === r.reachedAt;
-    out.push({ ...r, rank: tied ? prev.rank : i + 1 });
+    out.push({ ...r, rank: i + 1 });
   });
   return out;
 }
@@ -234,4 +230,29 @@ export function loadDeadWall(storage?: StorageLike): DeadWallOption {
 }
 export function saveDeadWall(option: DeadWallOption, storage?: StorageLike): void {
   try { (storage ?? getStorage()).setItem(DEAD_WALL_KEY, option); } catch { /* Keep live choice. */ }
+}
+
+/** Normalize a v0.5.4 in-progress snapshot; this app has no automatic match persistence. */
+export function migrateMatchState(raw: MatchState): MatchState {
+  const koinTotal = zero(), tayTotal = zero(), huCount = zero();
+  const hands = (raw.hands ?? []).map((old): MatchHandRecord => {
+    const score = old.winner && !old.lewFit ? deriveRoundScore(old.winner, old.totalTay, old) : null;
+    if (old.winner && !old.lewFit) { tayTotal[old.winner] += old.totalTay; huCount[old.winner]++; }
+    if (score) for (const seat of SEAT_ORDER) {
+      koinTotal[seat] += score.deltas[seat];
+    }
+    return { hand: old.hand, dealer: old.dealer, prevailingWind: old.prevailingWind, winner: old.winner, ...(old.lewFit ? { lewFit: true } : {}), totalTay: old.totalTay, roundScore: score };
+  });
+  return { ...raw, hands, koinTotal, tayTotal, huCount, reachedAt: firstReached(hands, koinTotal) };
+}
+
+/** Balances can fall and return: retain the first visit to the current total. */
+function firstReached(hands: MatchHandRecord[], final: Record<Seat, number>): Record<Seat, number> {
+  const balance = zero(), reached = zero();
+  const found = new Set(SEAT_ORDER.filter(seat => final[seat] === 0));
+  for (const hand of hands) for (const seat of SEAT_ORDER) {
+    balance[seat] += hand.roundScore?.deltas[seat] ?? 0;
+    if (!found.has(seat) && balance[seat] === final[seat]) { reached[seat] = hand.hand; found.add(seat); }
+  }
+  return reached;
 }

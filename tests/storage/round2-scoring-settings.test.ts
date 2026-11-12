@@ -161,7 +161,7 @@ describe('Round 2 · results and history explain the column vs actual Kim usage'
 
   it('summary and receipt name the table column, why it was chosen, and the Kim actually held', () => {
     expect(scoringColumnSummary(scoring)).toBe('Kolom tabel Ada Kim (pilihan pertandingan) · Kim di tangan: 0');
-    const outcome: HuOutcome = { kind: 'hu', winner: 'nan', winningTile: win, winMethod: 'ron', discarder: 'dong', hand: [...hand, win], melds: [], flowers: [], scoring, points: null, durationSeconds: 10 };
+    const outcome: HuOutcome = { kind: 'hu', winner: 'nan', winningTile: win, winMethod: 'ron', discarder: 'dong', hand: [...hand, win], melds: [], flowers: [], scoring, roundScore: null, durationSeconds: 10 };
     const text = buildHuReceipt(outcome);
     expect(text).toContain('Kolom tabel Ada Kim (pilihan pertandingan) · Kim di tangan: 0');
     expect(text).toContain('per tile sesuai PDF');

@@ -61,26 +61,27 @@ describe('v0.5.2 table layout (v0.5.3: central discard pool)', () => {
 
 describe('v0.5.2 result standings', () => {
   it('ranks players in a compact table with this game\'s Tay, the winner highlighted and the next dealer crowned', () => {
-    let m = recordHand(createMatch(), 'nan', true, 12);
-    m = recordHand(m, 'xi', true, 7);
+    let m = recordHand(createMatch(), 'nan', true, 12, 0, { winMethod: 'tsumo' });
+    m = recordHand(m, 'xi', true, 7, 0, { winMethod: 'tsumo' });
     const html = renderToStaticMarkup(createElement(MatchResultNote, { match: m }));
     expect(html).toContain('<strong>Game 2/16 selesai.</strong>');
-    expect(html).toContain('+Poin<span class="th-long"> game ini</span>');
+    expect(html).toContain('Koin<span class="th-long"> game ini</span>');
     const rows = [...html.matchAll(/<tr( class="([^"]*)")?><td class="rank">(\d)<\/td><th scope="row">([^<]+)/g)].map((r) => ({ cls: r[2] ?? '', rank: r[3], name: r[4] }));
     expect(rows.map((r) => r.name)).toEqual(['Bot Kanan', 'Bot Seberang', 'Anda', 'Bot Kiri']);
     expect(rows[1]!.cls).toContain('is-winner');
     expect(rows.filter((r) => r.cls.includes('is-winner'))).toHaveLength(1);
     // Bot Seberang won this game and, after Bot Kanan's earlier Hu, deals next.
-    expect(html).toMatch(/is-winner"><td class="rank">2<\/td><th scope="row">Bot Seberang<svg[^]*?aria-label="Dealer berikutnya"[^]*?<\/th><td class="num gained">\+7<\/td><td class="num total">7<\/td>/);
-    expect(html).toContain('<td class="num gained is-zero">–</td>');
+    expect(html).toMatch(/is-winner"><td class="rank">2<\/td><th scope="row">Bot Seberang<svg[^]*?aria-label="Dealer berikutnya"[^]*?<\/th><td class="num gained is-plus">\+42<\/td><td class="num total koin is-plus">\+18<\/td>/);
+    expect(html).toContain('kit-kit');
   });
 
   it('final standings use the same table with the champion highlighted', () => {
     let m = createMatch();
-    for (let i = 0; i < 16; i++) m = recordHand(m, i === 3 ? 'bei' : null, i === 3, 9);
+    for (let i = 0; i < 16; i++) m = recordHand(m, i === 3 ? 'bei' : null, i === 3, 9, 0, { winMethod: 'tsumo' });
     const html = renderToStaticMarkup(createElement(MatchStandingsModal, { match: m, onPlayAgain: noop, onMenu: noop }));
     expect(html).toContain('class="standings-table"');
     expect(html).toMatch(/class="is-winner"><td class="rank">1<\/td><th scope="row">Bot Kiri/);
-    expect(html).toContain('Total dicapai di game 4');
+    // Untied rows don't repeat the first-reach tiebreak note.
+    expect(html).not.toContain('Total dicapai di game');
   });
 });

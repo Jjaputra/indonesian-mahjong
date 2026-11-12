@@ -15,7 +15,7 @@ This game does **not** claim full conformity with ITM/YDSP. Kim is chosen as a r
 | Kim / joker may not be discarded | p. 7 §4, p. 11 §5.3 | `kimDiscardAllowed: false` in the tournament preset |
 | No dead wall: the wall is played until it is empty | p. 7 §4 | Default: no dead wall; optional practice reserve of 14 tiles, including replacement draws |
 | Empty wall = Seri (draw); the game still counts; dealer rotates under the player house rule | p. 7 §4 | Seri outcome, `DRAW_SERI` phase |
-| Table winner = most Hu (each at least 5 Tay); a tie goes to whoever reached that count first | p. 7 §4, p. 12 §6 | Superseded by player answers 2026-11-12: total points, then valid Hu, then first to final points; practice may lower the minimum |
+| Table winner = most Hu (each at least 5 Tay); a tie goes to whoever reached that count first | p. 7 §4, p. 12 §6 | Superseded by player answers 2026-11-12: total koin, then valid Hu, then first to final koin; practice may lower the minimum |
 | A replacement player cannot Hu | p. 5 §3.2, p. 11 §5.2 | Tournament admin, not modelled |
 | DAFTAR TAY, 44 rows, two columns "Ada KIM" / "Tidak ada KIM" | pp. 8–10 | `src/scoring/patterns.ts`; pinned by `tests/scoring/rulebook-columns.test.ts` |
 | Penalti 1–4 are all "Lew Fit": wrong tile count, wrong Jia/Pung, Jia/Pung using Kim, Hu below 5 Tay | p. 10 | `LewFitReason` `structure`, `kim-claim`, `below-minimum` |
@@ -121,7 +121,16 @@ Collection awards are: #4 four Bunga 10, #5 four Musim 20, #6 seven bonus tiles 
 
 **Pattern stacking confirmed (research decision 2026-11-12).** Tuei Tuei stacks with Sam Am Kang, as in standard Chinese definitions; it also remains independent of Si Am Kang. Si Am Kang supersedes Sam Am Kang only; no additional pattern exclusion is introduced. The existing other exclusions remain as listed below.
 
-**Ce Mo / Mun points multiplier (house rule; player feedback 2026-11-12; not in PDF ver06 (PDF ranks by Hu count)).** For a valid Hu, points = raw total Tay × 2 for any self-draw (Ce Mo, Ce Mo Pu Ciu Jen, Ce Chiong Kong, Thien/Thi Fu by self-draw included), or for a concealed hand winning on an opponent's tile, including robbing a Kong (Mun). A concealed Kong (Ankong) keeps the hand concealed; any Pung, Jia or exposed Kong opens it. An open discard/robbing win scores ×1. Concealed self-draw scores ×2 once, never ×4. Win facts determine the multiplier independently of pattern rows or exclusions. Pattern Tay and total Tay keep the PDF values; the minimum-Tay/Lew Fit check uses raw Tay before multiplication (3 Tay with minimum 5 still scores zero points).
+**Round Score (koin), house rule — group decision 2026-11-12; not in PDF ver06.** Let T be the winner's raw `ScoringResult.totalTay`, never multiplied. The payout pattern follows MahjongLeh: the discarder pays twice the other opponents; for self-draw every opponent pays twice T.
+
+| Win | Winner | Payer | Other opponents |
+| --- | --- | --- | --- |
+| Ce Mo (self-draw, `tsumo`) | +6T | Each opponent −2T | Each opponent −2T |
+| Buangan (`ron`) or Chiong Kong | +4T | Discarder / kong declarer −2T | Each of the other two −T |
+
+At 5 Tay, buangan pays **+20 / −10 / −5 / −5 koin**, and Ce Mo pays **+30 / −10 / −10 / −10 koin**. For Chiong Kong the payer is the kong declarer (`discarder` on the outcome). All self-draw wins, including Ce Mo Pu Ciu Jen, Ce Chiong Kong and self-drawn Thien/Thi Fu, use Ce Mo payout. Mun (concealed hand) gets no extra koin. Every game sums to exactly zero (kit-kit), asserted by the implementation. Seri scores zero for all seats. Lew Fit koin penalty: not decided yet, 0 for now.
+
+Pattern Tay, total Tay and the minimum-Tay check are unchanged: a 3-Tay hand with minimum 5 is still Lew Fit and awards zero koin and no Hu.
 
 **Overlap policy.** The rulebook exclusive policy (`SUPERSEDES`) applies:
 - Thi Fu replaces Pao Chin (#12 → #10)
@@ -170,9 +179,9 @@ Code: `src/ui/match.ts`, `GameController.startMatch` / `nextHand`.
 Match policy (player answers 2026-11-12; supersedes PDF section 4's 8-game / Hu-count choices):
 - Every match has exactly **16 games**, unless the optional 90-minute Waktu ends it earlier at a hand boundary. There is no match-length choice or saved length; the old `itm.match-length.v1` preference is silently removed on app startup.
 - Every completed hand is one game: dealer Hu, other valid Hu, Seri and Lew Fit all count once. Seri moves straight to the next game without replay. Every result (dealer Hu, other Hu, Lew Fit and Seri) rotates the dealer one chair and the seat winds. This player house rule supersedes PDF section 4 "angin duduk tidak berputar" for Seri in this app. The removed dealer-rotation preference is still discarded on load; legacy dealer-stays values cannot override this policy.
-- **Tabel Total Poin sums awarded points**, using the Ce Mo / Mun ×2 house rule above (player feedback 2026-11-12; not in PDF ver06 (PDF ranks by Hu count)). Raw Tay remains visible in each hand breakdown.
-- Ranking uses **highest cumulative points**, then **more valid Hu**, then **whoever reached their final points total first** (the hand number of their last credited Hu). Only valid Hu meeting the match minimum add points or Hu; Seri and Lew Fit add zero. Players with no Hu share a rank. Physical game numbers provide the final tie-break.
-- The in-play MatchBoard orders players by this ranking and highlights the points leader independently of the dealer badge. Hu remains visible alongside points. The result modal's standings and final standings use the same order and totals, and the final winner message leads with points.
+- **Round Score totals use koin**, separately from cumulative raw Tay and valid Hu count.
+- Ranking uses **highest cumulative koin**, then **more valid Hu**, then **whoever first reached their final koin total** (the first hand where their balance equalled that total, including the opening zero balance), then seat order. Seri and Lew Fit add zero; every valid payout updates all four balances.
+- MatchBoard, hand results and final standings share this order and display Koin · Tay · Hu.
 
 Implementation conventions and practice choices (**not stated in the PDF**; seating policy is in `nextSeating`):
 - The dealer always sits posisi Dong (Timur). Seat winds are relative to the dealer, so Tris Angin Duduk, own Bunga/Musim number, Ping Fu and Thien Fu use the rotated seat wind each hand. Thien Fu belongs to the dealer.

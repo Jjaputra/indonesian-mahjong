@@ -119,29 +119,29 @@ describe('match scoring and end', () => {
   it('ends after 16 hands; seri still counts as a game', () => {
     let m = createMatch();
     m = recordHand(m, null, false, 0);
-    m = recordHand(m, 'xi', true, 8);
+    m = recordHand(m, 'xi', true, 8, 0, { winMethod: 'tsumo' });
     m = recordHand(m, null, false, 0);
     expect(isMatchOver(m)).toBe(false);
-    m = recordHand(m, 'dong', true, 6);
+    m = recordHand(m, 'dong', true, 6, 0, { winMethod: 'tsumo' });
     for (let i = 4; i < 16; i++) m = recordHand(m, null, false, 0);
     expect(isMatchOver(m)).toBe(true);
     expect(m.hands.slice(0, 4).map((h) => h.winner)).toEqual([null, 'xi', null, 'dong']);
-    expect(isMatchOver(recordHand(createMatch(), 'xi', true, 5))).toBe(false);
+    expect(isMatchOver(recordHand(createMatch(), 'xi', true, 5, 0, { winMethod: 'tsumo' }))).toBe(false);
   });
 
-  it('table winner: highest Tay, then Hu count, then first to final Tay', () => {
+  it('table winner: highest koin, then Hu count, then first to final koin', () => {
     let m = createMatch();
-    m = recordHand(m, 'xi', true, 5); // xi reaches 1 at hand 1
-    m = recordHand(m, 'bei', true, 30); // bei reaches 1 at hand 2
-    m = recordHand(m, 'bei', true, 10); // bei reaches 2 at hand 3
-    m = recordHand(m, 'xi', true, 6); // xi reaches 2 at hand 4
+    m = recordHand(m, 'xi', true, 5, 0, { winMethod: 'tsumo' }); // xi reaches 1 at hand 1
+    m = recordHand(m, 'bei', true, 30, 0, { winMethod: 'tsumo' }); // bei reaches 1 at hand 2
+    m = recordHand(m, 'bei', true, 10, 0, { winMethod: 'tsumo' }); // bei reaches 2 at hand 3
+    m = recordHand(m, 'xi', true, 6, 0, { winMethod: 'tsumo' }); // xi reaches 2 at hand 4
     const rows = standings(m);
-    expect(rows.map((r) => [r.seat, r.rank, r.hu])).toEqual([['bei', 1, 2], ['xi', 2, 2], ['dong', 3, 0], ['nan', 3, 0]]);
+    expect(rows.map((r) => [r.seat, r.rank, r.hu])).toEqual([['bei', 1, 2], ['xi', 2, 2], ['dong', 3, 0], ['nan', 4, 0]]);
     expect(rows[0]!.tay).toBe(40);
   });
 
   it('final standings render with Main lagi and back to menu', () => {
-    const m = recordHand(createMatch(), 'nan', true, 9);
+    const m = recordHand(createMatch(), 'nan', true, 9, 0, { winMethod: 'tsumo' });
     const html = renderToStaticMarkup(createElement(MatchStandingsModal, { match: m, onPlayAgain: () => {}, onMenu: () => {} }));
     expect(html).toContain('Klasemen Akhir');
     expect(html).toContain('Main lagi');
@@ -266,8 +266,8 @@ describe('match UI wiring', () => {
 describe('match review regressions', () => {
   const noop = () => {};
   it('credits the configured minimum and labels lower training rules in both scoreboards', () => {
-    expect(recordHand(createMatch(), 'nan', true, 3).huCount.nan).toBe(0);
-    expect(recordHand(createMatch(), 'nan', true, 5).huCount.nan).toBe(1);
+    expect(recordHand(createMatch(), 'nan', true, 3, 0, { winMethod: 'tsumo' }).huCount.nan).toBe(0);
+    expect(recordHand(createMatch(), 'nan', true, 5, 0, { winMethod: 'tsumo' }).huCount.nan).toBe(1);
     let training = createMatch('dong', 'dong', 3);
     training = recordHand(training, 'nan', true, 3);
     expect(training.huCount.nan).toBe(1);
@@ -312,7 +312,8 @@ describe('match review regressions', () => {
     c.humanSelfDrawHu();
     expect(c.outcome?.kind).toBe('hu');
     expect(c.match!.huCount.dong).toBe(1);
-    expect(c.match!.tayTotal.dong).toBe(8);
+    expect(c.match!.tayTotal.dong).toBe(4);
+    expect(c.match!.koinTotal.dong).toBe(24);
     expect(c.match!.seating.dealer).toBe(SEAT_ORDER[(SEAT_ORDER.indexOf(c.getState().dealerSeat) + 1) % 4]);
   });
 

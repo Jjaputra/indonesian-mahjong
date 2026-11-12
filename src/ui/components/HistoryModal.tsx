@@ -4,7 +4,7 @@ import { computeHistoryStats, concealedHistoryTiles, type MatchHistoryRecord } f
 import { PLAYER_NAME, WIN_METHOD_LABEL } from '../labels';
 import { modeLabel } from '../tay-calculator';
 import { Modal } from './Modal';
-import { recordPoints, tayPointsText } from './points';
+import { tayKoinText } from './points';
 import { MeldView, TileRow, TileView } from './TileView';
 
 interface HistoryModalProps {
@@ -105,7 +105,7 @@ export function HistoryModal({ history, onDelete, onClear, onClose }: HistoryMod
                 <strong>{r.winner ? `${PLAYER_NAME[r.winner]} Hu` : 'Seri'}</strong>
                 <span>{WIN_METHOD_LABEL[r.winMethod].split(' (')[0]}</span>
                 {r.winner && <span className="badge badge-kim">{modeLabel(r.tableColumn ?? (r.isWithKim ? 'K' : 'NK'))}</span>}
-                <span className="num">{tayPointsText(recordPoints(r))}</span>
+                <span className="num">{tayKoinText(r)}</span>
               </button>
               {open && <HistoryDetail record={r} onDelete={onDelete} />}
             </li>

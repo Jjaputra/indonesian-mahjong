@@ -1,64 +1,58 @@
-import type { Meld } from '../../core/types';
+import { SEAT_ORDER } from '../../core/tiles';
+import type { Seat, Wind } from '../../core/types';
+import type { RoundScore, RoundScoreKind } from '../../core/round-score';
 
 /**
- * House rule (v0.5.4): a valid Hu scores total Tay x2 when it is Ce Mo (self-draw) or Mun
- * (concealed hand won on an opponent's tile), otherwise x1; never x4. The controller and match
- * carry the authoritative HandPoints; these readers only render it, falling back to the same rule
- * for records saved before points existed.
+ * Round Score display (v0.5.5, group decision), unit koin. T = the winner's raw total Tay.
+ * Ce Mo: winner +6T, each other player −2T. Buangan / Chiong Kong: payer −2T, the other two −T,
+ * winner +4T. Seri and Lew Fit score 0; every game sums to 0 ("kit-kit"). The controller and match
+ * carry the authoritative RoundScore (core/round-score.ts); these helpers only format it.
  */
-export type PointsReason = 'ce_mo' | 'mun' | null;
-export interface PointsView { tay: number; multiplier: 1 | 2; reason: PointsReason; points: number }
+export const ROUND_SCORE_LABEL: Record<RoundScoreKind, string> = { ce_mo: 'Ce Mo', buangan: 'Buangan', chiong_kong: 'Chiong Kong' };
+/** Tag beside the paying player's row. */
+export const PAYER_TAG: Record<RoundScoreKind, string> = { ce_mo: '', buangan: 'buang', chiong_kong: 'kong' };
 
-export const POINTS_REASON_LABEL: Record<Exclude<PointsReason, null>, string> = { ce_mo: 'Ce Mo', mun: 'Mun' };
+const zero = (): Record<Seat, number> => ({ dong: 0, nan: 0, xi: 0, bei: 0 });
 
-function asPoints(value: unknown): PointsView | null {
-  if (!value || typeof value !== 'object') return null;
-  const v = value as Partial<PointsView>;
-  if (typeof v.points !== 'number' || typeof v.tay !== 'number') return null;
-  return { tay: v.tay, multiplier: v.multiplier === 2 ? 2 : 1, reason: v.reason === 'ce_mo' || v.reason === 'mun' ? v.reason : null, points: v.points };
+/** Koin each seat gained in a stored hand; all zero for Seri, Lew Fit or unknown. */
+export function recordDeltas(record: { roundScore?: RoundScore | null }): Record<Seat, number> {
+  return record.roundScore?.deltas ?? zero();
 }
 
-/** The first HandPoints-shaped value among an object's likely fields. */
-function readPoints(source: object): PointsView | null {
-  const s = source as Record<string, unknown>;
-  return asPoints(s.handPoints) ?? asPoints(s.points) ?? asPoints(s.pointsDetail);
+/** Σ of a match's koin totals; 0 when every game was kit-kit. */
+export function koinSum(totals: Record<Seat, number>): number {
+  return SEAT_ORDER.reduce((sum, s) => sum + totals[s], 0);
 }
 
-interface HuLike {
-  winMethod: string;
-  melds: Meld[];
-  scoring: { isValidHu: boolean; totalTay: number };
+/** Signed koin with a true minus: "+20", "−25", "0". */
+export function signedKoin(n: number): string {
+  return n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0';
 }
 
-/** Points for a Hu result; Lew Fit and below-minimum hands score 0. */
-export function outcomePoints(outcome: HuLike): PointsView {
-  const { isValidHu, totalTay } = outcome.scoring;
-  if (!isValidHu) return { tay: totalTay, multiplier: 1, reason: null, points: 0 };
-  const given = readPoints(outcome) ?? readPoints(outcome.scoring);
-  if (given) return given;
-  const selfDraw = outcome.winMethod === 'tsumo';
-  const concealed = outcome.melds.every((m) => m.type === 'ankong');
-  const reason: PointsReason = selfDraw ? 'ce_mo' : concealed ? 'mun' : null;
-  const multiplier = reason ? 2 : 1;
-  return { tay: totalTay, multiplier, reason, points: totalTay * multiplier };
+export function koinTone(n: number): 'is-plus' | 'is-minus' | 'is-zero' {
+  return n > 0 ? 'is-plus' : n < 0 ? 'is-minus' : 'is-zero';
 }
 
-/** Points on a stored hand (match hand or history record): its own field, else the Tay. */
-export function recordPoints(record: { totalTay: number }): PointsView {
-  const given = readPoints(record);
-  if (given) return given;
-  const { points, multiplier } = record as { points?: unknown; multiplier?: unknown };
-  if (typeof points === 'number') return { tay: record.totalTay, multiplier: multiplier === 2 ? 2 : 1, reason: null, points };
-  return { tay: record.totalTay, multiplier: 1, reason: null, points: record.totalTay };
+/** "5 Tay · +20 koin" for a hand's winner, or just "5 Tay" when the koin is unknown. */
+export function tayKoinText(record: { winner: Seat | null; totalTay: number; roundScore?: RoundScore | null; koin?: number }): string {
+  const k = record.winner && record.roundScore ? record.roundScore.deltas[record.winner] : record.koin || null;
+  return k ? `${record.totalTay} Tay · ${signedKoin(k)} koin` : `${record.totalTay} Tay`;
 }
 
-/** "7 Tay", or "7 Tay · 14 Poin" when the hand was doubled. */
-export function tayPointsText(p: PointsView): string {
-  return p.points !== p.tay && p.points > 0 ? `${p.tay} Tay · ${p.points} Poin` : `${p.tay} Tay`;
+/** Formula hint, e.g. "Ce Mo: 6 × 5 tay" or "Buangan: 4 × 5 tay; yang buang 2×, lainnya 1×". */
+export function roundScoreHint(rs: RoundScore): string {
+  if (rs.kind === 'ce_mo') return `Ce Mo: 6 × ${rs.tay} tay; tiap lawan 2×`;
+  return `${ROUND_SCORE_LABEL[rs.kind]}: 4 × ${rs.tay} tay; yang ${PAYER_TAG[rs.kind]} 2×, lainnya 1×`;
 }
 
-/** A standings row's match total; `tay` holds accumulated points since v0.5.4 (legacy key name). */
-export function standingPoints(row: { tay: number }): number {
-  const p = (row as { points?: unknown }).points;
-  return typeof p === 'number' ? p : row.tay;
+/** Seat wind of `seat` given another seat's wind this hand (winds follow chair order). */
+export function windOf(seat: Seat, known: Seat, knownWind: Wind): Wind {
+  return SEAT_ORDER[(SEAT_ORDER.indexOf(knownWind) + SEAT_ORDER.indexOf(seat) - SEAT_ORDER.indexOf(known) + 4) % 4]!;
+}
+
+/** Winner first, then the payer, then the rest in turn order after the winner. */
+export function roundScoreOrder(winner: Seat, payer: Seat | null): Seat[] {
+  const i = SEAT_ORDER.indexOf(winner);
+  const rest = [1, 2, 3].map((k) => SEAT_ORDER[(i + k) % 4]!).filter((s) => s !== payer);
+  return [winner, ...(payer && payer !== winner ? [payer] : []), ...rest];
 }

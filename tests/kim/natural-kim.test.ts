@@ -200,7 +200,7 @@ describe('Natural Kim', () => {
 
   it('receipts use the rotated seat wind captured by seatWindOf at Hu time', () => {
     const tiles = hand(3, 3);
-    const receipt = buildHuReceipt({ kind: 'hu', winner: 'nan', seatWind: 'dong', winningTile: tiles[13]!, winMethod: 'tsumo', hand: tiles, melds: [], flowers: [], scoring: score(tiles), points: null, durationSeconds: 1 });
+    const receipt = buildHuReceipt({ kind: 'hu', winner: 'nan', seatWind: 'dong', winningTile: tiles[13]!, winMethod: 'tsumo', hand: tiles, melds: [], flowers: [], scoring: score(tiles), roundScore: null, durationSeconds: 1 });
     expect(receipt).toContain(`Pemenang      : ${PLAYER_NAME.nan} — ${SEAT_LABEL.dong}`);
     expect(receipt).toContain('#8 Bo KIM: 3 Tay');
   });
