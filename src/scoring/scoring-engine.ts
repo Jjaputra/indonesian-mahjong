@@ -156,9 +156,9 @@ function detectShape(input: ScoringInput): DetectedPattern[] {
   }
 
   if (features.shape === 'standard') {
-    const honorPair = isDisallowedHonorPair(features.pair);
-    if (features.sequenceCount === 4 && !honorPair) push(award(14, mode, '4 urutan + pair bukan naga/angin'));
-    if (features.triplets.length === 4 && !honorPair) push(award(15, mode, '4 tris + pair bukan naga/angin'));
+    const honorPair = isDisallowedHonorPair(features.pair, input.context);
+    if (features.sequenceCount === 4 && !honorPair) push(award(14, mode, '4 urutan + pair bukan naga/angin bernilai'));
+    if (features.triplets.length === 4 && !honorPair) push(award(15, mode, '4 tris + pair bukan naga/angin bernilai'));
   }
 
   if (features.shape !== 'thirteen_orphans' && features.shape !== 'se_sam_pu_tat') {

@@ -28,7 +28,7 @@ describe('Lew Fit rotation', () => {
   it('rotates after dealer and non-dealer Lew Fit in either dealer-win mode, without a Hu', () => {
     for (const dealerWinRule of ['stay', 'rotate'] as const) {
       for (const declarer of ['dong', 'xi'] as const) {
-        const m = recordHand(createMatch(8, 'dong', 'dong', 5, dealerWinRule), declarer, false, 3);
+        const m = recordHand(createMatch('dong', 'dong', 5, dealerWinRule), declarer, false, 3);
         expect(m.seating).toEqual({ dealer: 'nan', prevailingWind: 'dong', dealerPasses: 1 });
         expect(m.huCount).toEqual({ dong: 0, nan: 0, xi: 0, bei: 0 });
         expect(m.tayTotal).toEqual({ dong: 0, nan: 0, xi: 0, bei: 0 });
@@ -60,7 +60,7 @@ describe('optional real-time match limit', () => {
 
   it('time expiry leaves the active hand playable, then counts its Hu and ends by time', () => {
     vi.useFakeTimers(); vi.setSystemTime(epoch);
-    const c = freshController(); c.startMatch(8, 'stay', 90);
+    const c = freshController(); c.startMatch('stay', 90);
     const stop = watchMatchClock(c);
     const version = c.version;
     vi.advanceTimersByTime(90 * minute);
@@ -81,7 +81,7 @@ describe('optional real-time match limit', () => {
 
   it('includes dialogs, hidden-tab/bot pauses and waiting between hands without needing bot actions', () => {
     vi.useFakeTimers(); vi.setSystemTime(epoch);
-    const c = freshController(); c.startMatch(8, 'stay', 90);
+    const c = freshController(); c.startMatch('stay', 90);
     finishDealerHu(c);
     const outcome = c.outcome;
     const stop = watchMatchClock(c);
@@ -98,7 +98,7 @@ describe('optional real-time match limit', () => {
 
   it('checks expiry synchronously before dealing, even if background timers were throttled', () => {
     vi.useFakeTimers(); vi.setSystemTime(epoch);
-    const c = freshController(); c.startMatch(8, 'stay', 90); finishDealerHu(c);
+    const c = freshController(); c.startMatch('stay', 90); finishDealerHu(c);
     const serial = c.gameSerial;
     vi.setSystemTime(epoch + 91 * minute);
     expect(c.nextHand()).toBe(false); expect(c.gameSerial).toBe(serial);
@@ -107,7 +107,7 @@ describe('optional real-time match limit', () => {
 
   it('counts a live wall-out Seri after expiry without rotating or awarding points', () => {
     vi.useFakeTimers(); vi.setSystemTime(epoch);
-    const c = freshController(); c.startMatch(8, 'rotate', 90);
+    const c = freshController(); c.startMatch('rotate', 90);
     const seating = { ...c.match!.seating };
     vi.setSystemTime(epoch + 91 * minute);
     const s = (c as unknown as { engine: GameEngine }).engine.getState() as GameEngineState;
@@ -125,7 +125,7 @@ describe('optional real-time match limit', () => {
   });
 
   it('counts Lew Fit at timeout, rotates once, and leaves standings uncredited', () => {
-    const m = recordHand(createMatch(8, 'bei', 'dong', 5, 'stay', 90, epoch), 'bei', false, 100, epoch + 91 * minute);
+    const m = recordHand(createMatch('bei', 'dong', 5, 'stay', 90, epoch), 'bei', false, 100, epoch + 91 * minute);
     expect(m.hands).toHaveLength(1);
     expect(m.hands[0]).toMatchObject({ lewFit: true, winner: null, totalTay: 0 });
     expect(m.seating).toEqual({ dealer: 'dong', prevailingWind: 'dong', dealerPasses: 1 });
@@ -136,8 +136,9 @@ describe('optional real-time match limit', () => {
 
   it('finishes earlier by hand count and freezes the clock at completion', () => {
     vi.useFakeTimers(); vi.setSystemTime(epoch);
-    const c = freshController(); c.startMatch(1, 'stay', 90);
-    vi.advanceTimersByTime(5 * minute); finishDealerHu(c);
+    const c = freshController(); c.startMatch('stay', 90);
+    vi.advanceTimersByTime(5 * minute);
+    for (let i = 0; i < 16; i++) { finishDealerHu(c); if (i < 15) c.nextHand(); }
     expect(c.matchOver).toBe(true); expect(c.match!.endedBy).toBe('hands');
     expect(remainingMatchMs(c.match!)).toBe(85 * minute);
     vi.advanceTimersByTime(100 * minute); c.tickMatchClock();
@@ -146,10 +147,10 @@ describe('optional real-time match limit', () => {
 
   it('does not restart the clock on nextHand, and keeps unlimited matches unlimited', () => {
     vi.useFakeTimers(); vi.setSystemTime(epoch);
-    const c = freshController(); c.startMatch(8, 'stay', 90);
+    const c = freshController(); c.startMatch('stay', 90);
     vi.advanceTimersByTime(3 * minute); finishDealerHu(c); expect(c.nextHand()).toBe(true);
     expect(c.match!.startedAt).toBe(epoch); expect(remainingMatchMs(c.match!)).toBe(87 * minute);
-    const unlimited = freshController(); unlimited.startMatch(null);
+    const unlimited = freshController(); unlimited.startMatch();
     vi.advanceTimersByTime(200 * minute); finishDealerHu(unlimited);
     expect(unlimited.matchOver).toBe(false); expect(unlimited.nextHand()).toBe(true);
     expect(remainingMatchMs(unlimited.match!)).toBeNull();
@@ -157,11 +158,11 @@ describe('optional real-time match limit', () => {
 
   it('disposes the open-app watcher and starts a new runtime match without charging closed-app time', () => {
     vi.useFakeTimers(); vi.setSystemTime(epoch);
-    const old = freshController(); old.startMatch(8, 'stay', 90);
+    const old = freshController(); old.startMatch('stay', 90);
     const tick = vi.spyOn(old, 'tickMatchClock'); const stop = watchMatchClock(old);
     vi.advanceTimersByTime(minute); expect(tick).toHaveBeenCalledTimes(60);
     stop(); vi.advanceTimersByTime(24 * 60 * minute); expect(tick).toHaveBeenCalledTimes(60);
-    const reopened = freshController(); reopened.startMatch(8, 'stay', 90);
+    const reopened = freshController(); reopened.startMatch('stay', 90);
     expect(remainingMatchMs(reopened.match!)).toBe(90 * minute);
     expect(reopened.match!.hands).toHaveLength(0);
   });
@@ -173,7 +174,7 @@ describe('optional real-time match limit', () => {
     const options = { settings: { ...getPreset('tournament'), kimMode: 'off' as const, kimEnabled: false }, storage, autoStart: false, seed: 7 };
     const c = new GameController(options);
     const write = vi.spyOn(storage, 'setItem');
-    c.startMatch(8, 'stay', loadMatchTimeLimit(storage));
+    c.startMatch('stay', loadMatchTimeLimit(storage));
     vi.setSystemTime(epoch + 5 * minute); c.tickMatchClock();
     expect(write).not.toHaveBeenCalled();
     finishDealerHu(c);
@@ -181,14 +182,14 @@ describe('optional real-time match limit', () => {
     const reopened = new GameController(options);
     expect(reopened.match).toBeNull(); expect(reopened.outcome).toBeNull();
     vi.setSystemTime(epoch + 24 * 60 * minute);
-    reopened.startMatch(8, 'stay', loadMatchTimeLimit(storage));
+    reopened.startMatch('stay', loadMatchTimeLimit(storage));
     expect(reopened.match!.hands).toHaveLength(0);
     expect(remainingMatchMs(reopened.match!)).toBe(90 * minute);
   });
 
   it('renders remaining time on the scoreboard', () => {
     vi.useFakeTimers(); vi.setSystemTime(epoch);
-    const match = createMatch(8, 'dong', 'dong', 5, 'stay', 90);
+    const match = createMatch('dong', 'dong', 5, 'stay', 90);
     vi.advanceTimersByTime(65_000);
     const html = renderToStaticMarkup(createElement(MatchScoreboard, { match, hand: 1, prevailingWind: 'dong', dealer: 'dong' }));
     expect(html).toContain('Waktu: 88:55');

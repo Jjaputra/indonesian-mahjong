@@ -23,7 +23,7 @@ interface HuResultModalProps {
   onNextHand?: () => void;
   /** Last hand of the match finished: open the final standings */
   onStandings?: () => void;
-  /** Match status shown above the receipt, e.g. "Game 3/8 selesai" */
+  /** Match status shown above the receipt, e.g. "Game 3/16 selesai" */
   matchSummary?: ReactNode;
 }
 

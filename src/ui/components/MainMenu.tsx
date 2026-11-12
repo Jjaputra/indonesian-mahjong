@@ -1,6 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { MATCH_LENGTHS, type DeadWallOption, type DealerWinRule, type MatchTimeLimit, type MatchLength } from '../match';
-import { matchLengthLabel } from '../labels';
+import { type DeadWallOption, type DealerWinRule, type MatchTimeLimit } from '../match';
 
 export interface MainMenuProps {
   difficultyLabel: string;
@@ -12,16 +11,13 @@ export interface MainMenuProps {
   deadWall?: DeadWallOption;
   onDeadWallChange?: (option: DeadWallOption) => void;
   onKimChange?: (enabled: boolean) => void;
-  /** Hands per match (null = endless practice) */
-  matchLength?: MatchLength;
   timeLimitMinutes?: MatchTimeLimit;
   onTimeLimitChange?: (limit: MatchTimeLimit) => void;
   dealerWinRule?: DealerWinRule;
   onDealerWinRuleChange?: (rule: DealerWinRule) => void;
-  onMatchLengthChange?: (length: MatchLength) => void;
 }
 
-export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, onKimChange, matchLength, onMatchLengthChange, kimMode, onKimModeChange, deadWall, onDeadWallChange, timeLimitMinutes, onTimeLimitChange }: MainMenuProps) {
+export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, onKimChange, kimMode, onKimModeChange, deadWall, onDeadWallChange, timeLimitMinutes, onTimeLimitChange }: MainMenuProps) {
   return (
     <main className="main-menu">
       <section className="menu-card" aria-label="Menu utama">
@@ -45,18 +41,6 @@ export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, 
             <option value="14">Sisa 14 tile (dead wall)</option>
           </select>
         </label>}
-        {matchLength !== undefined && onMatchLengthChange && (
-          <fieldset className="menu-kim menu-length">
-            <legend>Panjang pertandingan</legend>
-            <div className="segmented" role="group" aria-label="Panjang pertandingan">
-              {MATCH_LENGTHS.map((n) => (
-                <button key={String(n)} type="button" className={matchLength === n ? 'is-on' : ''} aria-pressed={matchLength === n} onClick={() => onMatchLengthChange(n)}>
-                  {matchLengthLabel(n)}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-        )}
         {timeLimitMinutes !== undefined && onTimeLimitChange && <label className="field">
           Waktu
           <select aria-label="Waktu" value={timeLimitMinutes ?? 'unlimited'} onChange={e => onTimeLimitChange(e.target.value === '90' ? 90 : null)}>
@@ -68,7 +52,7 @@ export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, 
         <div className="menu-choices">
           <button type="button" className="btn btn-primary menu-choice" onClick={onPractice}>
             <strong>Mulai bermain <ArrowRight size={20} aria-hidden="true" /></strong>
-            <span>Tiga bot · {difficultyLabel}{matchLength !== undefined ? ` · ${matchLengthLabel(matchLength)}` : ''}</span>
+            <span>Tiga bot · {difficultyLabel} · 16 game</span>
           </button>
         </div>
       </section>

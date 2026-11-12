@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { createMatch, recordHand, countedGames, isMatchOver, standings, rollOpeningDealer, loadMatchLength, saveMatchLength, loadDeadWall, saveDeadWall } from '@/ui/match';
+import { createMatch, recordHand, countedGames, isMatchOver, standings, rollOpeningDealer, migrateMatchLengthPreference, loadDeadWall, saveDeadWall } from '@/ui/match';
 import { GameController } from '@/ui/game-controller';
 import type { GameEngineState } from '@/core/game-engine';
 import { GameEngine } from '@/core/game-engine';
@@ -9,47 +9,58 @@ import { Wall, createMulberry32 } from '@/core/wall';
 import { parseTileHand, createCompleteTileSet } from '@/core/tiles';
 import { MemoryStorage, getPreset, sanitizeSettings, updateSettings, loadSettings } from '@/storage';
 import { MatchScoreboard, MatchResultNote, MatchStandingsModal } from '@/ui/components/MatchBoard';
+import { HuResultModal } from '@/ui/components/HuResultModal';
 import { MainMenu } from '@/ui/components/MainMenu';
 import { seatWindOf } from '@/ui/win-context';
 
 const options = { settings: { ...getPreset('tournament'), kimEnabled: false, kimMode: 'off' as const }, autoStart: false, saveHistory: false };
 const noop = () => {};
 describe('v0.4.2 match options', () => {
-  it('16++ counts Seri and Lew Fit but excludes valid dealer wins, including the last replay', () => {
-    let m = createMatch('16++');
-    for (let i = 0; i < 15; i++) m = recordHand(m, null, false, 0);
-    for (let i = 0; i < 4; i++) m = recordHand(m, 'dong', true, 5);
+  it('counts every hand once and ends after 16, with no replay for dealer Hu or Seri', () => {
+    let m = createMatch();
+    for (let i = 0; i < 14; i++) m = recordHand(m, null, false, 0);
+    m = recordHand(m, 'dong', true, 5);
     expect(countedGames(m)).toBe(15);
-    expect(m.hands).toHaveLength(19);
-    expect(m.huCount.dong).toBe(4);
+    expect(m.seating.dealer).toBe('dong');
     expect(isMatchOver(m)).toBe(false);
-    m = recordHand(m, 'dong', false, 100);
+    m = recordHand(m, null, false, 0);
     expect(countedGames(m)).toBe(16);
     expect(isMatchOver(m)).toBe(true);
-    expect(m.tayTotal.dong).toBe(20);
-    expect(m.seating.dealer).toBe('nan');
-    const draw = recordHand(createMatch('16++'), null, false, 100);
-    expect(countedGames(draw)).toBe(1);
-    expect(draw.seating.dealer).toBe('dong');
+    expect(m.seating.dealer).toBe('dong');
+    expect(recordHand(m, 'nan', true, 100)).toBe(m);
+    const lewFit = recordHand(createMatch(), 'dong', false, 100);
+    expect(countedGames(lewFit)).toBe(1);
+    expect(lewFit.seating.dealer).toBe('nan');
   });
-  it('valid non-dealer wins advance 16++ and normal lengths count dealer wins', () => {
-    expect(countedGames(recordHand(createMatch('16++'), 'nan', true, 5))).toBe(1);
-    expect(countedGames(recordHand(createMatch(16), 'dong', true, 5))).toBe(1);
-  });
-  it('accumulates valid Tay only and never ranks by Tay', () => {
-    let m = recordHand(createMatch(null), 'dong', true, 5);
+  it('ranks by valid Tay before Hu count and displays both', () => {
+    let m = recordHand(createMatch(), 'dong', true, 5);
     m = recordHand(m, 'nan', true, 100);
     m = recordHand(m, 'dong', false, 200);
     m = recordHand(m, null, false, 100);
-    expect(m.tayTotal).toEqual({ dong: 5, nan: 100, xi: 0, bei: 0 });
-    expect(standings(m)[0]!.seat).toBe('dong');
     m = recordHand(m, 'dong', true, 18);
-    expect(m.tayTotal.dong).toBe(23);
-    for (const html of [
-      renderToStaticMarkup(createElement(MatchScoreboard, { match: m, hand: 5, prevailingWind: 'dong', dealer: 'dong' })),
+    expect(m.tayTotal).toEqual({ dong: 23, nan: 100, xi: 0, bei: 0 });
+    expect(standings(m)[0]!.seat).toBe('nan');
+    const board = renderToStaticMarkup(createElement(MatchScoreboard, { match: m, hand: 6, prevailingWind: 'dong', dealer: 'dong' }));
+    expect(board).toContain('Bot Kanan:');
+    expect(board.indexOf('Bot Kanan:')).toBeLessThan(board.indexOf('Anda:'));
+    expect(board).toContain('is-leader');
+    for (const html of [board,
       renderToStaticMarkup(createElement(MatchResultNote, { match: m })),
+      renderToStaticMarkup(createElement(HuResultModal, { outcome: { kind: 'seri', durationSeconds: 1 }, matchSummary: createElement(MatchResultNote, { match: m }), onClose: noop, onNewGame: noop })),
       renderToStaticMarkup(createElement(MatchStandingsModal, { match: m, onMenu: noop, onPlayAgain: noop })),
-    ]) expect(html).toContain('23');
+    ]) {
+      expect(html).toContain('23'); expect(html).toContain('Hu');
+      expect(html.indexOf('Bot Kanan')).toBeLessThan(html.indexOf('Anda'));
+    }
+  });
+  it('breaks Tay ties by valid Hu, then first to reach the final Tay total', () => {
+    let m = recordHand(createMatch(), 'dong', true, 20);
+    m = recordHand(m, 'nan', true, 10);
+    m = recordHand(m, 'nan', true, 10);
+    m = recordHand(m, 'xi', true, 5);
+    m = recordHand(m, 'xi', true, 15);
+    expect(standings(m).map(r => r.seat)).toEqual(['nan', 'xi', 'dong', 'bei']);
+    expect(standings(m).map(r => r.reachedAt)).toEqual([3, 5, 1, 0]);
   });
   it('re-rolls only tied highest chairs and retains every round', () => {
     const values = [5, 5, 2, 2, 5, 5, 0, 0, 0, 1, 3, 3].map(n => n / 6);
@@ -61,8 +72,8 @@ describe('v0.4.2 match options', () => {
   });
   it('opening dice are deterministic and a bot dealer receives Timur and 14 tiles', () => {
     expect(rollOpeningDealer(createMulberry32(7))).toEqual(rollOpeningDealer(createMulberry32(7)));
-    const a = new GameController({ ...options, seed: 7 }); a.startMatch(16);
-    const b = new GameController({ ...options, seed: 7 }); b.startMatch(16);
+    const a = new GameController({ ...options, seed: 7 }); a.startMatch();
+    const b = new GameController({ ...options, seed: 7 }); b.startMatch();
     expect(a.match!.openingRoll).toEqual(b.match!.openingRoll);
     const s = a.getState();
     expect(s.dealerSeat).not.toBe(a.humanSeat);
@@ -82,7 +93,7 @@ describe('v0.4.2 match options', () => {
     expect(Wall.deserialize(wall.serialize()).drawTail()).toBeNull();
   });
   it('ends at the reserve with Seri, counting once and keeping seating', () => {
-    const c = new GameController({ ...options, seed: 7 }); c.startMatch('16++', 'stay', null, '14');
+    const c = new GameController({ ...options, seed: 7 }); c.startMatch('stay', null, '14');
     expect(c.remainingDrawable).toBe(c.getState().wall.remainingCount - 14);
     const s = c.getState() as GameEngineState;
     s.wall = new Wall(createCompleteTileSet().slice(0, 14), null); s.wall.reservedCount = 14;
@@ -105,9 +116,11 @@ describe('v0.4.2 match options', () => {
   });
   it('migrates old length and Kim preferences and persists all new choices', () => {
     const store = new MemoryStorage();
-    expect(loadMatchLength(store)).toBe(16);
-    store.setItem('itm.match-length.v1', '4'); expect(loadMatchLength(store)).toBe(16);
-    for (const length of [8, 16, '16++', null] as const) { saveMatchLength(length, store); expect(loadMatchLength(store)).toBe(length); }
+    for (const legacy of ['4', '8', '16', '16++', 'endless']) {
+      store.setItem('itm.match-length.v1', legacy);
+      migrateMatchLengthPreference(store);
+      expect(store.getItem('itm.match-length.v1')).toBeNull();
+    }
     expect(loadDeadWall(store)).toBe('none'); saveDeadWall('14', store); expect(loadDeadWall(store)).toBe('14');
     expect(sanitizeSettings({ kimEnabled: true }).kimMode).toBe('natural');
     expect(sanitizeSettings({ kimEnabled: false }).kimMode).toBe('off');

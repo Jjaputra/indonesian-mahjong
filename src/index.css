@@ -2596,3 +2596,6 @@ select {
   .dice-status { font-size: 12px; }
   .dice-status.is-final { font-size: 13px; padding: 6px; }
 }
+
+/* Player answers 2026-11-12: highlight the Tay leader independently of the dealer. */
+.match-score.is-leader, .table-hud .match-score.is-leader { background: #fff0bf; box-shadow: inset 0 -2px #b88418; }

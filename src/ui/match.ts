@@ -6,19 +6,15 @@
  * same chair. Each hand's seat wind is derived from the dealer chair (`seatWindOf` in
  * win-context.ts), so the scorer always sees the rotated seat wind.
  *
- * Rulebook section 4: 8 games or 90 minutes; table winner = most valid Hu (>= minimum Tay),
- * tie broken by whoever reached that count first; a wall-out draw (Seri) still counts as a
- * game and does not rotate the seat winds. Dealer-win retention follows PlayLeh table practice; see
- * `nextSeating` (documented in RULES.md, "Match flow").
+ * Player answers 2026-11-12: 16 games, ranking by total Tay, then valid Hu,
+ * then first to reach the final Tay total. Seri and dealer wins each count once.
  */
 import { SEAT_ORDER } from '../core/tiles';
 import type { Seat, Wind } from '../core/types';
 import { getStorage, type StorageLike } from '../storage';
 
-/** Number of counted games (8 / 16 / 16++); numeric practice callers remain supported; `null` = endless practice. */
-export type MatchLength = number | '16++' | null;
-export const MATCH_LENGTHS: readonly MatchLength[] = [8, 16, '16++', null];
-export const DEFAULT_MATCH_LENGTH: MatchLength = 16;
+/** Player answers 2026-11-12: every match has exactly 16 counted games. */
+export const MATCH_GAMES = 16;
 export type DealerWinRule = 'stay' | 'rotate';
 export const DEFAULT_DEALER_WIN_RULE: DealerWinRule = 'stay';
 
@@ -62,7 +58,6 @@ export interface MatchHandRecord {
 }
 
 export interface MatchState {
-  length: MatchLength;
   openingRoll: OpeningRoll | null;
   deadWall: DeadWallOption;
   /** Practice minimum fixed for the match; tournament default is 5. */
@@ -79,14 +74,14 @@ export interface MatchState {
   hands: MatchHandRecord[];
   huCount: Record<Seat, number>;
   tayTotal: Record<Seat, number>;
-  /** Hand number at which each seat reached its current Hu count (tie-break) */
+  /** Hand number at which each seat reached its current Tay total (final tie-break) */
   reachedAt: Record<Seat, number>;
 }
 
 const zero = (): Record<Seat, number> => ({ dong: 0, nan: 0, xi: 0, bei: 0 });
 
-export function createMatch(length: MatchLength, dealer: Seat = 'dong', prevailingWind: Wind = 'dong', minHuTay = 5, _dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE, timeLimitMinutes: MatchTimeLimit = null, now = Date.now()): MatchState {
-  return { length, openingRoll: null, deadWall: 'none', minHuTay, dealerWinRule: 'stay', timeLimitMinutes, startedAt: now, finishedAt: null, endedBy: null, seating: { dealer, prevailingWind, dealerPasses: 0 }, hands: [], huCount: zero(), tayTotal: zero(), reachedAt: zero() };
+export function createMatch(dealer: Seat = 'dong', prevailingWind: Wind = 'dong', minHuTay = 5, _dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE, timeLimitMinutes: MatchTimeLimit = null, now = Date.now()): MatchState {
+  return { openingRoll: null, deadWall: 'none', minHuTay, dealerWinRule: 'stay', timeLimitMinutes, startedAt: now, finishedAt: null, endedBy: null, seating: { dealer, prevailingWind, dealerPasses: 0 }, hands: [], huCount: zero(), tayTotal: zero(), reachedAt: zero() };
 }
 
 /** 1-based number of the hand being played (or about to be dealt). */
@@ -95,7 +90,7 @@ export function currentHandNumber(match: MatchState): number {
 }
 
 export function isMatchOver(match: MatchState): boolean {
-  return match.endedBy !== null || (match.length !== null && countedGames(match) >= matchTarget(match));
+  return match.endedBy !== null || countedGames(match) >= MATCH_GAMES;
 }
 
 /**
@@ -137,43 +132,27 @@ export interface Standing {
   rank: number;
   hu: number;
   tay: number;
-  /** Hand at which the Hu count was reached (0 = no Hu) */
+  /** Hand at which the Tay total was reached (0 = no Hu) */
   reachedAt: number;
 }
 
-/**
- * Table ranking: most valid Hu; equal Hu counts go to whoever reached that count first
- * (rulebook section 4). Players without a Hu share the same rank. Total Tay is shown only.
- */
+/** Total Tay first, then valid Hu count, then first to reach the final Tay total. */
 export function standings(match: MatchState): Standing[] {
   const rows = SEAT_ORDER.map((seat) => ({ seat, hu: match.huCount[seat], tay: match.tayTotal[seat], reachedAt: match.reachedAt[seat] }));
-  rows.sort((a, b) => b.hu - a.hu || (a.hu === 0 ? 0 : a.reachedAt - b.reachedAt) || SEAT_ORDER.indexOf(a.seat) - SEAT_ORDER.indexOf(b.seat));
+  rows.sort((a, b) => b.tay - a.tay || b.hu - a.hu || a.reachedAt - b.reachedAt || SEAT_ORDER.indexOf(a.seat) - SEAT_ORDER.indexOf(b.seat));
   const out: Standing[] = [];
   rows.forEach((r, i) => {
     const prev = out[i - 1];
-    const tied = prev && prev.hu === r.hu && (r.hu === 0 || prev.reachedAt === r.reachedAt);
+    const tied = prev && prev.tay === r.tay && prev.hu === r.hu && prev.reachedAt === r.reachedAt;
     out.push({ ...r, rank: tied ? prev.rank : i + 1 });
   });
   return out;
 }
 
-const LENGTH_KEY = 'itm.match-length.v1';
-
-export function loadMatchLength(storage?: StorageLike): MatchLength {
-  try {
-    const saved = (storage ?? getStorage()).getItem(LENGTH_KEY);
-    if (saved === 'endless') return null;
-    if (saved === '16++') return '16++';
-    const n = Number(saved);
-    if (MATCH_LENGTHS.includes(n as MatchLength)) return n as MatchLength;
-  } catch { /* Storage may be unavailable. */ }
-  return DEFAULT_MATCH_LENGTH;
+/** Silently discard the removed match-length preference. */
+export function migrateMatchLengthPreference(storage?: StorageLike): void {
+  try { (storage ?? getStorage()).removeItem('itm.match-length.v1'); } catch { /* Storage unavailable. */ }
 }
-
-export function saveMatchLength(length: MatchLength, storage?: StorageLike): void {
-  try { (storage ?? getStorage()).setItem(LENGTH_KEY, length === null ? 'endless' : String(length)); } catch { /* Keep the live choice. */ }
-}
-
 
 const DEALER_WIN_KEY = 'itm.match-dealer-win.v1';
 
@@ -195,7 +174,7 @@ export function remainingMatchMs(match: MatchState, now = Date.now()): number | 
 export function finishMatchAtBoundary(match: MatchState, now = Date.now()): MatchState {
   if (match.endedBy !== null) return match;
   const byTime = remainingMatchMs(match, now) === 0;
-  const byHands = match.length !== null && countedGames(match) >= matchTarget(match);
+  const byHands = countedGames(match) >= MATCH_GAMES;
   return byTime || byHands ? { ...match, endedBy: byTime ? 'time' : 'hands', finishedAt: now } : match;
 }
 
@@ -214,12 +193,9 @@ export function watchMatchClock(target: { tickMatchClock(): void }): () => void 
   return () => clearInterval(timer);
 }
 
-/** Dealer wins in 16++ are replayed; Seri and Lew Fit count as games. */
+/** Every completed hand counts, including Seri, dealer Hu and Lew Fit. */
 export function countedGames(match: MatchState): number {
-  return match.hands.filter(h => match.length !== '16++' || h.winner !== h.dealer).length;
-}
-export function matchTarget(match: MatchState): number {
-  return match.length === '16++' ? 16 : match.length ?? Infinity;
+  return match.hands.length;
 }
 export interface OpeningRoll {
   rounds: Array<Array<{ seat: Seat; dice: [number, number] }>>;
