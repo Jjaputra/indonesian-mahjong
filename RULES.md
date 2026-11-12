@@ -163,18 +163,18 @@ The #39 column placement, #12 first self-draw, #36 winning fourth tile, #33/#34 
 
 Code: `src/ui/match.ts`, `GameController.startMatch` / `nextHand`.
 
-**Confirmed in play (players, 2026-11-12):** prevailing wind Dong for games 1–4, then Nan from game 5; a dealer who wins keeps the deal.
+**Latest player decision (2026-11-12):** plain **16 game** means the dealer rotates after every valid Hu, even when the dealer wins ("jumlah 16 game kalau menang tetep ganti"). Players distinguished this from **16 game ++**, where a dealer win reshuffles and keeps the deal, and chose plain 16. This supersedes the earlier dealer-stays confirmation and the MahjongLeh dealer-stays reference. With no Seri, games 1–4 have prevailing wind Dong (Timur), 5–8 Nan (Selatan), 9–12 Xi (Barat), and 13–16 Bei (Utara).
 
 Match policy (player answers 2026-11-12; supersedes PDF section 4's 8-game / Hu-count choices):
 - Every match has exactly **16 games**, unless the optional 90-minute Waktu ends it earlier at a hand boundary. There is no match-length choice or saved length; the old `itm.match-length.v1` preference is silently removed on app startup.
-- Every completed hand is one game: dealer Hu, other valid Hu, Seri and Lew Fit all count once. Seri moves straight to the next game without replay and without rotation. A dealer Hu retains the dealer; another player's Hu or Lew Fit rotates the dealer and seat winds. The removed dealer-rotation preference is still discarded on load.
+- Every completed hand is one game: dealer Hu, other valid Hu, Seri and Lew Fit all count once. Seri moves straight to the next game without replay and without rotation (PDF section 4). Any valid Hu, including dealer Hu, or Lew Fit rotates the dealer one chair and the seat winds. The removed dealer-rotation preference is still discarded on load; legacy dealer-stays values cannot override this policy.
 - Ranking uses **highest cumulative Tay**, then **more valid Hu**, then **whoever reached their final Tay total first** (the hand number of their last credited Hu). Only valid Hu meeting the match minimum add Tay or Hu; Seri and Lew Fit add zero. Players with no Hu share a rank. Physical game numbers provide the final tie-break.
 - The in-play MatchBoard orders players by this ranking and highlights the Tay leader independently of the dealer badge. Hu remains visible alongside Tay. The result modal's standings and final standings use the same order and totals, and the final winner message leads with Tay.
 
 Implementation conventions and practice choices (**not stated in the PDF**; seating policy is in `nextSeating`):
 - The dealer always sits posisi Dong (Timur). Seat winds are relative to the dealer, so Tris Angin Duduk, own Bunga/Musim number, Ping Fu and Thien Fu use the rotated seat wind each hand. Thien Fu belongs to the dealer.
 - Lew Fit: the dealer moves one chair and the seat winds rotate; no Hu is credited. This is a user-approved **inference** from [PlayLeh Game Setup and False Win](https://playleh.com/mahjongleh-rules.html), whose rotation exceptions are dealer wins and stalemates. Indonesian Lew Fit and PlayLeh False Win are different concepts; neither the PDF nor PlayLeh explicitly establishes this Indonesian penalty rotation.
-- The prevailing wind (angin putaran) advances Timur → Selatan → Barat → Utara after every seat has been dealer once (four dealer changes). Repeated dealer hands do not advance it.
+- The prevailing wind (angin putaran) advances Timur → Selatan → Barat → Utara after four dealer changes, including changes following dealer Hu. Seri keeps the dealer and does not advance this counter.
 - Practice uses the minimum chosen at match start (fixed for that match); a lower minimum still credits the player's valid Hu. Scoreboards and final standings explicitly label a minimum below 5 as training rules, alongside the tournament minimum of 5.
 - The coach offers continuation after intermediate hands and final standings after the last; pace and pause preferences continue across hands.
 - Players keep their chairs on screen; only the winds and the dealer badge move. Each hand deals a fresh wall in the Kim mode chosen at the start of the match.

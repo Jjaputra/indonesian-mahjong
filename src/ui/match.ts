@@ -16,7 +16,7 @@ import { getStorage, type StorageLike } from '../storage';
 /** Player answers 2026-11-12: every match has exactly 16 counted games. */
 export const MATCH_GAMES = 16;
 export type DealerWinRule = 'stay' | 'rotate';
-export const DEFAULT_DEALER_WIN_RULE: DealerWinRule = 'stay';
+export const DEFAULT_DEALER_WIN_RULE: DealerWinRule = 'rotate';
 
 /** Distinguish wall-out Seri (`none`) from Lew Fit, since only Seri keeps the seating. */
 export type HandResult = { kind: 'hu'; winner: Seat } | { kind: 'none' } | { kind: 'lew_fit' };
@@ -32,12 +32,13 @@ export interface Seating {
 /**
  * PDF section 4: Seri keeps the seating. Lew Fit rotates (user-approved inference
  * from PlayLeh, where False Win is distinct from dealer Hu and stalemate).
- * Player feedback: a dealer win always retains the deal; legacy rotate arguments are ignored.
- * https://playleh.com/mahjongleh-rules.html (Game Setup).
+ * Player decision 2026-11-12: plain 16 games rotates after every valid Hu, including dealer Hu.
+ * This supersedes the earlier dealer-stays confirmation and MahjongLeh reference;
+ * legacy dealer-win preference arguments are ignored.
  * The prevailing wind advances after four dealer changes (implementation convention).
  */
 export function nextSeating(current: Seating, result: HandResult, _dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE): Seating {
-  if (result.kind === 'none' || (result.kind === 'hu' && result.winner === current.dealer)) return { ...current };
+  if (result.kind === 'none') return { ...current };
   const dealer = SEAT_ORDER[(SEAT_ORDER.indexOf(current.dealer) + 1) % 4]!;
   const passes = current.dealerPasses + 1;
   if (passes < 4) return { dealer, prevailingWind: current.prevailingWind, dealerPasses: passes };
@@ -81,7 +82,7 @@ export interface MatchState {
 const zero = (): Record<Seat, number> => ({ dong: 0, nan: 0, xi: 0, bei: 0 });
 
 export function createMatch(dealer: Seat = 'dong', prevailingWind: Wind = 'dong', minHuTay = 5, _dealerWinRule: DealerWinRule = DEFAULT_DEALER_WIN_RULE, timeLimitMinutes: MatchTimeLimit = null, now = Date.now()): MatchState {
-  return { openingRoll: null, deadWall: 'none', minHuTay, dealerWinRule: 'stay', timeLimitMinutes, startedAt: now, finishedAt: null, endedBy: null, seating: { dealer, prevailingWind, dealerPasses: 0 }, hands: [], huCount: zero(), tayTotal: zero(), reachedAt: zero() };
+  return { openingRoll: null, deadWall: 'none', minHuTay, dealerWinRule: DEFAULT_DEALER_WIN_RULE, timeLimitMinutes, startedAt: now, finishedAt: null, endedBy: null, seating: { dealer, prevailingWind, dealerPasses: 0 }, hands: [], huCount: zero(), tayTotal: zero(), reachedAt: zero() };
 }
 
 /** 1-based number of the hand being played (or about to be dealt). */
@@ -159,7 +160,7 @@ const DEALER_WIN_KEY = 'itm.match-dealer-win.v1';
 /** Legacy compatibility: discard the removed dealer-rotation preference. */
 export function loadDealerWinRule(storage?: StorageLike): DealerWinRule {
   try { (storage ?? getStorage()).removeItem(DEALER_WIN_KEY); } catch { /* Storage unavailable. */ }
-  return 'stay';
+  return DEFAULT_DEALER_WIN_RULE;
 }
 export function saveDealerWinRule(_rule: DealerWinRule, storage?: StorageLike): void {
   loadDealerWinRule(storage);

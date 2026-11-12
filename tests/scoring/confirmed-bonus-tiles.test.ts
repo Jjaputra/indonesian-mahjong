@@ -1,12 +1,12 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { keyToTile, parseTileHand } from '@/core/tiles';
+import { keyToTile, parseTileHand, SEAT_ORDER } from '@/core/tiles';
 import type { Seat } from '@/core/types';
 import { scoringEngine } from '@/scoring';
 import { HOUSE_SETTINGS, MemoryStorage, loadGameHistory, saveGameRecord } from '@/storage';
 import { buildWinContext, seatWindOf, toFullRules } from '@/ui/win-context';
-import { nextSeating } from '@/ui/match';
+import { createMatch, nextSeating, recordHand } from '@/ui/match';
 import { buildHuReceipt, buildCalculatorReceipt, calculateTay } from '@/ui/tay-calculator';
 import { TayCalculator } from '@/ui/components/TayCalculator';
 
@@ -42,6 +42,25 @@ describe('players 2026-11-12 confirmed bonus tiles', () => {
     expect(points(score(firstWind), 2)).toBe(1);
     expect(points(score(nextWind), 1)).toBe(1);
     expect(points(score(nextWind), 2)).toBe(2);
+  });
+
+  it('all chairs use their rotated Bunga and Musim number across 16 dealer wins', () => {
+    let match = createMatch();
+    for (let game = 0; game < 16; game++) {
+      for (const [chair, seat] of SEAT_ORDER.entries()) {
+        const wind = seatWindOf({ dealerSeat: match.seating.dealer }, seat);
+        const number = (chair - game % 4 + 4) % 4 + 1;
+        expect(SEAT_ORDER.indexOf(wind) + 1).toBe(number);
+        const own = score(wind, [`F${number}`, `M${number}`]);
+        expect(points(own, 1)).toBe(1);
+        expect(points(own, 2)).toBe(2);
+        const other = number % 4 + 1;
+        const unmatched = score(wind, [`F${other}`, `M${other}`]);
+        expect(points(unmatched, 1)).toBe(0);
+        expect(points(unmatched, 2)).toBe(1);
+      }
+      match = recordHand(match, match.seating.dealer, true, 5);
+    }
   });
 
   it('all collection totals and supersedes remain unchanged', () => {
