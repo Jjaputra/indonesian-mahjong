@@ -9,7 +9,7 @@ import App from '@/App';
 import { version as packageVersion } from '../../package.json';
 import { keyToTile } from '@/core/tiles';
 import { MemoryStorage, getPreset, saveGameRecord, loadGameHistory, type GameSettings } from '@/storage';
-import { ActionHud, CenterArea, HumanArea, OpponentPanel, seatPositions } from '@/ui/components/GameTable';
+import { ActionHud, CenterArea, HumanArea, OpponentPanel, PracticeCoach, seatPositions } from '@/ui/components/GameTable';
 import { HistoryDetail, HistoryModal } from '@/ui/components/HistoryModal';
 import { HuResultModal } from '@/ui/components/HuResultModal';
 import { SettingsModal, withPreset } from '@/ui/components/SettingsModal';
@@ -75,6 +75,7 @@ describe('UI render smoke tests', () => {
         createElement(CenterArea, { key: 2, controller: c }),
         createElement(HumanArea, { key: 3, controller: c, actions, selectedId: null, onSelect: noop }),
         createElement(ActionHud, { key: 4, controller: c, actions, selectedId: null, onSelect: noop }),
+        createElement(PracticeCoach, { key: 5, controller: c, actions, selectedId: null }),
       ])
     );
     expect(html).toContain('Buang');

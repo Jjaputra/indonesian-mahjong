@@ -15,7 +15,7 @@ import { matchProgressLabel } from '@/ui/labels';
 import { Wall, createGameWall } from '@/core/wall';
 import { buildObservation, evaluateSelfDrawHu } from '@/ui/ai-controller';
 import { toFullRules } from '@/ui/win-context';
-import { ActionHud } from '@/ui/components/GameTable';
+import { PracticeCoach } from '@/ui/components/GameTable';
 
 function settings(patch: Partial<GameSettings> = {}): GameSettings {
   return { ...getPreset('tournament'), soundEnabled: false, ...patch };
@@ -364,7 +364,7 @@ describe('match review regressions', () => {
     const c = new GameController({ settings: settings(), seed: 24, saveHistory: false, autoStart: false });
     c.startMatch();
     playHand(c);
-    const line = () => renderToStaticMarkup(createElement(ActionHud, { controller: c, actions: c.getHumanActions(), selectedId: null, onSelect: noop }));
+    const line = () => renderToStaticMarkup(createElement(PracticeCoach, { controller: c, actions: c.getHumanActions(), selectedId: null }));
     expect(line()).toContain('Lanjut ke game berikutnya');
     c.nextHand();
     expect(line()).not.toContain('Hasil game sudah siap');

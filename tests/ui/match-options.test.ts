@@ -51,8 +51,8 @@ describe('v0.4.2 match options', () => {
       renderToStaticMarkup(createElement(MatchStandingsModal, { match: m, onMenu: noop, onPlayAgain: noop })),
     ]) {
       expect(html).toContain('23'); expect(html).toContain('Hu');
-      // Result notes mention the next dealer before their ranked score summary.
-      const scoreSummary = html.match(/<div class="match-note"><p>.*?<\/p><p>(.*?)<\/p>/)?.[1] ?? html;
+      // Result notes mention the next dealer before their ranked standings table.
+      const scoreSummary = html.match(/<div class="match-note"><p>.*?<\/p>(<table class="standings-table">.*?<\/table>)/)?.[1] ?? html;
       expect(scoreSummary.indexOf('Bot Kanan')).toBeLessThan(scoreSummary.indexOf('Anda'));
     }
   });

@@ -9,7 +9,7 @@ import {
   withPracticeScoringDefaults,
   type GameSettings,
 } from './storage';
-import { ActionHud, CenterArea, HumanArea, OpponentPanel, seatPositions } from './ui/components/GameTable';
+import { ActionHud, CenterArea, HumanArea, OpponentPanel, PracticeCoach, seatPositions } from './ui/components/GameTable';
 import { HistoryModal } from './ui/components/HistoryModal';
 import { HuResultModal } from './ui/components/HuResultModal';
 import { SettingsModal } from './ui/components/SettingsModal';
@@ -189,26 +189,28 @@ export function App() {
   useEffect(() => {
     if (!import.meta.env.DEV || demoStarted.current) return;
     demoStarted.current = true;
-    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, stackDemoMelds, DEMO_OPENING_ROLL }) => {
+    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, stackDemoMelds, finishDemoMatch, DEMO_OPENING_ROLL }) => {
       const demo = demoFromUrl(window.location.search);
       if (!demo) return;
-      // `&view=flat` previews the flat table without changing the stored preference.
-      if (new URLSearchParams(window.location.search).get('view') === 'flat') setTableView('flat');
+      // `&view=flat|3d` previews a table view without changing the stored preference.
+      const previewView = new URLSearchParams(window.location.search).get('view');
+      if (previewView === 'flat' || previewView === '3d') setTableView(previewView);
       startPractice();
       setPaused(true);
       // The dice demo holds on the announcement; before the match exposes a roll it shows a sample.
       if (demo.mode === 'dice') setDice({ roll: openingRollOf(controller.match) ?? DEMO_OPENING_ROLL, autoClose: false });
       else {
         setDice(null);
-        driveDemo(controller, demo.mode === 'melds' ? 'table' : demo.mode);
+        driveDemo(controller, demo.mode === 'melds' ? 'table' : demo.mode === 'final' ? 'hu' : demo.mode);
         if (demo.mode === 'melds') stackDemoMelds(controller);
+        if (demo.mode === 'final') { finishDemoMatch(controller); setStandingsOpen(true); }
       }
     });
   }, []);
 
   const pos = seatPositions(controller.humanSeat);
   return (
-    <div className={`app${view === 'table' ? ' is-table' : ''}${tableView === 'flat' ? ' view-flat' : ''}`}>
+    <div className={`app${view === 'table' ? ' is-table' : ' is-menu'}${tableView === 'flat' ? ' view-flat' : ''}`}>
       <header className="app-header">
         <div className="brand">
           <span className="brand-tile">金</span>
@@ -256,8 +258,9 @@ export function App() {
             onPause={() => setPaused(p => !p)} onStep={() => singleAutomationStep(controller, automationBlocked || !paused)} />} />
           <OpponentPanel seat={pos.right} position="right" controller={controller} />
           <div className="seat-bottom">
-            <ActionHud controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId} />
-            <HumanArea controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId} />
+            <HumanArea controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId}
+              hud={<ActionHud controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId} />}
+              coach={<PracticeCoach controller={controller} actions={actions} selectedId={selectedId} />} />
             {outcome && !resultOpen && (
               <button type="button" className="btn btn-gold result-reopen" onClick={() => setResultOpen(true)}>
                 Lihat hasil permainan
@@ -267,7 +270,7 @@ export function App() {
         </main>
       )}
 
-      {view === 'table' && outcome && resultOpen && !modal && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)}
+      {view === 'table' && outcome && resultOpen && !standingsOpen && !modal && <HuResultModal outcome={outcome} onClose={() => setResultOpen(false)}
         onNewGame={controller.match && !controller.matchOver ? () => { setResultOpen(false); setAbandonOpen(true); } : newGame}
         onNextHand={controller.match && !controller.matchOver ? nextHand : undefined}
         onStandings={controller.matchOver ? openStandings : undefined}

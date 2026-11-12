@@ -120,29 +120,27 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
           )}
         </div>
 
-        <table className="tay-table">
+        <table className="tay-table tay-breakdown">
           <thead>
             <tr>
-              <th>#</th>
+              <th className="pid">#</th>
               <th>Pola</th>
-              <th>Tay</th>
+              <th className="num">Tay</th>
             </tr>
           </thead>
           <tbody>
             {r.patterns.filter((p) => p.id !== 13).map((p) => {
               return (
                 <tr key={p.id}>
-                  <td>{p.id}</td>
-                  <td>
-                    <strong>{p.name}</strong>
-                  </td>
+                  <td className="pid">{p.id}</td>
+                  <td>{p.name}</td>
                   <td className="num">{p.tay}</td>
                 </tr>
               );
             })}
           </tbody>
           <tfoot>
-            <tr>
+            <tr className="total-row">
               <td colSpan={2}>Total Tay</td>
               <td className="num total">{r.totalTay}</td>
             </tr>

@@ -66,21 +66,59 @@ export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = '
   );
 }
 
-/** Line under a hand's result: what happened to the match and who deals next. */
+/**
+ * Compact ranking table for result dialogs, in match-ranking order. `gained` adds this game's Tay
+ * column; `highlight` marks the winner's row; `dealer` gets the crown.
+ */
+export function StandingsTable({ match, gained, highlight, dealer, dealerLabel = 'Dealer', human = 'dong', showReached }: {
+  match: MatchState; gained?: Partial<Record<Seat, number>>; highlight?: Seat | null; dealer?: Seat | null; dealerLabel?: string; human?: Seat;
+  /** Final standings: name the game where each Hu winner reached their final total (the last tie-break). */
+  showReached?: boolean;
+}) {
+  return (
+    <table className="standings-table">
+      <thead>
+        <tr>
+          <th scope="col" className="rank">#</th>
+          <th scope="col">Pemain</th>
+          {gained && <th scope="col" className="num">+Tay<span className="th-long"> game ini</span></th>}
+          <th scope="col" className="num">Total Tay</th>
+          <th scope="col" className="num">Hu</th>
+        </tr>
+      </thead>
+      <tbody>
+        {standings(match).map(({ seat, rank, tay, hu, reachedAt }) => (
+          <tr key={seat} className={`${seat === highlight ? 'is-winner' : ''}${seat === human ? ' is-human' : ''}`.trim() || undefined}>
+            <td className="rank">{rank}</td>
+            <th scope="row">{PLAYER_NAME[seat]}{seat === dealer && <Crown size={13} aria-label={dealerLabel} className="dealer-mark" />}
+              {showReached && hu > 0 && reachedAt > 0 && <small className="muted reached">Total dicapai di game {reachedAt}</small>}</th>
+            {gained && <td className={`num gained${gained[seat] ? '' : ' is-zero'}`}>{gained[seat] ? `+${gained[seat]}` : '–'}</td>}
+            <td className="num total">{tay}</td>
+            <td className="num">{hu}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** Under a hand's result: a short line on what happened to the match, then the ranked standings. */
 export function MatchResultNote({ match }: { match: MatchState }) {
   const last = match.hands[match.hands.length - 1];
   if (!last) return null;
   const over = isMatchOver(match);
   const next = match.seating;
-  const rotation = last.lewFit ? 'Lew Fit: dealer dan angin duduk berputar satu langkah.' : last.winner === null
-    ? 'Tidak ada Hu sah: angin duduk tidak berputar.'
-    : `Dealer pindah ke ${PLAYER_NAME[next.dealer]}. Angin duduk berputar satu langkah.`;
+  const wind = `Angin putaran ${SEAT_SHORT[next.prevailingWind]}.`;
+  const rotation = last.lewFit ? `Lew Fit: dealer dan angin duduk berputar. Dealer berikutnya: ${PLAYER_NAME[next.dealer]} · ${wind}`
+    : last.winner === null ? `Tidak ada Hu sah: angin duduk tidak berputar. Dealer tetap ${PLAYER_NAME[next.dealer]} · ${wind}`
+    : `Dealer pindah ke ${PLAYER_NAME[next.dealer]} · ${wind}`;
   return (
     <div className="match-note"><p>
       <strong>{`Game ${last.hand}/16 selesai.`}</strong>{' '}
-      {over ? match.endedBy === 'time' ? 'Pertandingan berakhir karena batas waktu 90 menit.' : 'Ini game terakhir pertandingan.' : `${rotation} Berikutnya dealer: ${PLAYER_NAME[next.dealer]} · Angin putaran ${SEAT_SHORT[next.prevailingWind]}.`}
+      {over ? match.endedBy === 'time' ? 'Pertandingan berakhir karena batas waktu 90 menit.' : 'Ini game terakhir pertandingan.' : rotation}
     </p>
-    <p>{standings(match).map(r => `${PLAYER_NAME[r.seat]}: ${r.tay} Tay · ${r.hu} Hu`).join(' / ')}</p>
+    <StandingsTable match={match} gained={last.winner ? { [last.winner]: last.totalTay } : {}} highlight={last.winner}
+      dealer={over ? null : next.dealer} dealerLabel="Dealer berikutnya" />
     </div>
   );
 }
@@ -107,26 +145,7 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: Mat
       <MatchMinimumNote match={match} />
       {match.endedBy === 'time' && <p>Pertandingan berakhir karena batas waktu 90 menit; game terakhir telah diselesaikan.</p>}
       <p>{champion ? `Pemenang meja: ${PLAYER_NAME[champion.seat]} dengan ${champion.tay} Tay · ${champion.hu} Hu.` : 'Tidak ada pemenang meja tunggal.'}</p>
-      <table className="tay-table match-standings">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Pemain</th>
-            <th>Hu</th>
-            <th>Total Tay</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.seat}>
-              <td>{r.rank}</td>
-              <td>{PLAYER_NAME[r.seat]}{r.hu > 0 && r.reachedAt > 0 ? <span className="muted"> · total Tay dicapai di game {r.reachedAt}</span> : null}</td>
-              <td className="num">{r.hu}</td>
-              <td className="num">{r.tay}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <StandingsTable match={match} highlight={champion?.seat ?? null} showReached />
       <ol className="match-history" aria-label="Riwayat game">
         {match.hands.map((h) => (
           <li key={h.hand}>

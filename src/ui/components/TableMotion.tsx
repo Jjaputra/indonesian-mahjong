@@ -29,7 +29,7 @@ export function TableMotion({ controller }: { controller: GameController }) {
       if (!motion) return;
       finish.current?.();
       const source = motion.kind === 'draw' ? rect('[data-wall-anchor]')
-        : motion.kind === 'claim' ? rect('.pending-discard .tile')
+        : motion.kind === 'claim' ? rect('[data-pending-discard] .tile')
         : motion.seat === controller.humanSeat && motion.tile
           ? rect(`[data-hand-anchor="${motion.seat}"] [data-tile-id="${CSS.escape(motion.tile.id)}"]`)
           : rect(`[data-hand-anchor="${motion.seat}"] .tile-back`);
@@ -48,7 +48,7 @@ export function TableMotion({ controller }: { controller: GameController }) {
     const timing = motionTiming(speed, reduced);
     const destinationSelector = motion.kind === 'draw' ? `[data-hand-anchor="${motion.seat}"]`
       : motion.kind === 'claim' ? `[data-meld-anchor="${motion.seat}"] [data-tile-id="${CSS.escape(motion.tile!.id)}"]`
-      : '.pending-discard .tile';
+      : '[data-pending-discard] .tile';
     const destination = rect(destinationSelector);
     const el = overlay.current;
     let animation: Animation | undefined;
@@ -95,9 +95,13 @@ export function TableMotion({ controller }: { controller: GameController }) {
     : moving ? `membuang ${tileText(active.motion.tile!)}` : `${tileText(active.motion.tile!)} di tengah · menunggu klaim`}`
     : state.phase === 'CLAIM_WINDOW' ? `${PLAYER_NAME[state.discardPending!.discarder]} · menunggu klaim`
     : `${actor} · ${state.phase === 'TURN_DRAW' ? 'giliran berikutnya · mengambil tile' : state.phase === 'ACTION_DECISION' ? 'memilih buangan' : 'persiapan / akhir giliran'}`;
+  // One turn card: whose turn it is, then what is happening (the name is dropped when it repeats).
+  const turnPrefix = `${actor} · `;
   return <>
-    <p className={`table-stage${active ? ' is-transition' : ''}`} role="status" aria-live="polite" data-stage={active ? moving ? 'moving' : 'reading' : 'selecting'}>
-      <strong>{cue}</strong>{active && <small>{speed === 'off' || reduced ? 'Aksi meja' : moving ? 'Tile bergerak' : 'Tile tiba'}</small>}
+    <p className={`table-stage turn-card${active ? ' is-transition' : ''}`} role="status" aria-live="polite" data-stage={active ? moving ? 'moving' : 'reading' : 'selecting'}>
+      <span className="turn-who">Giliran <strong>{actor}</strong></span>
+      <span className="turn-cue">{cue.startsWith(turnPrefix) ? cue.slice(turnPrefix.length) : cue}</span>
+      {active && <small>{speed === 'off' || reduced ? 'Aksi meja' : moving ? 'Tile bergerak' : 'Tile tiba'}</small>}
     </p>
     {active && moving && createPortal(<div ref={overlay} className="table-tile-flight" data-motion-kind={active.motion.kind} aria-hidden="true">
       {active.motion.kind === 'draw' ? <TileBack size="lg" /> : <TileView tile={active.motion.tile!} size="lg" />}
