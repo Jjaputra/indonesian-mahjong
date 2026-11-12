@@ -6,7 +6,7 @@ import { standings, isMatchOver, remainingMatchMs, type MatchState } from '../ma
 import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, matchProgressLabel, tileText } from '../labels';
 import { Modal } from './Modal';
 import { TileView } from './TileView';
-import { recordPoints, standingPoints, tayPointsText } from './points';
+import { koinTone, recordDeltas, signedKoin, tayKoinText } from './points';
 
 /** Keep lower training thresholds visible wherever the match ranking is shown. */
 function MatchMinimumNote({ match }: { match: MatchState }) {
@@ -45,7 +45,13 @@ export function TableInfo({ roundWind, kimEnabled, kimFace, kimIndicator, minHuT
   );
 }
 
-/** "Tabel Total Poin": progress, clock, and each player's points and Hu in match-ranking order. */
+/** Σ koin over all players; every game is kit-kit, so the match total stays 0. */
+function KoinSum({ match }: { match: MatchState }) {
+  const sum = standings(match).reduce((total, row) => total + row.koin, 0);
+  return <>Σ {signedKoin(sum)}{sum === 0 ? ' · kit-kit ✓' : ' · tidak seimbang'}</>;
+}
+
+/** "Tabel Total Poin": progress, clock, and each player's koin, raw Tay and Hu in match-ranking order. */
 export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = 'dong' }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat; human?: Seat }) {
   return (
     <div className="match-board" aria-label="Papan skor pertandingan">
@@ -54,24 +60,26 @@ export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = '
       <MatchMinimumNote match={match} />
       <MatchClock match={match} />
       <table className="match-scores">
-        <thead><tr><th scope="col">#</th><th scope="col">Pemain</th><th scope="col" className="num">Poin</th><th scope="col" className="num">Hu</th></tr></thead>
+        <thead><tr><th scope="col">#</th><th scope="col">Pemain</th><th scope="col" className="num">Koin</th><th scope="col" className="num">Tay</th><th scope="col" className="num">Hu</th></tr></thead>
         <tbody>
-          {standings(match).map((row) => { const { seat, rank, hu } = row; const points = standingPoints(row); return (
-            <tr key={seat} className={`match-score${seat === dealer ? ' is-dealer' : ''}${rank === 1 && points > 0 ? ' is-leader' : ''}${seat === human ? ' is-human' : ''}`}>
+          {standings(match).map((row) => { const { seat, rank, hu, tay, koin } = row; return (
+            <tr key={seat} className={`match-score${seat === dealer ? ' is-dealer' : ''}${rank === 1 && koin > 0 ? ' is-leader' : ''}${seat === human ? ' is-human' : ''}`}>
               <td className="rank">#{rank}</td>
               <th scope="row">{PLAYER_NAME[seat]}{seat === dealer && <Crown size={11} aria-label="Dealer" className="dealer-mark" />}</th>
-              <td className="num"><b>{points}</b></td>
+              <td className={`num koin ${koinTone(koin)}`}><b>{signedKoin(koin)}</b></td>
+              <td className="num">{tay}</td>
               <td className="num">{hu}</td>
             </tr>
           ); })}
         </tbody>
+        <tfoot><tr><td colSpan={5} className="koin-sum"><KoinSum match={match} /></td></tr></tfoot>
       </table>
     </div>
   );
 }
 
 /**
- * Compact ranking table for result dialogs, in match-ranking order. `gained` adds this game's points
+ * Compact ranking table for result dialogs, in match-ranking order. `gained` adds this game's koin
  * column; `highlight` marks the winner's row; `dealer` gets the crown.
  */
 export function StandingsTable({ match, gained, highlight, dealer, dealerLabel = 'Dealer', human = 'dong', showReached }: {
@@ -80,28 +88,31 @@ export function StandingsTable({ match, gained, highlight, dealer, dealerLabel =
   showReached?: boolean;
 }) {
   return (
-    <table className="standings-table">
+    <table className={`standings-table${gained ? ' has-gained' : ''}`}>
       <thead>
         <tr>
           <th scope="col" className="rank">#</th>
           <th scope="col">Pemain</th>
-          {gained && <th scope="col" className="num">+Poin<span className="th-long"> game ini</span></th>}
-          <th scope="col" className="num">Total Poin</th>
+          {gained && <th scope="col" className="num">Koin<span className="th-long"> game ini</span></th>}
+          <th scope="col" className="num">Total Koin</th>
+          <th scope="col" className="num col-tay">Tay</th>
           <th scope="col" className="num">Hu</th>
         </tr>
       </thead>
       <tbody>
-        {standings(match).map((row) => { const { seat, rank, hu, reachedAt } = row; return (
+        {standings(match).map((row, _i, rows) => { const { seat, rank, hu, tay, koin, reachedAt } = row; const g = gained?.[seat] ?? 0; const tied = rows.some((r) => r.seat !== seat && r.koin === koin && r.hu === hu); return (
           <tr key={seat} className={`${seat === highlight ? 'is-winner' : ''}${seat === human ? ' is-human' : ''}`.trim() || undefined}>
             <td className="rank">{rank}</td>
             <th scope="row">{PLAYER_NAME[seat]}{seat === dealer && <Crown size={13} aria-label={dealerLabel} className="dealer-mark" />}
-              {showReached && hu > 0 && reachedAt > 0 && <small className="muted reached">Total dicapai di game {reachedAt}</small>}</th>
-            {gained && <td className={`num gained${gained[seat] ? '' : ' is-zero'}`}>{gained[seat] ? `+${gained[seat]}` : '–'}</td>}
-            <td className="num total">{standingPoints(row)}</td>
+              {showReached && tied && hu > 0 && reachedAt > 0 &&<small className="muted reached">Total dicapai di game {reachedAt}</small>}</th>
+            {gained && <td className={`num gained ${koinTone(g)}`}>{g ? signedKoin(g) : '–'}</td>}
+            <td className={`num total koin ${koinTone(koin)}`}>{signedKoin(koin)}</td>
+            <td className="num col-tay">{tay}</td>
             <td className="num">{hu}</td>
           </tr>
         ); })}
       </tbody>
+      <tfoot><tr><td colSpan={gained ? 6 : 5} className="koin-sum"><KoinSum match={match} /></td></tr></tfoot>
     </table>
   );
 }
@@ -121,13 +132,13 @@ export function MatchResultNote({ match }: { match: MatchState }) {
       <strong>{`Game ${last.hand}/16 selesai.`}</strong>{' '}
       {over ? match.endedBy === 'time' ? 'Pertandingan berakhir karena batas waktu 90 menit.' : 'Ini game terakhir pertandingan.' : rotation}
     </p>
-    <StandingsTable match={match} gained={last.winner ? { [last.winner]: recordPoints(last).points } : {}} highlight={last.winner}
+    <StandingsTable match={match} gained={recordDeltas(last)} highlight={last.winner}
       dealer={over ? null : next.dealer} dealerLabel="Dealer berikutnya" />
     </div>
   );
 }
 
-/** Final standings when the match ends: total points, then valid Hu, then first to reach final points. */
+/** Final standings when the match ends: total koin, then valid Hu, then first to reach the final total. */
 export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: MatchState; onPlayAgain: () => void; onMenu: () => void }) {
   const rows = standings(match);
   const champion = rows[0] && rows[0].hu > 0 && rows.filter((r) => r.rank === 1).length === 1 ? rows[0] : null;
@@ -148,16 +159,17 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: Mat
     >
       <MatchMinimumNote match={match} />
       {match.endedBy === 'time' && <p>Pertandingan berakhir karena batas waktu 90 menit; game terakhir telah diselesaikan.</p>}
-      <p>{champion ? `Pemenang meja: ${PLAYER_NAME[champion.seat]} dengan ${standingPoints(champion)} Poin · ${champion.hu} Hu.` : 'Tidak ada pemenang meja tunggal.'}</p>
+      <p>{champion ? `Pemenang meja: ${PLAYER_NAME[champion.seat]} dengan ${signedKoin(champion.koin)} koin · ${champion.hu} Hu.` : 'Tidak ada pemenang meja tunggal.'}</p>
       <StandingsTable match={match} highlight={champion?.seat ?? null} showReached />
       <ol className="match-history" aria-label="Riwayat game">
         {match.hands.map((h) => (
           <li key={h.hand}>
-            Game {h.hand} · Dealer {PLAYER_NAME[h.dealer]} · {h.winner ? `${PLAYER_NAME[h.winner]} Hu ${tayPointsText(recordPoints(h))}` : h.lewFit ? 'Lew Fit (0 Hu / 0 Tay)' : 'Seri'}
+            Game {h.hand} · Dealer {PLAYER_NAME[h.dealer]} · {h.winner ? `${PLAYER_NAME[h.winner]} Hu ${tayKoinText(h)}` : h.lewFit ? 'Lew Fit (0 Hu / 0 Tay) · 0 koin' : 'Seri · 0 koin'}
+            {h.winner && <small className="hand-koin">{SEAT_ORDER.map((s) => { const d = recordDeltas(h)[s]; return <span key={s} className={koinTone(d)}>{PLAYER_NAME[s]} {signedKoin(d)}</span>; })}</small>}
           </li>
         ))}
       </ol>
-      <p className="muted">Poin = total Tay, x2 untuk Ce Mo atau Mun. Peringkat: total Poin tertinggi; jika sama, Hu sah terbanyak, lalu yang lebih dulu mencapai total Poin akhir.</p>
+      <p className="muted">Round Score (koin) per game: Ce Mo, pemenang +6 × Tay dan tiap lawan −2 × Tay; buangan atau Chiong Kong, pemenang +4 × Tay, yang buang/Kong −2 × Tay, dua lainnya −1 × Tay. Seri dan Lew Fit 0. Peringkat: koin tertinggi; jika sama, Hu sah terbanyak, lalu yang lebih dulu mencapai total akhir.</p>
     </Modal>
   );
 }

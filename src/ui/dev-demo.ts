@@ -1,12 +1,12 @@
 import { keyToTile } from '../core/tiles';
 import type { Meld, Seat, Tile } from '../core/types';
 import type { GameController } from './game-controller';
-import { isMatchOver, recordHand } from './match';
+import { isMatchOver, recordHand, roundScore } from './match';
 import type { OpeningRoll } from './components/DiceRoll';
 
 /**
- * Dev-only screenshot hook: `?demo=table|late|claim|hu|dice|melds|final[&seed=n]` deals a seeded match and plays the
- * human seat forward to a reproducible table state. App only loads this behind import.meta.env.DEV.
+ * Dev-only screenshot hook: `?demo=table|late|claim|hu|dice|melds|final[&seed=n][&win=ce_mo|buangan|chiong_kong]` deals a
+ * seeded match and plays the human seat forward to a reproducible table state; `win` restyles the Hu for Round Score shots. App only loads this behind import.meta.env.DEV.
  */
 export type DemoMode = 'table' | 'late' | 'claim' | 'hu' | 'dice' | 'melds' | 'final';
 
@@ -19,11 +19,33 @@ export const DEMO_OPENING_ROLL: OpeningRoll = {
   dealer: 'nan',
 };
 
-export function demoFromUrl(search: string): { mode: DemoMode; seed: number } | null {
+export type DemoWin = 'ce_mo' | 'buangan' | 'chiong_kong';
+
+export function demoFromUrl(search: string): { mode: DemoMode; seed: number; win: DemoWin | null } | null {
   const params = new URLSearchParams(search);
   const mode = params.get('demo');
   if (mode !== 'table' && mode !== 'late' && mode !== 'claim' && mode !== 'hu' && mode !== 'dice' && mode !== 'melds' && mode !== 'final') return null;
-  return { mode, seed: Number(params.get('seed') ?? 7) || 7 };
+  const win = params.get('win');
+  return { mode, seed: Number(params.get('seed') ?? 7) || 7, win: win === 'ce_mo' || win === 'buangan' || win === 'chiong_kong' ? win : null };
+}
+
+/**
+ * `&win=`: rewrites a valid demo Hu as Ce Mo, Buangan (from the next seat) or Chiong Kong, and its
+ * Round Score in the match's last hand, so both payout shapes can be screenshotted from one seed.
+ */
+export function restyleDemoWin(controller: GameController, win: DemoWin): void {
+  const o = controller.outcome;
+  const match = controller.match;
+  const last = match?.hands[match.hands.length - 1];
+  if (o?.kind !== 'hu' || !o.scoring.isValidHu || !match || !last || last.winner !== o.winner) return;
+  const order: Seat[] = ['dong', 'nan', 'xi', 'bei'];
+  const winMethod = win === 'ce_mo' ? 'tsumo' : win === 'buangan' ? 'ron' : 'chiong_kong';
+  const discarder = win === 'ce_mo' ? undefined : order[(order.indexOf(o.winner) + 1) % 4]!;
+  const score = roundScore(o.winner, o.scoring.totalTay, { winMethod, discarder });
+  const koinTotal = { ...match.koinTotal };
+  for (const s of order) koinTotal[s] += score.deltas[s] - (last.roundScore?.deltas[s] ?? 0);
+  controller.outcome = { ...o, winMethod, discarder, roundScore: score };
+  controller.match = { ...match, koinTotal, hands: [...match.hands.slice(0, -1), { ...last, roundScore: score }] };
 }
 
 /** Plays the human seat with simple choices until the requested state is on the table. */
@@ -83,12 +105,12 @@ export function stackDemoMelds(controller: GameController): void {
  */
 export function finishDemoMatch(controller: GameController): void {
   if (!controller.match) return;
-  // [winner, Tay, Ce Mo]: self-draws score x2 points.
-  const script: [Seat | null, number, boolean][] = [['nan', 12, false], [null, 0, false], ['xi', 6, true], ['dong', 9, false], ['bei', 5, true], [null, 0, false], ['nan', 7, false], ['dong', 16, true], ['xi', 5, false], [null, 0, false], ['bei', 8, false], ['dong', 6, false], ['nan', 5, true], [null, 0, false], ['xi', 10, false]];
+  // [winner, Tay, payer]: a null payer is Ce Mo; otherwise a win on that seat's discard.
+  const script: [Seat | null, number, Seat | null][] = [['nan', 12, 'dong'], [null, 0, null], ['xi', 6, null], ['dong', 9, 'bei'], ['bei', 5, null], [null, 0, null], ['nan', 7, 'xi'], ['dong', 16, null], ['xi', 5, 'nan'], [null, 0, null], ['bei', 8, 'dong'], ['dong', 6, 'xi'], ['nan', 5, null], [null, 0, null], ['xi', 10, 'bei']];
   let match = controller.match;
-  for (const [winner, tay, selfDraw] of script) {
+  for (const [winner, tay, payer] of script) {
     if (isMatchOver(match)) break;
-    match = recordHand(match, winner, winner !== null, tay, Date.now(), { isSelfDraw: selfDraw, isConcealed: false });
+    match = recordHand(match, winner, winner !== null, tay, Date.now(), payer ? { winMethod: 'ron', discarder: payer } : { winMethod: 'tsumo' });
   }
   controller.match = match;
 }

@@ -1,3 +1,4 @@
+import { deriveRoundScore, type RoundScore } from '../core/round-score';
 import type { KimMode as WallKimMode } from '../core/types';
 // ============================================================================
 // Persistence Layer (F25): LocalStorage-backed GameSettings & Match History
@@ -94,8 +95,10 @@ export interface MatchHistoryRecord {
   winningTile: Tile | null;
   scoringBreakdown: ScoringBreakdownItem[];
   totalTay: number;
-  multiplier: 1 | 2;
-  points: number;
+  roundScore: RoundScore | null;
+  /** Winner koin delta, or zero if payout facts are unavailable. */
+  koin: number;
+  discarder?: Seat;
   /** True when the winning hand held at least one Kim (actual usage, not the table column) */
   isWithKim: boolean;
   winMethod: WinMethod;
@@ -125,10 +128,10 @@ export interface MatchHistoryRecord {
 
 /**
  * Input to `saveGameRecord`. `id` and `timestamp` are generated when omitted.
- * `flowers`, `melds`, `multiplier` and `points` are optional for legacy callers; loads fill them.
+ * `flowers`, `melds`, `roundScore` and `koin` are optional for legacy callers; loads fill them.
  */
-export type NewMatchHistoryRecord = Omit<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds' | 'multiplier' | 'points'> &
-  Partial<Pick<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds' | 'multiplier' | 'points'>>;
+export type NewMatchHistoryRecord = Omit<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds' | 'roundScore' | 'koin'> &
+  Partial<Pick<MatchHistoryRecord, 'id' | 'timestamp' | 'flowers' | 'melds' | 'roundScore' | 'koin'>>;
 
 /** Minimal subset of the Web Storage API used by this module. */
 export interface StorageLike {
@@ -650,7 +653,8 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
     : [];
 
   const totalTay = isFiniteNumber(raw.totalTay) ? raw.totalTay : scoringBreakdown.reduce((sum, b) => sum + b.tay, 0);
-  const multiplier = raw.multiplier === 2 ? 2 : 1;
+  const score = raw.roundScore === null ? null : deriveRoundScore(winner, totalTay, raw);
+  const discarder = (SEATS as readonly unknown[]).includes(raw.discarder) ? raw.discarder as Seat : undefined;
   return {
     id: raw.id,
     timestamp: raw.timestamp,
@@ -659,8 +663,9 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
     winningTile: sanitizeTile(raw.winningTile),
     scoringBreakdown,
     totalTay,
-    multiplier,
-    points: isFiniteNumber(raw.points) && raw.points >= 0 ? raw.points : totalTay * multiplier,
+    roundScore: score,
+    koin: winner ? score?.deltas[winner] ?? 0 : 0,
+    ...(discarder ? { discarder } : {}),
     isWithKim: pickBool(raw.isWithKim, false),
     winMethod: pickEnum(raw.winMethod, WIN_METHODS, winner === null ? 'draw' : 'ron'),
     durationSeconds:

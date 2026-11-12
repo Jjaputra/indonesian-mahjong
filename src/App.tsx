@@ -23,7 +23,7 @@ import { migrateMatchLengthPreference, loadDealerWinRule, loadDeadWall, saveDead
 import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsForPace, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
 import { DIFFICULTY_LABEL, tileText } from './ui/labels';
 import { releaseVersion } from './ui/release';
-import { recordPoints, tayPointsText } from './ui/components/points';
+import { tayKoinText } from './ui/components/points';
 import { loadTableView, saveTableView, TABLE_VIEW_LABEL, type TableView } from './ui/table-view';
 
 type View = 'menu' | 'table';
@@ -185,12 +185,12 @@ export function App() {
     controller.setSettings(stored);
   };
 
-  // Dev-only: `?demo=table|claim|hu|dice` opens a seeded table state for reproducible screenshots.
+  // Dev-only: `?demo=table|claim|hu|dice|final[&win=ce_mo|buangan]` opens a seeded table state for reproducible screenshots.
   const demoStarted = useRef(false);
   useEffect(() => {
     if (!import.meta.env.DEV || demoStarted.current) return;
     demoStarted.current = true;
-    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, stackDemoMelds, finishDemoMatch, DEMO_OPENING_ROLL }) => {
+    void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, stackDemoMelds, finishDemoMatch, restyleDemoWin, DEMO_OPENING_ROLL }) => {
       const demo = demoFromUrl(window.location.search);
       if (!demo) return;
       // `&view=flat|3d` previews a table view without changing the stored preference.
@@ -204,8 +204,13 @@ export function App() {
         setDice(null);
         driveDemo(controller, demo.mode === 'melds' ? 'table' : demo.mode === 'final' ? 'hu' : demo.mode);
         if (demo.mode === 'melds') stackDemoMelds(controller);
+        if (demo.win) restyleDemoWin(controller, demo.win);
         if (demo.mode === 'final') { finishDemoMatch(controller); setStandingsOpen(true); }
       }
+      // `&result=closed` shows the table behind a finished hand; `&modal=history` opens the history.
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('result') === 'closed') setTimeout(() => setResultOpen(false), 300);
+      if (params.get('modal') === 'history') setModal('history');
     });
   }, []);
 
@@ -249,7 +254,7 @@ export function App() {
         }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
           timeLimitMinutes={timeLimitMinutes} onTimeLimitChange={limit => { setTimeLimitMinutes(limit); saveMatchTimeLimit(limit); }}
           deadWall={deadWall} onDeadWallChange={option => { setDeadWall(option); saveDeadWall(option); }}
-          lastResult={history[0] ? history[0].winner === null ? 'Seri' : tayPointsText(recordPoints(history[0])) : null} />
+          lastResult={history[0] ? history[0].winner === null ? 'Seri' : tayKoinText(history[0]) : null} />
       ) : (
         <main className="table-felt">
           {controller.getState().kimFace && <div className="kim-indicator">Kim: {tileText({ ...controller.getState().kimFace!, id: 'kim-indicator', isKim: false })}{controller.getState().kimIndicator && <span className="kim-pointer"> · Penunjuk {tileText({ ...controller.getState().kimIndicator!, id: 'kim-pointer', isKim: false })}</span>}</div>}

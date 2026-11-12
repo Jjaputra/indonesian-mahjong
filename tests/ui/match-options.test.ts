@@ -19,7 +19,7 @@ describe('v0.4.2 match options', () => {
   it('counts every hand once and ends after 16, with no replay for dealer Hu or Seri', () => {
     let m = createMatch();
     for (let i = 0; i < 14; i++) m = recordHand(m, null, false, 0);
-    m = recordHand(m, 'dong', true, 5);
+    m = recordHand(m, 'dong', true, 5, 0, { winMethod: 'tsumo' });
     expect(countedGames(m)).toBe(15);
     expect(m.seating.dealer).toBe('bei');
     expect(isMatchOver(m)).toBe(false);
@@ -27,21 +27,21 @@ describe('v0.4.2 match options', () => {
     expect(countedGames(m)).toBe(16);
     expect(isMatchOver(m)).toBe(true);
     expect(m.seating.dealer).toBe('dong');
-    expect(recordHand(m, 'nan', true, 100)).toBe(m);
+    expect(recordHand(m, 'nan', true, 100, 0, { winMethod: 'tsumo' })).toBe(m);
     const lewFit = recordHand(createMatch(), 'dong', false, 100);
     expect(countedGames(lewFit)).toBe(1);
     expect(lewFit.seating.dealer).toBe('nan');
   });
-  it('ranks by valid Tay before Hu count and displays both', () => {
-    let m = recordHand(createMatch(), 'dong', true, 5);
-    m = recordHand(m, 'nan', true, 100);
+  it('ranks by koin before Hu count and displays raw Tay', () => {
+    let m = recordHand(createMatch(), 'dong', true, 5, 0, { winMethod: 'tsumo' });
+    m = recordHand(m, 'nan', true, 100, 0, { winMethod: 'tsumo' });
     m = recordHand(m, 'dong', false, 200);
     m = recordHand(m, null, false, 100);
-    m = recordHand(m, 'dong', true, 18);
+    m = recordHand(m, 'dong', true, 18, 0, { winMethod: 'tsumo' });
     expect(m.tayTotal).toEqual({ dong: 23, nan: 100, xi: 0, bei: 0 });
     expect(standings(m)[0]!.seat).toBe('nan');
     const board = renderToStaticMarkup(createElement(MatchScoreboard, { match: m, hand: 6, prevailingWind: 'dong', dealer: 'dong' }));
-    expect(board).toContain('Tabel Total Poin');
+    expect(board).toContain('Koin');
     expect(board).toMatch(/<tr class="match-score is-leader"><td class="rank">#1<\/td><th scope="row">Bot Kanan<\/th>/);
     expect(board).toMatch(/is-human"><td class="rank">#2<\/td><th scope="row">Anda/);
     expect(board.indexOf('Bot Kanan')).toBeLessThan(board.indexOf('Anda'));
@@ -56,14 +56,14 @@ describe('v0.4.2 match options', () => {
       expect(scoreSummary.indexOf('Bot Kanan')).toBeLessThan(scoreSummary.indexOf('Anda'));
     }
   });
-  it('breaks Tay ties by valid Hu, then first to reach the final Tay total', () => {
-    let m = recordHand(createMatch(), 'dong', true, 20);
-    m = recordHand(m, 'nan', true, 10);
-    m = recordHand(m, 'nan', true, 10);
-    m = recordHand(m, 'xi', true, 5);
-    m = recordHand(m, 'xi', true, 15);
+  it('breaks koin ties by valid Hu, then first to reach the final koin total', () => {
+    let m = recordHand(createMatch(), 'dong', true, 20, 0, { winMethod: 'tsumo' });
+    m = recordHand(m, 'nan', true, 10, 0, { winMethod: 'tsumo' });
+    m = recordHand(m, 'nan', true, 10, 0, { winMethod: 'tsumo' });
+    m = recordHand(m, 'xi', true, 5, 0, { winMethod: 'tsumo' });
+    m = recordHand(m, 'xi', true, 15, 0, { winMethod: 'tsumo' });
     expect(standings(m).map(r => r.seat)).toEqual(['nan', 'xi', 'dong', 'bei']);
-    expect(standings(m).map(r => r.reachedAt)).toEqual([3, 5, 1, 0]);
+    expect(standings(m).map(r => r.reachedAt)).toEqual([5, 5, 5, 5]);
   });
   it('re-rolls only tied highest chairs and retains every round', () => {
     const values = [5, 5, 2, 2, 5, 5, 0, 0, 0, 1, 3, 3].map(n => n / 6);

@@ -582,7 +582,6 @@ summary:focus-visible,
 .match-score.is-human { background: #e6f1ec; }
 .match-score.is-human th { color: var(--accent-strong); font-weight: 800; }
 .match-score.is-leader { background: #fff0bf; }
-.match-score.is-leader td.num b,
 .match-score.is-leader .rank { color: #7d0e13; font-weight: 800; }
 
 /* Table info: wind, Kim and minimum Tay, each beside its real tile. */
@@ -2800,7 +2799,7 @@ select {
 .standings-table .num { text-align: right; white-space: nowrap; }
 .standings-table .rank { width: 2.2em; color: var(--muted); font-weight: 700; }
 .standings-table .total { font-size: 16px; font-weight: 800; }
-.standings-table .gained { font-weight: 700; color: var(--ok); }
+.standings-table .gained { font-weight: 700; }
 .standings-table .dealer-mark { margin-left: 6px; color: #b88418; vertical-align: -2px; }
 .standings-table .is-human th { color: var(--accent-strong); }
 .standings-table tr.is-winner { background: #fff0bf; }
@@ -2814,10 +2813,33 @@ select {
 .tay-breakdown tbody tr:nth-child(even) { background: var(--surface-2); }
 .tay-breakdown .total-row td { padding-top: 10px; border-top: 2px solid var(--text); font-size: 16px; font-weight: 800; }
 .tay-breakdown .total-row .total { font-size: 20px; color: var(--text); }
-/* Points are the headline: total Tay, then the Ce Mo / Mun x2 row when it applies, then Poin. */
-.tay-breakdown .multiplier-row td { font-size: 14px; font-weight: 700; color: #7d0e13; white-space: nowrap; }
-.tay-breakdown .points-row td { padding-top: 6px; border-top: 1px solid var(--line); font-size: 17px; font-weight: 800; }
-.tay-breakdown .points-row .points { font-size: 28px; color: var(--accent-strong); }
+
+/* Koin signs: + green, − red, 0 muted; the sign glyph always carries the meaning too. */
+.is-plus { color: var(--green); }
+.is-minus { color: var(--bad); }
+:is(.koin, .gained, .rs-koin, .hand-koin span).is-zero { color: var(--muted); }
+
+/* Round Score: one row per player, winner first, payer tagged, Σ 0 footer. */
+.round-score { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.round-score h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 6px; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+.round-score h3 small { font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.round-score.is-empty p { margin: 0; font-weight: 700; }
+.round-score-rows { margin: 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+.round-score-row { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+.round-score-row.is-winner { font-weight: 800; }
+.round-score-row .rs-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.round-score-row .rs-wind { font-size: 12px; color: var(--muted); }
+.round-score-row .rs-tag { padding: 1px 6px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-size: 11px; font-weight: 700; }
+.round-score-row .rs-tag.is-win { background: var(--ok-soft); color: var(--green); }
+.round-score-row .rs-koin { margin-left: auto; font-size: 18px; font-weight: 800; white-space: nowrap; }
+.round-score-row .rs-koin small { font-size: 11px; font-weight: 600; }
+.round-score-sum { margin: 6px 0 0; text-align: right; font-size: 12px; font-weight: 700; color: var(--muted); }
+.round-score-sum.is-off { color: var(--bad); }
+.koin-sum { text-align: right; font-size: 11px; font-weight: 700; color: var(--muted); }
+.match-scores tfoot td { border-bottom: 0; }
+.standings-table tfoot td { padding: 4px 10px; border-bottom: 0; }
+.match-history .hand-koin { display: block; font-size: 11px; }
+.match-history .hand-koin span + span::before { content: ' · '; color: var(--muted); }
 
 /* ---------- Right panel: one turn card ---------- */
 .table-hud .turn-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; }
@@ -2959,8 +2981,11 @@ select {
 .standings-table .reached { display: block; font-size: 11px; font-weight: 500; white-space: normal; }
 @media (max-width: 560px) {
   .standings-table .th-long { display: none; }
-  .standings-table :is(th, td) { padding: 6px 6px; }
+  .standings-table :is(th, td) { padding: 6px 4px; }
   .standings-table { font-size: 13px; }
+  .standings-table .total { font-size: 14px; }
+  /* Phone: this game's koin beats the raw Tay column; the Tay stays in the receipt above. */
+  .standings-table.has-gained .col-tay { display: none; }
 }
 @media (min-width: 700px) {
   .match-history { columns: 2; column-gap: 28px; }

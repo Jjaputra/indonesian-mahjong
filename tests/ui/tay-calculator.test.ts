@@ -165,7 +165,7 @@ describe('Hu receipt', () => {
       melds: [],
       flowers,
       scoring,
-      points: null,
+      roundScore: null,
       durationSeconds: 90,
     };
     const text = buildHuReceipt(outcome);

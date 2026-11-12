@@ -13,7 +13,7 @@ import { historyScoringFields, saveGameRecord, type GameSettings, type StorageLi
 import { buildObservation, builtInStrategy, chooseDiscard, isFirstGoAround, explainDiscardChoice, type AIStrategy } from './ai-controller';
 import { MELD_LABEL, PLAYER_NAME, SEAT_SHORT, tileText } from './labels';
 import { isInitialDealtHand, scoreHu, seatWindOf, toFullRules, toScoringOverlap, type FullRules, type WinFlags } from './win-context';
-import { createMatch, currentHandNumber, isMatchOver, recordHand, finishMatchAtBoundary, rollOpeningDealer, type DeadWallOption, type MatchTimeLimit, type DealerWinRule, type MatchState, handPoints, type HandPoints } from './match';
+import { createMatch, currentHandNumber, isMatchOver, recordHand, finishMatchAtBoundary, rollOpeningDealer, type DeadWallOption, type MatchTimeLimit, type DealerWinRule, type MatchState, roundScore, type RoundScore } from './match';
 
 export type GameEventType = 'draw' | 'discard' | 'jia' | 'pung' | 'kong' | 'flower' | 'hu' | 'lewFit' | 'seri';
 
@@ -43,8 +43,8 @@ export interface HuOutcome {
   melds: Meld[];
   flowers: Tile[];
   scoring: ScoringResult;
-  /** Awarded points, or null for an invalid Hu (Lew Fit). */
-  points: HandPoints | null;
+  /** Round Score in koin, or null for an invalid Hu (Lew Fit). */
+  roundScore: RoundScore | null;
   durationSeconds: number;
 }
 
@@ -362,7 +362,7 @@ export class GameController {
     if (!this.match || !this.outcome) return;
     const o = this.outcome;
     this.match = o.kind === 'hu'
-      ? recordHand(this.match, o.winner, o.scoring.isValidHu, o.scoring.totalTay, this.now(), { isSelfDraw: o.winMethod === 'tsumo', isConcealed: o.melds.every(m => m.type === 'ankong') })
+      ? recordHand(this.match, o.winner, o.scoring.isValidHu, o.scoring.totalTay, this.now(), { winMethod: o.winMethod, discarder: o.discarder })
       : recordHand(this.match, null, false, 0, this.now());
   }
 
@@ -400,8 +400,9 @@ export class GameController {
         winningTile: o.winningTile,
         scoringBreakdown: o.scoring.patterns.map((p) => ({ id: p.id, name: p.name, tay: p.tay })),
         totalTay: o.scoring.totalTay,
-        multiplier: o.points?.multiplier ?? 1,
-        points: o.points?.points ?? 0,
+        roundScore: o.roundScore,
+        koin: o.roundScore?.deltas[o.winner] ?? 0,
+        discarder: o.discarder,
         ...historyScoringFields(o.scoring),
         isWithKim: o.scoring.isWithKim,
         winMethod: o.winMethod,
@@ -471,7 +472,7 @@ export class GameController {
       melds: p.melds.map((m) => ({ ...m, tiles: [...m.tiles] })),
       flowers: [...p.flowers],
       scoring,
-      points: scoring.isValidHu ? handPoints(scoring.totalTay, { isSelfDraw: winMethod === 'tsumo', isConcealed: p.melds.every(m => m.type === 'ankong') }) : null,
+      roundScore: scoring.isValidHu ? roundScore(seat, scoring.totalTay, { winMethod, discarder }) : null,
       durationSeconds: this.durationSeconds(),
     };
     const how = winMethod === 'tsumo' ? 'Ce Mo' : winMethod === 'chiong_kong' ? 'Chiong Kong' : `buangan ${PLAYER_NAME[discarder!]}`;
