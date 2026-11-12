@@ -312,7 +312,7 @@ describe('match review regressions', () => {
     c.humanSelfDrawHu();
     expect(c.outcome?.kind).toBe('hu');
     expect(c.match!.huCount.dong).toBe(1);
-    expect(c.match!.tayTotal.dong).toBe(4);
+    expect(c.match!.tayTotal.dong).toBe(8);
     expect(c.match!.seating.dealer).toBe(SEAT_ORDER[(SEAT_ORDER.indexOf(c.getState().dealerSeat) + 1) % 4]);
   });
 

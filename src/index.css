@@ -2813,7 +2813,11 @@ select {
 .tay-breakdown tbody td.num { font-size: 17px; font-weight: 700; }
 .tay-breakdown tbody tr:nth-child(even) { background: var(--surface-2); }
 .tay-breakdown .total-row td { padding-top: 10px; border-top: 2px solid var(--text); font-size: 16px; font-weight: 800; }
-.tay-breakdown .total-row .total { font-size: 24px; color: var(--accent-strong); }
+.tay-breakdown .total-row .total { font-size: 20px; color: var(--text); }
+/* Points are the headline: total Tay, then the Ce Mo / Mun x2 row when it applies, then Poin. */
+.tay-breakdown .multiplier-row td { font-size: 14px; font-weight: 700; color: #7d0e13; white-space: nowrap; }
+.tay-breakdown .points-row td { padding-top: 6px; border-top: 1px solid var(--line); font-size: 17px; font-weight: 800; }
+.tay-breakdown .points-row .points { font-size: 28px; color: var(--accent-strong); }
 
 /* ---------- Right panel: one turn card ---------- */
 .table-hud .turn-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; }

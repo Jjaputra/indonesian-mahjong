@@ -65,7 +65,7 @@ describe('v0.5.2 result standings', () => {
     m = recordHand(m, 'xi', true, 7);
     const html = renderToStaticMarkup(createElement(MatchResultNote, { match: m }));
     expect(html).toContain('<strong>Game 2/16 selesai.</strong>');
-    expect(html).toContain('+Tay<span class="th-long"> game ini</span>');
+    expect(html).toContain('+Poin<span class="th-long"> game ini</span>');
     const rows = [...html.matchAll(/<tr( class="([^"]*)")?><td class="rank">(\d)<\/td><th scope="row">([^<]+)/g)].map((r) => ({ cls: r[2] ?? '', rank: r[3], name: r[4] }));
     expect(rows.map((r) => r.name)).toEqual(['Bot Kanan', 'Bot Seberang', 'Anda', 'Bot Kiri']);
     expect(rows[1]!.cls).toContain('is-winner');

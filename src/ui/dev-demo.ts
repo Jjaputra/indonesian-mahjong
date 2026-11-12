@@ -83,11 +83,12 @@ export function stackDemoMelds(controller: GameController): void {
  */
 export function finishDemoMatch(controller: GameController): void {
   if (!controller.match) return;
-  const script: [Seat | null, number][] = [['nan', 12], [null, 0], ['xi', 6], ['dong', 9], ['bei', 5], [null, 0], ['nan', 7], ['dong', 16], ['xi', 5], [null, 0], ['bei', 8], ['dong', 6], ['nan', 5], [null, 0], ['xi', 10]];
+  // [winner, Tay, Ce Mo]: self-draws score x2 points.
+  const script: [Seat | null, number, boolean][] = [['nan', 12, false], [null, 0, false], ['xi', 6, true], ['dong', 9, false], ['bei', 5, true], [null, 0, false], ['nan', 7, false], ['dong', 16, true], ['xi', 5, false], [null, 0, false], ['bei', 8, false], ['dong', 6, false], ['nan', 5, true], [null, 0, false], ['xi', 10, false]];
   let match = controller.match;
-  for (const [winner, tay] of script) {
+  for (const [winner, tay, selfDraw] of script) {
     if (isMatchOver(match)) break;
-    match = recordHand(match, winner, winner !== null, tay);
+    match = recordHand(match, winner, winner !== null, tay, Date.now(), { isSelfDraw: selfDraw, isConcealed: false });
   }
   controller.match = match;
 }

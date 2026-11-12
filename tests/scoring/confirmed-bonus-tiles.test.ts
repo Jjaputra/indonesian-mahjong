@@ -25,7 +25,7 @@ describe('players 2026-11-12 confirmed bonus tiles', () => {
     expect(points(r, 2)).toBe(2);
     const without = score('xi', []);
     expect(r.totalTay - without.totalTay).toBe(3);
-    const text = buildHuReceipt({ kind: 'hu', winner: 'nan', seatWind: 'xi', winningTile: win, winMethod: 'ron', discarder: 'dong', hand: [...hand, win], melds: [], flowers: ['F3', 'F1', 'M3'].map(k => keyToTile(k)), scoring: r, durationSeconds: 1 });
+    const text = buildHuReceipt({ kind: 'hu', winner: 'nan', seatWind: 'xi', winningTile: win, winMethod: 'ron', discarder: 'dong', hand: [...hand, win], melds: [], flowers: ['F3', 'F1', 'M3'].map(k => keyToTile(k)), scoring: r, points: null, durationSeconds: 1 });
     expect(text).toContain('Tile Musim 3 (sesuai tempat duduk) 2');
     expect(text).toContain('Tile Bunga 1 0');
   });
