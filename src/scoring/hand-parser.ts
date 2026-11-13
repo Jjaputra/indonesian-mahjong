@@ -28,6 +28,8 @@ export interface HandFeatures {
   readonly sequenceCount: number;
   readonly isSelfRobbingKong?: boolean;
   readonly pair?: PairComposition;
+  /** Every pair in the decomposition: the eye of a standard hand, or all seven of Tjit Tuei */
+  readonly pairs: readonly PairComposition[];
   /** Jia/Pung/Kong claimed from discards (Ankong excluded) */
   readonly claimedMeldCount: number;
   readonly kimCount: number;
@@ -111,6 +113,8 @@ export function parseHandFeatures(
     triplets,
     sequenceCount,
     pair: solved.shape === 'standard' ? solved.pair : undefined,
+    pairs: solved.shape === 'standard' ? (solved.pair ? [solved.pair] : [])
+      : solved.shape === 'seven_pairs' ? (solved.pairs ?? []) : [],
     claimedMeldCount: countClaimedMelds(openMelds),
     kimCount: solved.totalKims,
     isBoKim: solved.mode === 'NK',

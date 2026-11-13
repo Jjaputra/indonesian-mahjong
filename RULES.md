@@ -66,7 +66,7 @@ Values are `Ada KIM / Tidak ada KIM`; `—` means the cell is blank. Column plac
 | 37 | Kong Song Hu/Mo | 5 / 5 | 9 | |
 | 38 | Kong Kong Hu | 30 / 30 | 9 | |
 | 39 | Se Sam Pu Tat | printed 40 / — | 9 | **Column conflict**, see §2; placement depends on the scoring basis |
-| 40 | Pyong Pi | 5 / — | 9 | Value in the Ada KIM column; last tile from the wall |
+| 40 | Pyong Pi | 5 / — | 9 | Value in the Ada KIM column; last tile from the wall. Any pair qualifies, including one of Tjit Tuei's seven pairs, so it stacks with #16 (fixed v0.5.8) |
 | 41 | Tan Tiau | 5 / 5 | 9 | |
 | 42 | Ce Mo | 1 / 1 | 9 | Open hand, self-draw |
 | 43 | Mun | 1 / 1 | 10 | Concealed hand, win on an opponent's discard. Verified 1/1 in both the table and the engine |
