@@ -81,8 +81,8 @@ function DotsFace({ value }: { value: number }) {
 
 // ---------- Bamboo (Sok) ----------
 
-/** Stick centres as [x, y, colour]; `h` is the stick height for that count. */
-const STICK_LAYOUT: Record<number, { h: number; sticks: readonly (readonly [number, number, Ink])[] }> = {
+/** Stick centres as [x, y, colour, tilt in degrees]; `h` is the stick height for that count. */
+const STICK_LAYOUT: Record<number, { h: number; sticks: readonly (readonly [number, number, Ink, number?])[] }> = {
   2: { h: 30, sticks: [[30, 22, 'green'], [30, 58, 'green']] },
   3: { h: 30, sticks: [[30, 22, 'green'], [19, 58, 'green'], [41, 58, 'green']] },
   4: { h: 30, sticks: [[19, 22, 'green'], [41, 22, 'blue'], [19, 58, 'blue'], [41, 58, 'green']] },
@@ -92,9 +92,13 @@ const STICK_LAYOUT: Record<number, { h: number; sticks: readonly (readonly [numb
     h: 22,
     sticks: [[30, 15, 'red'], [15, 40, 'green'], [30, 40, 'green'], [45, 40, 'green'], [15, 65, 'green'], [30, 65, 'green'], [45, 65, 'green']],
   },
+  // Printed-set 8 Sok: straight outer sticks, the middle pair leaning into a Λ on top and a V below.
   8: {
     h: 30,
-    sticks: [[12, 22, 'green'], [24, 22, 'green'], [36, 22, 'green'], [48, 22, 'green'], [12, 58, 'green'], [24, 58, 'green'], [36, 58, 'green'], [48, 58, 'green']],
+    sticks: [
+      [9, 22, 'green'], [23, 22, 'green', 18], [37, 22, 'green', -18], [51, 22, 'green'],
+      [9, 58, 'green'], [23, 58, 'green', -18], [37, 58, 'green', 18], [51, 58, 'green'],
+    ],
   },
   9: {
     h: 21,
@@ -102,10 +106,10 @@ const STICK_LAYOUT: Record<number, { h: number; sticks: readonly (readonly [numb
   },
 };
 
-function Stick({ x, y, h, ink }: { x: number; y: number; h: number; ink: Ink }) {
+function Stick({ x, y, h, ink, tilt }: { x: number; y: number; h: number; ink: Ink; tilt?: number }) {
   const top = y - h / 2;
   return (
-    <g className="art-stick">
+    <g className="art-stick" transform={tilt ? `rotate(${tilt} ${x} ${y})` : undefined}>
       <rect x={x - 3.6} y={top} width={7.2} height={h} rx={3.6} fill={INK[ink]} />
       <line x1={x - 3.6} x2={x + 3.6} y1={y} y2={y} stroke={INK.ivory} strokeWidth={1.3} />
       <line x1={x} x2={x} y1={top + 3} y2={y - 2.5} stroke={INK.ivory} strokeWidth={1} opacity={0.7} />
@@ -140,8 +144,8 @@ function BambooFace({ value }: { value: number }) {
   if (!layout) return null;
   return (
     <>
-      {layout.sticks.map(([x, y, ink], i) => (
-        <Stick key={i} x={x} y={y} h={layout.h} ink={ink} />
+      {layout.sticks.map(([x, y, ink, tilt], i) => (
+        <Stick key={i} x={x} y={y} h={layout.h} ink={ink} tilt={tilt} />
       ))}
     </>
   );
