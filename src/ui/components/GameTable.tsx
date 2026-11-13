@@ -1,6 +1,6 @@
 import { TableMotion } from './TableMotion';
 import { Hand, Trophy, Undo2, Flower2, ArrowDownToLine, MoveDownRight, Crown } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { sortTiles } from '../../core/tiles';
 import type { Seat, Tile } from '../../core/types';
 import { isKim } from '../../kim/wildcard-solver';
@@ -90,6 +90,25 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
   const won = controller.outcome?.kind === 'hu' ? controller.outcome : null;
   // Drawable tiles: excludes the optional 14-tile dead wall.
   const left = controller.remainingDrawable;
+  const poolRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const pool = poolRef.current;
+    if (!pool) return;
+    // Late in a hand the pool outgrows the felt: shrink every discard until all of them fit.
+    const fit = () => {
+      let scale = 1;
+      pool.style.setProperty('--pool-scale', '1');
+      while (scale > 0.4 && pool.scrollHeight > pool.clientHeight + 1) {
+        scale = Math.round((scale - 0.05) * 100) / 100;
+        pool.style.setProperty('--pool-scale', String(scale));
+      }
+    };
+    fit();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(fit);
+    observer.observe(pool);
+    return () => observer.disconnect();
+  }, [trail.length]);
   return (
     <>
     <section className="center-area" aria-label="Area buangan">
@@ -102,7 +121,7 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
             </span>
           );
         })}
-        <div className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
+        <div ref={poolRef} className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
           {trail.length === 0 && !pending && <span className="muted">Belum ada buangan.</span>}
           {trail.map((d, i) => (
             <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d.tile.id === freshId ? ' is-fresh' : ''}`} data-from={source(d.seat)} data-seat={d.seat} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>

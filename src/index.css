@@ -2056,6 +2056,11 @@ select {
 .table-felt .pool-tile.seat-mark-xi { --pool-mark: #f0c060; }
 .table-felt .pool-tile.seat-mark-bei { --pool-mark: #c0a4f0; }
 .table-felt .pool-tile.is-fresh { box-shadow: none; }
+/* --pool-scale is set by CenterArea so a long discard history still fits the felt. */
+.table-felt .discard-pool .pool-tile > .tile {
+  width: calc(var(--w) * var(--pool-scale, 1));
+  height: calc(var(--h) * var(--pool-scale, 1));
+}
 /* The claimable discard is raised off the felt, upright and readable. */
 .table-felt .center-area > .pending-discard {
   position: absolute;
@@ -2522,7 +2527,8 @@ select {
   /* Without foreshortening the board keeps its full height: size it by the centre cell instead. */
   .app.view-flat .board-plane { width: auto; height: 100%; max-width: 100%; max-height: 100%; }
   .app.view-flat .table-felt .center-area { align-self: stretch; }
-  .app.view-flat .table-felt .discard-pool { inset: 17% 12%; }
+  /* Clear of the painted seat-wind labels; CenterArea shrinks the tiles to fit. */
+  .app.view-flat .table-felt .discard-pool { inset: 20% 14%; }
 }
 
 /* ---------- Opening dice: who becomes the first dealer ---------- */
