@@ -156,31 +156,22 @@ export function evaluatePyongPi(
   context: KimWinContext,
   mode: KimMode
 ): DetectedKimPattern | null {
-  if (mode !== 'K' || !context.isSelfDraw || !hand.pair) {
+  if (mode !== 'K' || !context.isSelfDraw) {
     return null;
   }
-  const pairTiles = hand.pair.tiles;
-  if (!pairTiles || pairTiles.length !== 2) {
-    return null;
-  }
-
-  // Exactly 1 Kim in pair (2 Kims is Kim Ciok #32)
-  const kimTiles = pairTiles.filter(isKim);
-  if (kimTiles.length !== 1) {
-    return null;
-  }
-
-  const naturalTile = pairTiles.find((t) => !isKim(t));
-  if (!naturalTile) {
-    return null;
-  }
-
-  // The natural tile must match the winning tile drawn from the wall
-  const isWinningMatch =
-    naturalTile.id === context.winningTile.id ||
-    (naturalTile.type === context.winningTile.type && naturalTile.value === context.winningTile.value);
-
-  if (!isWinningMatch) {
+  // Any pair qualifies: the standard eye or one of the seven Tjit Tuei pairs.
+  const pairs = 'pairs' in hand && hand.pairs ? hand.pairs : hand.pair ? [hand.pair] : [];
+  const qualifies = pairs.some((pair) => {
+    const pairTiles = pair.tiles;
+    if (!pairTiles || pairTiles.length !== 2) return false;
+    // Exactly 1 Kim in pair (2 Kims is Kim Ciok #32)
+    if (pairTiles.filter(isKim).length !== 1) return false;
+    const naturalTile = pairTiles.find((t) => !isKim(t));
+    // The natural tile must match the winning tile drawn from the wall
+    return !!naturalTile && (naturalTile.id === context.winningTile.id
+      || (naturalTile.type === context.winningTile.type && naturalTile.value === context.winningTile.value));
+  });
+  if (!qualifies) {
     return null;
   }
 

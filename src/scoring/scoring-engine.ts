@@ -103,13 +103,15 @@ function detectKim({ features, mode, context }: ScoringInput): DetectedPattern[]
   if (features.triplets.some((t) => t.isKimThi)) out.push(award(30, mode, 'Tiga Kim dijadikan satu tris'));
   const pair = features.pair;
   if (pair && pair.kimCount === 2) out.push(award(32, mode, 'Dua Kim dijadikan pair (kaki)'));
-  if (pair && pair.kimCount === 1 && context.isSelfDraw) {
-    const natural = pair.tiles.find((t) => !isKim(t));
-    const w = context.winningTile;
-    if (natural && natural.type === w.type && natural.value === w.value) {
-      out.push(award(40, mode, 'Tile terakhir dari tembok menjadi pasangan Kim'));
-    }
-  }
+  // Pyong Pi is independent of the hand shape: any pair (standard eye or one of Tjit Tuei's seven)
+  // made of one Kim and the self-drawn winning tile qualifies.
+  const w = context.winningTile;
+  const pyongPi = context.isSelfDraw && features.pairs.some((p) => {
+    if (p.kimCount !== 1) return false;
+    const natural = p.tiles.find((t) => !isKim(t));
+    return !!natural && natural.type === w.type && natural.value === w.value;
+  });
+  if (pyongPi) out.push(award(40, mode, 'Tile terakhir dari tembok menjadi pasangan Kim'));
   return out.filter((p): p is DetectedPattern => p !== null);
 }
 
