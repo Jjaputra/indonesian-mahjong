@@ -61,7 +61,7 @@ export function addDemoKongs(controller: GameController): void {
 /** `&sandbox=kong`: Uji Tangan sample with a concealed Kong Zhong and an open Kong. */
 export const DEMO_KONG_HAND: DevHand = {
   concealed: [{ type: 'tong', value: 1 }, { type: 'tong', value: 2 }, { type: 'tong', value: 3 }, { type: 'ban', value: 7 }, { type: 'ban', value: 8 }, { type: 'ban', value: 9 }, { type: 'sok', value: 5 }],
-  melds: [{ type: 'ankong', faces: Array.from({ length: 4 }, () => ({ type: 'dragon' as const, value: 1 })) }, { type: 'kong', faces: Array.from({ length: 4 }, () => ({ type: 'wind' as const, value: 2 })) }],
+  melds: [{ type: 'ankong', faces: Array.from({ length: 4 }, () => ({ type: 'dragon' as const, value: 1 })) }, { type: 'kakan', faces: Array.from({ length: 4 }, () => ({ type: 'wind' as const, value: 2 })) }],
   bonus: { bunga: [], musim: [] }, winningTile: { type: 'sok', value: 5 },
   win: { method: 'tsumo' }, kimFace: null, seatWind: 'nan', roundWind: 'dong', flags: {},
 };
@@ -127,7 +127,7 @@ export function stackDemoMelds(controller: GameController): void {
     const melds: Meld[] = [
       { type: 'jia', tiles: [t('7B'), t('9B'), t('8B')], claimedFrom: left },
       { type: 'pung', tiles: [t('5T', 7), t('5T', 8), t('5T')], claimedFrom: across },
-      { type: 'kong', tiles: [t('WN', 6), t('WN', 7), t('WN', 8), t('WN')], claimedFrom: right },
+      { type: 'kong', tiles: [t('WN', 6), t('WN', 7), t('WN', 8), t('WN')], claimedFrom: right, fromConcealedTriplet: true },
       { type: 'ankong', tiles: [t('2S', 6), t('2S', 7), t('2S', 8), t('2S')] },
     ];
     const player = state.players[seat];

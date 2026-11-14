@@ -75,6 +75,8 @@ export interface ScoringResult {
   handKimCount: number;
   /** Plain-language notes on column choices that award nothing (e.g. #39 in the NK match column) */
   notes: string[];
+  /** Developer diagnostics only; never shown in the normal Hu receipt. */
+  rejected?: { id: number; reason: string }[];
   lewFitReason?: LewFitReason;
   isInstantHu: boolean;
   minHuTay: number;

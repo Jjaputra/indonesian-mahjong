@@ -33,6 +33,8 @@ export interface Meld {
   readonly type: MeldType;
   readonly tiles: Tile[];
   readonly claimedFrom?: Seat;
+  /** Discard claimed onto three concealed tiles; concealed for scoring, ordinary Kong payment. */
+  readonly fromConcealedTriplet?: true;
 }
 
 export interface PlayerState {

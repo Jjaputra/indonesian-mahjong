@@ -600,7 +600,9 @@ function sanitizeMeld(raw: unknown): Meld | null {
   if (typeof raw.type !== 'string' || !(MELD_TYPES as readonly string[]).includes(raw.type)) return null;
   const tiles = sanitizeTileList(raw.tiles, MAX_TILES_PER_MELD);
   if (tiles.length === 0) return null;
-  const meld: Meld = { type: raw.type as MeldType, tiles };
+  const meld: Meld = { type: raw.type as MeldType, tiles,
+    ...(raw.type === 'kong' && raw.fromConcealedTriplet === true ? { fromConcealedTriplet: true } : {}),
+  };
   if ((SEATS as readonly unknown[]).includes(raw.claimedFrom)) {
     return { ...meld, claimedFrom: raw.claimedFrom as Seat };
   }

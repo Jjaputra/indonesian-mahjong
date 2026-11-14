@@ -466,6 +466,7 @@ export class GameController {
           type: m.type,
           tiles: m.tiles.map((t) => ({ ...t })),
           ...(m.claimedFrom ? { claimedFrom: m.claimedFrom } : {}),
+          ...(m.fromConcealedTriplet ? { fromConcealedTriplet: true } : {}),
         })),
         flowers: o.flowers.map((t) => ({ ...t })),
         winningTile: o.winningTile,

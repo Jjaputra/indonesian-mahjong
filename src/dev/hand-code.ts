@@ -5,7 +5,7 @@ import { isFirstGoAround, isInitialDealtHand, seatWindOf } from '../ui/win-conte
 
 export interface DevHand {
   concealed: TileFace[];
-  melds: { type: 'pung' | 'kong' | 'ankong' | 'jia'; faces: TileFace[] }[];
+  melds: { type: 'pung' | 'kong' | 'kakan' | 'ankong' | 'jia'; faces: TileFace[] }[];
   bonus: { bunga: number[]; musim: number[] };
   winningTile: TileFace;
   win: { method: 'tsumo' | 'ron' | 'chiong_kong'; discarder?: Seat };
@@ -45,9 +45,9 @@ export function validateDevHand(hand: DevHand): void {
     const key = `${f.type}:${f.value}`; const n = (counts.get(key) ?? 0) + 1; counts.set(key, n);
     if (n > 4) throw new Error(`Tile ${formatFace(f)} melebihi 4 salinan.`);
   }
-  if (hand.melds.length > 4 || all.length !== 14 + hand.melds.filter(m => m.type === 'kong' || m.type === 'ankong').length) throw new Error('Jumlah tile harus 14 ditambah satu untuk setiap Kong.');
+  if (hand.melds.length > 4 || all.length !== 14 + hand.melds.filter(m => m.type === 'kong' || m.type === 'kakan' || m.type === 'ankong').length) throw new Error('Jumlah tile harus 14 ditambah satu untuk setiap Kong.');
   for (const m of hand.melds) {
-    const n = m.type === 'kong' || m.type === 'ankong' ? 4 : 3;
+    const n = m.type === 'kong' || m.type === 'kakan' || m.type === 'ankong' ? 4 : 3;
     if (m.faces.length !== n) bad(`${m.type} ${m.faces.map(formatFace).join(' ')}`);
     if (m.type === 'jia') {
       const sorted = [...m.faces].sort((a,b) => a.value-b.value);
@@ -69,7 +69,7 @@ export function parseHandCode(text: string): { ok: true; hand: DevHand } | { ok:
     const seen = new Set<string>();
     for (const part of parts) {
       const [key, ...args] = part.trim().split(/\s+/); const value = args.join(' ');
-      if (['pung','kong','ankong','jia'].includes(key!)) { hand.melds.push({ type: key as DevHand['melds'][number]['type'], faces: faces(value) }); continue; }
+      if (['pung','kong','kakan','ankong','jia'].includes(key!)) { hand.melds.push({ type: key as DevHand['melds'][number]['type'], faces: faces(value) }); continue; }
       if (seen.has(key!)) bad(part); seen.add(key!);
       switch (key) {
         case 'bunga': case 'musim': hand.bonus[key] = args.map(Number); break;
@@ -117,5 +117,5 @@ export function devHandFromOutcome(outcome: HuOutcome, state: Readonly<GameEngin
   const face = (t: TileFace): TileFace => ({ type: t.type, value: t.value });
   const concealed = [...outcome.hand]; const index = concealed.findIndex(t => t.id === outcome.winningTile.id); if (index >= 0) concealed.splice(index, 1);
   const flags = outcome.winFlags;
-  return { concealed: concealed.map(face), melds: outcome.melds.map(m => ({ type: m.type, faces: m.tiles.map(face) })), bonus: { bunga: outcome.flowers.filter(t => t.type === 'flower').map(t => t.value), musim: outcome.flowers.filter(t => t.type === 'season').map(t => t.value) }, winningTile: face(outcome.winningTile), win: { method: outcome.winMethod, ...(outcome.discarder ? { discarder: seatWindOf(state, outcome.discarder) } : {}) }, kimFace: state.kimFace ?? null, seatWind: outcome.seatWind ?? seatWindOf(state, outcome.winner), roundWind: state.roundWind, flags: { firstGoAround: flags?.isFirstGoAround ?? isFirstGoAround(state), paoChin: flags?.isPaoChin ?? state.players[outcome.winner].isPaoChin, consecutiveKongs: flags?.consecutiveKongs ?? state.consecutiveKongs, initialDealtHand: flags?.isInitialDealtHand ?? isInitialDealtHand(state, outcome.winner) } };
+  return { concealed: concealed.map(face), melds: outcome.melds.map(m => ({ type: m.type === 'kong' && !m.fromConcealedTriplet ? 'kakan' : m.type, faces: m.tiles.map(face) })), bonus: { bunga: outcome.flowers.filter(t => t.type === 'flower').map(t => t.value), musim: outcome.flowers.filter(t => t.type === 'season').map(t => t.value) }, winningTile: face(outcome.winningTile), win: { method: outcome.winMethod, ...(outcome.discarder ? { discarder: seatWindOf(state, outcome.discarder) } : {}) }, kimFace: state.kimFace ?? null, seatWind: outcome.seatWind ?? seatWindOf(state, outcome.winner), roundWind: state.roundWind, flags: { firstGoAround: flags?.isFirstGoAround ?? isFirstGoAround(state), paoChin: flags?.isPaoChin ?? state.players[outcome.winner].isPaoChin, consecutiveKongs: flags?.consecutiveKongs ?? state.consecutiveKongs, initialDealtHand: flags?.isInitialDealtHand ?? isInitialDealtHand(state, outcome.winner) } };
 }

@@ -20,14 +20,15 @@ export type DraftHand = Omit<DevHand, 'winningTile'> & { winningTile: TileFace |
 /** Where the next picker tap goes. */
 type Target = 'hand' | 'win' | 'kim' | MeldType;
 
-const MELD_BUTTON: Record<MeldType, string> = { pung: 'Pung', kong: 'Kong', ankong: 'Kong tertutup', jia: 'Jia' };
+const MELD_BUTTON: Record<MeldType, string> = { pung: 'Pung', kong: 'Kong', kakan: 'Kong tambahan', ankong: 'Kong tertutup', jia: 'Jia' };
 const METHOD_LABEL: Record<WinMethod, string> = { tsumo: 'Ce Mo', ron: 'Buangan', chiong_kong: 'Chiong Kong' };
 const TARGET_HINT: Record<Target, string> = {
   hand: 'Ketuk tile untuk menambah ke tangan tertutup.',
   win: 'Ketuk tile yang menjadi tile menang.',
   kim: 'Ketuk tile yang menjadi Kim.',
   pung: 'Ketuk tile untuk Pung (3 sama).',
-  kong: 'Ketuk tile untuk Kong terbuka (4 sama).',
+  kong: 'Ketuk tile untuk Kong dari tris tertutup (4 sama).',
+  kakan: 'Ketuk tile untuk Kong tambahan dari Pung terbuka (4 sama).',
   ankong: 'Ketuk tile untuk Kong tertutup (4 sama).',
   jia: 'Ketuk tile terkecil dari Jia (urutan 3).',
 };
@@ -49,7 +50,7 @@ export function meldFrom(type: MeldType, face: TileFace): TileFace[] | null {
 
 /** Tiles a valid hand needs: 14 plus one per Kong (winning tile included). */
 export function tileTarget(d: Pick<DraftHand, 'melds'>): number {
-  return 14 + d.melds.filter((m) => m.type === 'kong' || m.type === 'ankong').length;
+  return 14 + d.melds.filter((m) => m.type === 'kong' || m.type === 'kakan' || m.type === 'ankong').length;
 }
 export function tileCount(d: Pick<DraftHand, 'concealed' | 'melds' | 'winningTile'>): number {
   return d.concealed.length + d.melds.reduce((n, m) => n + m.faces.length, 0) + (d.winningTile ? 1 : 0);
@@ -217,7 +218,7 @@ export function HandSandbox({ settings, initial, onClose }: { settings: GameSett
           <div className="sandbox-target">
             <Segmented<Target> label="Tujuan ketukan tile" value={target} onChange={(t) => { setTarget(t); setPickError(null); }} options={[
               ['hand', 'Tangan'], ['win', 'Tile menang'], ['kim', 'Kim'],
-              ['pung', '+ Pung'], ['kong', '+ Kong'], ['ankong', '+ Kong tertutup'], ['jia', '+ Jia'],
+              ['pung', '+ Pung'], ['kong', '+ Kong'], ['kakan', '+ Kong tambahan'], ['ankong', '+ Kong tertutup'], ['jia', '+ Jia'],
             ]} />
             <p className="field-note" role="status">{TARGET_HINT[target]} Bunga / Musim selalu masuk ke rak.</p>
             {pickError && <p className="dev-error" role="alert">{pickError}</p>}
@@ -268,6 +269,12 @@ export function HandSandbox({ settings, initial, onClose }: { settings: GameSett
                 <dd><span className={`badge ${evaluation.result.scoring.mode === 'K' ? 'badge-kim' : 'badge-seat'}`}>{modeLabel(evaluation.result.scoring.mode)}</span></dd>
               </dl>
               <TayBreakdown scoring={evaluation.result.scoring} />
+              {!!evaluation.result.scoring.rejected?.length && (
+                <details className="field-note">
+                  <summary>Pola tertutup yang tidak diberikan</summary>
+                  <ul>{evaluation.result.scoring.rejected.map(p => <li key={p.id}>#{p.id}: {p.reason}</li>)}</ul>
+                </details>
+              )}
               <RoundScoreBlock nameOf={(s) => `Kursi ${SEAT_SHORT[s]}`} kongPayments={kongPaymentsOf(evaluation.result)}
                 outcome={evaluation.result.roundScore ? { winner: draft.seatWind, seatWind: draft.seatWind, roundScore: evaluation.result.roundScore } : null} />
             </>

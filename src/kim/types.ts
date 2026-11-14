@@ -97,6 +97,7 @@ export interface MeldComposition {
   readonly representedTiles: readonly Tile[];
   /** Seat from which this meld was claimed, or undefined if concealed */
   readonly claimedFrom?: Seat;
+  readonly fromConcealedTriplet?: true;
   /** True if this meld was exposed before Hu declaration (open claim) */
   readonly isOpen: boolean;
   /** Count of Kim wildcards inside this meld (0, 1, 2, 3, or 4) */

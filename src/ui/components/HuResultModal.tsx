@@ -1,14 +1,36 @@
 import { useState, type ReactNode } from 'react';
 import { ArrowRight, Check, Copy, FlaskConical, RotateCcw, Trophy } from 'lucide-react';
-import type { Seat } from '../../core/types';
+import type { Seat, Tile } from '../../core/types';
 import type { ScoringResult } from '../../scoring';
 import type { GameOutcome } from '../game-controller';
 import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIN_METHOD_LABEL } from '../labels';
 import { classifyHand, modeLabel } from '../tay-calculator';
 import { Modal } from './Modal';
-import { SEAT_ORDER } from '../../core/tiles';
+import { SEAT_ORDER, compareTiles, sortTiles } from '../../core/tiles';
 import { KONG_KIND_LABEL, PAYER_TAG, gameDeltasOf, kongDeltas, kongFaceText, kongPaymentsOf, koinSum, koinTone, roundScoreHint, roundScoreOrder, signedKoin, windOf, type KongPaymentView } from './points';
 import { MeldView, TileRow, TileView } from './TileView';
+
+/**
+ * The concealed hand laid out the way it was scored: each set of the winning decomposition
+ * (Kim placed where it stands in for), sets in tile order, then the pair(s). Falls back to plain
+ * tile order when the decomposition does not cover exactly these tiles (instant Hu, Lew Fit).
+ */
+export function scoredHandGroups(hand: readonly Tile[], scoring: Pick<ScoringResult, 'decomposition'>): Tile[][] {
+  const d = scoring.decomposition;
+  const ids = new Set(hand.map((t) => t.id));
+  const byRepresented = (tiles: readonly Tile[], represented: readonly Tile[]) =>
+    tiles.map((t, i) => [t, represented[i] ?? t] as const).sort((a, b) => compareTiles(a[1], b[1])).map(([t]) => t);
+  const inHand = (tiles: readonly Tile[]) => tiles.every((t) => ids.has(t.id));
+  const sets = (d?.melds ?? []).filter((m) => inHand(m.tiles)).map((m) => ({ tiles: byRepresented(m.tiles, m.representedTiles), key: m.representedTiles }));
+  sets.sort((a, b) => compareTiles(sortTiles(a.key)[0]!, sortTiles(b.key)[0]!));
+  const pairs = [...(d?.pair ? [d.pair] : []), ...(d?.pairs ?? [])].filter((p) => inHand(p.tiles))
+    .sort((a, b) => compareTiles(sortTiles(a.representedTiles)[0]!, sortTiles(b.representedTiles)[0]!))
+    .map((p) => byRepresented(p.tiles, p.representedTiles));
+  const groups = d?.orphanTiles && inHand(d.orphanTiles) ? [sortTiles(d.orphanTiles)] : [...sets.map((s) => s.tiles), ...pairs];
+  const covered = groups.flat();
+  if (covered.length !== hand.length || new Set(covered.map((t) => t.id)).size !== hand.length) return [sortTiles(hand)];
+  return groups;
+}
 
 export async function copyText(text: string): Promise<boolean> {
   try {
@@ -243,7 +265,11 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
         </dl>
 
         <div className="receipt-hand">
-          <TileRow tiles={outcome.hand} size="md" highlightId={outcome.winningTile.id} />
+          {scoredHandGroups(outcome.hand, r).map((group, i) => (
+            <span key={i} className="receipt-set">
+              <TileRow tiles={group} size="md" highlightId={outcome.winningTile.id} />
+            </span>
+          ))}
           {outcome.melds.map((m, i) => (
             <MeldView key={i} meld={m} size="md" />
           ))}

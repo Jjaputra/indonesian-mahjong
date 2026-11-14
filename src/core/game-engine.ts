@@ -1159,6 +1159,7 @@ export class GameEngine {
         type: 'kong',
         tiles: [...matchingTiles, tile],
         claimedFrom: discarder,
+        fromConcealedTriplet: true,
       });
 
       this.state.consecutiveKongs++;
