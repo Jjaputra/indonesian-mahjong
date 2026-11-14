@@ -1,3 +1,4 @@
+import { isConcealedSet } from '../core/melds';
 import { KimValidator } from './kim-validator';
 import type { GameRules, Meld, MeldType, Seat, Tile, TileType } from '../core/types';
 import {
@@ -64,6 +65,7 @@ interface DraftMeld {
   representedTiles: Tile[];
   assignments: WildcardAssignment[];
   claimedFrom?: Seat;
+  fromConcealedTriplet?: true;
   isOpen: boolean;
   kimCount: number;
 }
@@ -486,7 +488,8 @@ export function solveStandardHand(
       representedTiles: repTiles,
       assignments,
       claimedFrom: m.claimedFrom,
-      isOpen: m.type !== 'ankong',
+      fromConcealedTriplet: m.fromConcealedTriplet,
+      isOpen: !isConcealedSet(m),
       kimCount: kCount,
     };
   });
@@ -642,6 +645,7 @@ export function solveStandardHand(
           tiles: m.tiles,
           representedTiles: m.representedTiles,
           claimedFrom: m.claimedFrom,
+          fromConcealedTriplet: m.fromConcealedTriplet,
           isOpen: m.isOpen,
           kimCount: m.kimCount,
         })),

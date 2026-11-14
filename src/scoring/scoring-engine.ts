@@ -5,6 +5,8 @@ import { validateKimMeldLegality } from '../kim/kim-validator';
 import {
   type HandFeatures,
   countConcealedTripletKinds,
+  concealedTripletReason,
+  instantConcealedTriplets,
   countKims,
   parseHandFeatures,
 } from './hand-parser';
@@ -206,8 +208,8 @@ function detectMelds({ features, mode, context }: ScoringInput): DetectedPattern
   }
 
   const concealedTrips = features.triplets.filter((t) => t.concealed).length;
-  if (concealedTrips === 3) out.push(award(33, mode, '3 tris terbentuk tanpa pung'));
-  if (concealedTrips === 4) out.push(award(34, mode, '4 tris terbentuk tanpa pung'));
+  if (concealedTrips === 3) out.push(award(33, mode, concealedTripletReason(features)));
+  if (concealedTrips === 4) out.push(award(34, mode, concealedTripletReason(features)));
 
   if (features.claimedMeldCount === 4) out.push(award(41, mode, '4 kali Jia/Pung hingga tersisa 1 tile'));
   return out.filter((p): p is DetectedPattern => p !== null);
@@ -220,10 +222,12 @@ function detectEvents({ features, mode, context }: ScoringInput): DetectedPatter
   if (context.isKongReplacement && !context.isDoubleKongReplacement) out.push(award(37, mode, 'Hu dari tile ekor tembok setelah Kong'));
   if (context.isDoubleKongReplacement) out.push(award(38, mode, 'Hu setelah dua Kong berturut-turut'));
 
-  const concealed = features.claimedMeldCount === 0;
-  if (context.isSelfDraw && !concealed) out.push(award(42, mode, 'Ce mo dengan tangan terbuka'));
-  if (!context.isSelfDraw && concealed) out.push(award(43, mode, 'Tangan tertutup, Hu dari buangan lawan'));
-  if (context.isSelfDraw && concealed) out.push(award(44, mode, 'Ce mo dengan tangan tertutup penuh'));
+  const concealed = features.openSetDescriptions ? features.openSetDescriptions.length === 0 : features.claimedMeldCount === 0;
+  const closedReason = features.triplets.some((t) => t.setType === 'kong' && t.concealed)
+    ? ' (Kong dari buangan di atas tris tertutup tetap tertutup)' : '';
+  if (context.isSelfDraw && !concealed) out.push(award(42, mode, `Ce mo dengan tangan terbuka: ${features.openSetDescriptions?.join(', ') ?? 'set terbuka'}`));
+  if (!context.isSelfDraw && concealed) out.push(award(43, mode, `Tangan tertutup, Hu dari buangan lawan${closedReason}`));
+  if (context.isSelfDraw && concealed) out.push(award(44, mode, `Ce mo dengan tangan tertutup penuh${closedReason}`));
   return out.filter((p): p is DetectedPattern => p !== null);
 }
 
@@ -374,6 +378,11 @@ export class ScoringEngine implements IScoringEngine {
     }
     const { solved, patterns, total } = best!;
 
+    const features = parseHandFeatures(solved, concealed, melds, context);
+    const rejected = [
+      ...[33, 34].filter(id => !patterns.some(p => p.id === id)).map(id => ({ id, reason: `${concealedTripletReason(features)} (perlu tepat ${id === 33 ? 3 : 4})` })),
+      ...[42, 43, 44].filter(id => !patterns.some(p => p.id === id)).map(id => ({ id, reason: `${features.openSetDescriptions?.length ? features.openSetDescriptions.join(', ') : 'tangan tertutup'}; ${context.isSelfDraw ? 'Ce mo' : 'Hu dari buangan'} (perlu ${id === 42 ? 'Ce mo dengan tangan terbuka' : id === 43 ? 'Hu dari buangan dengan tangan tertutup' : 'Ce mo dengan tangan tertutup'})` })),
+    ];
     const mode = columnFor(solved);
     const result: ScoringResult = {
       ...base,
@@ -384,6 +393,7 @@ export class ScoringEngine implements IScoringEngine {
       isLewFit: total < r.minHuTay,
       totalTay: total,
       patterns,
+      rejected,
       decomposition: solved,
       candidateCount: validCandidates.length,
     };
@@ -409,7 +419,7 @@ export class ScoringEngine implements IScoringEngine {
     };
     if (flowers.filter((t) => t.type === 'flower' || t.type === 'season').length >= 7) instant(6, '7 tile bunga/musim');
     if (countKims([...concealed, ...melds.flatMap((m) => m.tiles)]) === 4) instant(9, '4 Kim di tangan');
-    if (countConcealedTripletKinds(concealed, melds) >= 4) instant(34, '4 tris tanpa pung');
+    if (countConcealedTripletKinds(concealed, melds) >= 4) instant(34, concealedTripletReason({ triplets: instantConcealedTriplets(concealed, melds) }));
 
     if (patterns.length === 0) {
       return reject('instant-invalid', 'Lew Fit: Hu langsung dideklarasikan tanpa syarat (7 bunga/musim, 4 Kim, atau 4 tris tertutup)');

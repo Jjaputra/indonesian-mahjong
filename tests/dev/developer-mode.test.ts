@@ -21,7 +21,7 @@ function setFixture(c: GameController, code: string) {
   let id = 0; const tile = (f: TileFace): Tile => ({ ...f, id: `fixture-${id++}`, isKim: f.type === 'kim' || (!!hand.kimFace && f.type === hand.kimFace.type && f.value === hand.kimFace.value) });
   const p = s.players.dong;
   p.hand = hand.concealed.map(tile); p.flowers = [...hand.bonus.bunga.map(value => tile({ type: 'flower', value })), ...hand.bonus.musim.map(value => tile({ type: 'season', value }))];
-  p.melds = hand.melds.map(m => ({ type: m.type, tiles: m.faces.map(tile) }));
+  p.melds = hand.melds.map(m => ({ type: m.type === 'kakan' ? 'kong' : m.type, tiles: m.faces.map(tile), ...(m.type === 'kong' ? { fromConcealedTriplet: true as const } : {}) }));
   p.isPaoChin = !!hand.flags.paoChin;
   s.kimFace = hand.kimFace; s.consecutiveKongs = hand.flags.consecutiveKongs ?? 0;
   s.turnCount = hand.flags.initialDealtHand ? 1 : 5;
@@ -46,6 +46,8 @@ describe('live outcome sandbox parity', () => {
     ['opening deal', base + ' | flags first,initial'],
     ['Kim pair', '123m456p789s EEE K | win K ce_mo'],
     ['flowers', base + ' | bunga 1 3 | musim 1 2 4'],
+    ['claimed concealed-triplet Kong', '111m222p333s Zh | kong WWWW | win Zh ce_mo'],
+    ['added Kong', '111m222p333s Zh | kakan WWWW | win Zh ce_mo'],
     ['kong replacement', '123m456p789s Zh | ankong NNNN | win Zh ce_mo | flags kong2'],
     ['natural Kim', '123m456p789s EEE 3m | win 3m ce_mo | kim 3m'],
   ];

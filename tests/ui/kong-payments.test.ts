@@ -78,7 +78,7 @@ describe('Kong instant koin', () => {
     expect(c.currentKongPayments).toEqual([]);
     if (owner !== 'dong' && c.getHumanActions().claim) c.humanClaim('pass');
     c.step(); c.step();
-    expect(p.melds[0]!.type).toBe('kong'); expect(c.currentKongPayments).toEqual([kongPayment(owner, q[0]!, false)]);
+    expect(p.melds[0]!.type).toBe('kong'); expect(p.melds[0]!.fromConcealedTriplet).toBeUndefined(); expect(c.currentKongPayments).toEqual([kongPayment(owner, q[0]!, false)]);
     expect(s.phase).toBe('ACTION_DECISION');
   });
   it('robbed Kakan has no payment and leaves the exposed Pung', () => {
@@ -95,7 +95,7 @@ describe('Kong instant koin', () => {
     p.hand = [...[1, 2, 3].map(i => keyToTile('DZ', i)), ...parseTileHand('1T 2T 3T 4S 5S 6S 7B 8B 9B 1S')];
     s.phase = 'CLAIM_WINDOW'; s.discardPending = { discarder: 'nan', tile: keyToTile('DZ', 4) };
     c.humanClaim('kong'); expect(c.currentKongPayments).toEqual([]); c.step(); c.step();
-    expect(p.melds[0]!.type).toBe('kong'); expect(c.currentKongPayments).toEqual([kongPayment('dong', keyToTile('DZ'), false)]);
+    expect(p.melds[0]!.type).toBe('kong'); expect(p.melds[0]!.fromConcealedTriplet).toBe(true); expect(c.currentKongPayments).toEqual([kongPayment('dong', keyToTile('DZ'), false)]);
   });
   it('sandbox returns winner Kong payments without altering hand codes', () => {
     const r = sandbox('123m Zh | ankong NNNN | kong 7777p | kong 5555s | win Zh ce_mo | seat S');
@@ -111,8 +111,8 @@ describe('Kong instant koin', () => {
   for (const [concealed, code, id] of [
     [true, '111m222p345s Zh | ankong NNNN | win Zh ce_mo', 33],
     [true, '111m222p333s Zh | ankong NNNN | win Zh ce_mo', 34],
-    [false, '111m222p345s Zh | kong NNNN | win Zh ce_mo', 33],
-    [false, '111m222p333s Zh | kong NNNN | win Zh ce_mo', 34],
+    [false, '111m222p345s Zh | kakan NNNN | win Zh ce_mo', 33],
+    [false, '111m222p333s Zh | kakan NNNN | win Zh ce_mo', 34],
   ] as const) it(`Am Kang #${id}: ${concealed ? 'Ankong counts' : 'exposed Kong excluded'}`, () => {
     const r = sandbox(code); expect(r.scoring.patterns.some(p => p.id === id)).toBe(concealed);
   });

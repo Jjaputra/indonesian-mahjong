@@ -211,6 +211,8 @@ Kode tangan dapat disalin melalui WhatsApp. Bagian pertama adalah ubin tertutup 
 K | pung 555s | kong 7777p | ankong NNNN | jia 234s | bunga 1 3 | musim 2 | win K ce_mo | kim 3m | seat E | round S | flags first,paochin,kong1
 ```
 
+`kong` means a discard claimed onto a concealed triplet (concealed for scoring); `kakan` means a fourth tile added to an exposed Pung (open). Both take four identical tiles; `ankong` remains a concealed Kong. Existing codes still parse.
+
 `win <ubin> <metode>` wajib; metode adalah `ce_mo`, `buangan:S`, atau `chiong_kong:W`. Huruf kursi pembuang menggunakan angin kursi pada tangan tersebut, bukan posisi kursi tetap sepanjang pertandingan. `seat` dan `round` default E; `kim <ubin>` menetapkan wajah Kim alami sesuai mode Kim pada Settings. `bunga` dan `musim` menerima angka 1–4 tanpa pengulangan. Flags opsional: `first` (putaran pertama), `paochin`, `initial` (tangan pembagian awal dealer), `kong1`, `kong2`, dan seterusnya. Jika flag tidak ditulis nilainya false/0; `initial` harus ditulis eksplisit untuk menguji Thien Fu dari pembagian awal. Format keluaran kanonis boleh memisahkan setiap ubin dengan spasi.
 
 Validator menolak token tak dikenal, lebih dari empat salinan wajah yang sama (termasuk Kim), meld salah, bunga/musim ganda, pembuang yang sama dengan pemenang, atau jumlah bentuk selain 14 + jumlah Kong. Validasi bentuk tidak menjamin Hu; sandbox menggunakan mesin Tay yang sama dengan permainan, termasuk batas minimum Hu dan Round Score (null untuk Hu tidak sah). Dalam sandbox dealer selalu E sehingga kursi identik dengan angin kursi; hasil dari permainan dengan dealer berotasi dipetakan ke angin kursi saat diekspor.
@@ -230,7 +232,7 @@ Kong gives **0 Tay** and counts as a Pung/triplet for patterns. On completion, e
 
 Zhong means **red dragon 中 only**, not Fat or Pat. Added Kong counts as “makan dari orang”; its payment happens only after the Chiong Kong window passes. A robbed added Kong never completes and has **no Kong payment**. Payments remain even on **Seri or Lew Fit**, and add to the Hu Round Score for that game; all game balances sum to zero. Kim cannot be claimed, so no claimed Kong of the Kim face is possible; a concealed Kong of four natural Kim tiles follows the same table (including Zhong if that is the Kim face).
 
-For Sam Am Kang (#33) and Si Am Kang (#34), an Ankong still counts as a concealed triplet: “dihitung pung/tris jadi sendiri, bukan makan dari org”. Exposed Kongs are not concealed triplets.
+For Sam Am Kang (#33) and Si Am Kang (#34), an Ankong still counts as a concealed triplet: “dihitung pung/tris jadi sendiri, bukan makan dari org”. A Kong claimed from a discard onto three concealed tiles also counts as a concealed triplet and keeps the hand concealed for #43 Mun / #44 Ce Mo Pu Ciu Jen. An added Kong (Kakan) on an exposed Pung stays open and does not count toward #33/#34. Tan Tiau still counts every claimed meld, including the Kong on a concealed triplet. Kong payments are unchanged: the latter pays 1 koin per opponent (Zhong 2). (Players, 2026-11-14; v0.5.11.)
 
 The players' tournament reference confirms the v0.5.5 Hu Round Score: “1 tay = 1 koin; dimakan (Hu dari buangan) yang dimakan bayar 2× total tay, yang lain 1×; zemo semua bayar 2×”. Kong koin is separate from these Hu payments and does not change Tay.
 
