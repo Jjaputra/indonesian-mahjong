@@ -7,6 +7,7 @@
 // headless test runners, very old browsers).
 // ============================================================================
 
+import { clampVolume, effectiveGain, DEFAULT_MASTER_VOLUME, DEFAULT_EFFECTS_VOLUME } from './volume';
 import type { GameSettings } from '../storage/storage';
 
 // ============================================================================
@@ -34,6 +35,7 @@ export interface OscillatorNodeLike extends AudioNodeLike {
   readonly frequency: AudioParamLike;
   start(when?: number): void;
   stop(when?: number): void;
+  onended?: (() => void) | null;
 }
 
 export interface AudioBufferLike {
@@ -44,6 +46,7 @@ export interface AudioBufferSourceNodeLike extends AudioNodeLike {
   buffer: AudioBufferLike | null;
   start(when?: number): void;
   stop(when?: number): void;
+  onended?: (() => void) | null;
 }
 
 export interface AudioContextLike {
@@ -139,18 +142,18 @@ const N = {
 export const SOUND_RECIPES: Readonly<Record<SoundEffectName, readonly SoundVoice[]>> =
   Object.freeze({
     draw: [tone('sine', 660, 0, 0.07, 0.22, 880), noise(0, 0.03, 0.06)],
-    discard: [noise(0, 0.045, 0.45), tone('triangle', 1200, 0, 0.06, 0.28, 280)],
-    jia: [tone('triangle', N.C5, 0, 0.11, 0.3), tone('triangle', N.E5, 0.08, 0.14, 0.3)],
+    discard: [noise(0, 0.045, 0.2), tone('triangle', 1200, 0, 0.06, 0.16, 280)],
+    jia: [tone('triangle', N.C5, 0, 0.11, 0.2), tone('triangle', N.E5, 0.08, 0.14, 0.2)],
     pung: [
-      noise(0, 0.03, 0.25),
-      tone('triangle', N.G4, 0, 0.2, 0.3),
-      tone('triangle', N.D5, 0, 0.2, 0.22),
+      noise(0, 0.03, 0.08),
+      tone('triangle', N.G4, 0, 0.2, 0.18),
+      tone('triangle', N.D5, 0, 0.2, 0.14),
     ],
     kong: [
-      noise(0, 0.04, 0.3),
-      tone('sawtooth', N.G3, 0, 0.3, 0.16),
-      tone('triangle', N.G4, 0, 0.28, 0.26),
-      tone('triangle', N.G5, 0.06, 0.24, 0.2),
+      noise(0, 0.04, 0.08),
+      tone('sawtooth', N.G3, 0, 0.3, 0.06),
+      tone('triangle', N.G4, 0, 0.28, 0.14),
+      tone('triangle', N.G5, 0.06, 0.24, 0.12),
     ],
     flower: [
       tone('sine', N.C6, 0, 0.35, 0.2),
@@ -167,10 +170,10 @@ export const SOUND_RECIPES: Readonly<Record<SoundEffectName, readonly SoundVoice
       tone('sine', N.E6, 0.52, 0.8, 0.16),
     ],
     lewFit: [
-      tone('sawtooth', N.A2, 0, 0.32, 0.28),
-      tone('square', 116, 0, 0.32, 0.16),
-      tone('sawtooth', N.A2, 0.42, 0.32, 0.28),
-      tone('square', 116, 0.42, 0.32, 0.16),
+      tone('sawtooth', N.A2, 0, 0.32, 0.12),
+      tone('square', 116, 0, 0.32, 0.06),
+      tone('sawtooth', N.A2, 0.42, 0.32, 0.12),
+      tone('square', 116, 0.42, 0.32, 0.06),
     ],
   });
 
@@ -226,8 +229,9 @@ export const defaultAudioContextFactory: AudioContextFactory = () => {
 
 export interface SoundEngineOptions {
   enabled?: boolean;
-  /** Master volume 0..1 (default 0.6) */
+  /** Effects slider 0..1 (default 0.4) */
   volume?: number;
+  masterVolume?: number;
   contextFactory?: AudioContextFactory;
 }
 
@@ -242,6 +246,8 @@ function clamp01(value: number): number {
 export class SoundEngine {
   private enabled: boolean;
   private volume: number;
+  private masterVolume: number;
+  private output: GainNodeLike | null = null;
   private readonly contextFactory: AudioContextFactory;
   private context: AudioContextLike | null = null;
   /** True once creation failed; prevents retrying on every play in headless envs */
@@ -250,7 +256,8 @@ export class SoundEngine {
 
   constructor(options: SoundEngineOptions = {}) {
     this.enabled = options.enabled ?? true;
-    this.volume = clamp01(options.volume ?? 0.6);
+    this.volume = clamp01(options.volume ?? DEFAULT_EFFECTS_VOLUME);
+    this.masterVolume = clampVolume(options.masterVolume ?? DEFAULT_MASTER_VOLUME);
     this.contextFactory = options.contextFactory ?? defaultAudioContextFactory;
   }
 
@@ -262,6 +269,7 @@ export class SoundEngine {
 
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
+    this.syncGain();
   }
 
   getVolume(): number {
@@ -270,11 +278,18 @@ export class SoundEngine {
 
   setVolume(volume: number): void {
     this.volume = clamp01(volume);
+    this.syncGain();
   }
 
   /** Sync with persisted user settings (respects `soundEnabled`). */
-  applySettings(settings: Pick<GameSettings, 'soundEnabled'>): void {
+  applySettings(settings: Pick<GameSettings, 'soundEnabled'> & Partial<Pick<GameSettings, 'masterVolume' | 'effectsVolume'>>): void {
+    if (settings.masterVolume !== undefined) this.masterVolume = clampVolume(settings.masterVolume);
+    if (settings.effectsVolume !== undefined) this.volume = clampVolume(settings.effectsVolume);
     this.setEnabled(settings.soundEnabled);
+  }
+
+  private syncGain(): void {
+    this.output?.gain.setValueAtTime(this.enabled ? effectiveGain(this.masterVolume, this.volume) : 0, this.context?.currentTime ?? 0);
   }
 
   /** True if an AudioContext exists or can be created. Never throws. */
@@ -288,6 +303,7 @@ export class SoundEngine {
     if (this.context && this.context.state === 'closed') {
       this.context = null;
       this.noiseBuffer = null;
+      this.output = null;
     }
     if (this.context) return this.context;
     if (this.contextUnavailable) return null;
@@ -308,7 +324,7 @@ export class SoundEngine {
     const ctx = this.getContext();
     if (!ctx) return false;
     try {
-      if (ctx.state === 'suspended' && ctx.resume) await ctx.resume();
+      if ((ctx.state === 'suspended' || ctx.state === 'interrupted') && ctx.resume) await ctx.resume();
       return ctx.state === 'running';
     } catch {
       return false;
@@ -319,6 +335,8 @@ export class SoundEngine {
   async dispose(): Promise<void> {
     const ctx = this.context;
     this.context = null;
+    this.output?.disconnect?.();
+    this.output = null;
     this.noiseBuffer = null;
     this.contextUnavailable = false;
     if (ctx?.close && ctx.state !== 'closed') {
@@ -337,18 +355,21 @@ export class SoundEngine {
    * muted, unsupported, unknown, or scheduling failed. Never throws.
    */
   play(name: SoundEffectName): boolean {
-    if (!this.enabled || this.volume <= 0 || !isSoundEffectName(name)) return false;
+    if (!this.enabled || effectiveGain(this.masterVolume, this.volume) <= 0 || !isSoundEffectName(name)) return false;
     const ctx = this.getContext();
     if (!ctx) return false;
 
     try {
-      if (ctx.state === 'suspended' && ctx.resume) {
+      if ((ctx.state === 'suspended' || ctx.state === 'interrupted') && ctx.resume) {
         ctx.resume().catch(() => undefined);
       }
       const t0 = ctx.currentTime;
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(this.volume, t0);
-      master.connect(ctx.destination);
+      if (!this.output) {
+        this.output = ctx.createGain();
+        this.output.connect(ctx.destination);
+      }
+      const master = this.output;
+      this.syncGain();
 
       for (const voice of SOUND_RECIPES[name]) {
         if (voice.kind === 'tone') this.scheduleTone(ctx, master, voice, t0);
@@ -408,6 +429,8 @@ export class SoundEngine {
     this.envelope(gain, voice.gain, start, voice.duration);
     osc.connect(gain);
     gain.connect(out);
+    // The output bus is persistent, so finished voices must leave it.
+    osc.onended = () => gain.disconnect?.();
     osc.start(start);
     osc.stop(start + voice.duration + 0.02);
   }
@@ -433,6 +456,7 @@ export class SoundEngine {
     this.envelope(gain, voice.gain, start, voice.duration);
     src.connect(gain);
     gain.connect(out);
+    src.onended = () => gain.disconnect?.();
     src.start(start);
     src.stop(start + voice.duration + 0.02);
   }

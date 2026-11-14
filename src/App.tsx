@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Box, FlaskConical, History, RotateCcw, Settings, Square, Volume2, VolumeX } from 'lucide-react';
-import { playSound, type SoundEffectName } from './audio';
+import { FlaskConical, History, RotateCcw, Settings, Volume2, VolumeX } from 'lucide-react';
+import { AudioQuickMute, backgroundMusic, soundEffects, playSound, type SoundEffectName } from './audio';
 import {
   clearGameHistory,
   deleteGameRecord,
@@ -29,7 +29,6 @@ import { DIFFICULTY_LABEL, tileText } from './ui/labels';
 import { releaseVersion } from './ui/release';
 import { tayKoinText } from './ui/components/points';
 import { getStorage, type StorageLike } from './storage';
-import { loadTableView, saveTableView, TABLE_VIEW_LABEL, type TableView } from './ui/table-view';
 
 type View = 'menu' | 'table';
 
@@ -50,8 +49,9 @@ export function saveOptionsOpen(open: boolean, storage?: StorageLike): void {
   try { (storage ?? getStorage()).setItem(OPTIONS_OPEN_KEY, open ? '1' : '0'); } catch { /* Keep the live choice. */ }
 }
 
-export function tableViewAppClass(view: View, tableView: TableView, optionsOpen: boolean): string {
-  return `app${view === 'table' ? ' is-table' : ' is-menu'}${tableView === 'flat' ? ' view-flat' : ''}${view === 'table' && !optionsOpen ? ' options-hidden' : ''}`;
+/** The table is always the flat, top-down view; the tilted 3D view was retired in v0.6.1. */
+export function appClass(view: View, optionsOpen: boolean): string {
+  return `app${view === 'table' ? ' is-table' : ' is-menu'} view-flat${view === 'table' && !optionsOpen ? ' options-hidden' : ''}`;
 }
 
 type ModalName = 'settings' | 'history' | null;
@@ -104,8 +104,6 @@ export function App() {
   const [resultOpen, setResultOpen] = useState(false);
   const [abandonOpen, setAbandonOpen] = useState(false);
   const [standingsOpen, setStandingsOpen] = useState(false);
-  const [tableView, setTableView] = useState<TableView>(loadTableView);
-  const changeTableView = (next: TableView) => { setTableView(next); saveTableView(next); };
   const [optionsOpen, setOptionsOpen] = useState(loadOptionsOpen);
   const changeOptionsOpen = useCallback((open: boolean) => {
     setOptionsOpen(open);
@@ -125,7 +123,48 @@ export function App() {
     if (!on) { setSandbox(null); setRevealOpponents(false); }
   };
 
-  // Sound effects follow the live "Suara" setting.
+  const [quickMute] = useState(() => new AudioQuickMute());
+  useEffect(() => {
+    backgroundMusic.applySettings(settings);
+    soundEffects.applySettings(settings);
+  }, [settings.soundEnabled, settings.musicEnabled, settings.musicVolume, settings.masterVolume, settings.effectsVolume]);
+  useEffect(() => {
+    let unlocked = false;
+    const unlock = () => {
+      if (document.hidden) return;
+      unlocked = true;
+      void backgroundMusic.start();
+      void soundEffects.unlock();
+    };
+    const visibility = () => {
+      backgroundMusic.setPaused(document.hidden);
+      if (!document.hidden && unlocked) void backgroundMusic.start();
+    };
+    document.addEventListener('pointerdown', unlock);
+    document.addEventListener('click', unlock);
+    document.addEventListener('keydown', unlock);
+    document.addEventListener('visibilitychange', visibility);
+    return () => {
+      document.removeEventListener('pointerdown', unlock);
+      document.removeEventListener('click', unlock);
+      document.removeEventListener('keydown', unlock);
+      document.removeEventListener('visibilitychange', visibility);
+      void backgroundMusic.dispose();
+    };
+  }, []);
+  const changeAudio = (patch: Partial<Pick<GameSettings, 'soundEnabled' | 'musicEnabled' | 'musicVolume' | 'masterVolume' | 'effectsVolume'>>, fromQuickMute = false) => {
+    // Only a real switch change drops the mute snapshot (Batalkan perubahan resends unchanged values).
+    if (!fromQuickMute && ((patch.soundEnabled ?? settings.soundEnabled) !== settings.soundEnabled
+      || (patch.musicEnabled ?? settings.musicEnabled) !== settings.musicEnabled)) quickMute.clear();
+    const stored = persistSettings(settings, patch);
+    backgroundMusic.applySettings(stored);
+    soundEffects.applySettings(stored);
+    soundRef.current = stored.soundEnabled;
+    setSettings(stored);
+    controller.setSettings(stored);
+  };
+
+  // Sound effects follow the live effects setting.
   const soundRef = useRef(settings.soundEnabled);
   soundRef.current = settings.soundEnabled;
   useEffect(
@@ -221,9 +260,7 @@ export function App() {
   };
 
   const toggleSound = () => {
-    const stored = persistSettings(settings, { soundEnabled: !settings.soundEnabled });
-    setSettings(stored);
-    controller.setSettings(stored);
+    changeAudio(quickMute.toggle(settings), true);
   };
 
   // Dev-only: `?demo=table|claim|hu|seri|dice|final[&win=ce_mo|buangan][&kong=1]` opens a seeded table state for reproducible screenshots.
@@ -234,9 +271,6 @@ export function App() {
     void import('./ui/dev-demo').then(({ demoFromUrl, driveDemo, stackDemoMelds, finishDemoMatch, restyleDemoWin, seriDemo, addDemoKongs, DEMO_OPENING_ROLL, DEMO_KONG_HAND }) => {
       const demo = demoFromUrl(window.location.search);
       if (!demo) return;
-      // `&view=flat|3d` previews a table view without changing the stored preference.
-      const previewView = new URLSearchParams(window.location.search).get('view');
-      if (previewView === 'flat' || previewView === '3d') setTableView(previewView);
       startPractice();
       setPaused(true);
       // The dice demo holds on the announcement; before the match exposes a roll it shows a sample.
@@ -261,7 +295,7 @@ export function App() {
 
   const pos = seatPositions(controller.humanSeat);
   return (
-    <div className={tableViewAppClass(view, tableView, optionsOpen)}>
+    <div className={appClass(view, optionsOpen)}>
       <header className="app-header" inert={dice !== null || undefined}>
         <div className="brand">
           <span className="brand-tile">金</span>
@@ -279,12 +313,8 @@ export function App() {
           <button type="button" className="icon-btn" onClick={() => setModal('history')} title="Riwayat Permainan">
             <History size={18} />
           </button>
-          {view === 'table' && <button type="button" className="icon-btn" aria-pressed={tableView === 'flat'} onClick={() => changeTableView(tableView === '3d' ? 'flat' : '3d')}
-            title={`Tampilan meja: ${TABLE_VIEW_LABEL[tableView]} — ganti ke ${TABLE_VIEW_LABEL[tableView === '3d' ? 'flat' : '3d']}`} aria-label={`Tampilan meja: ${TABLE_VIEW_LABEL[tableView]}`}>
-            {tableView === '3d' ? <Box size={18} /> : <Square size={18} />}
-          </button>}
-          <button type="button" className="icon-btn" onClick={toggleSound} title={settings.soundEnabled ? 'Matikan suara' : 'Nyalakan suara'}>
-            {settings.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          <button type="button" className="icon-btn" onClick={toggleSound} aria-label={settings.soundEnabled || settings.musicEnabled ? 'Bisukan semua audio' : 'Pulihkan pilihan audio'} title={settings.soundEnabled || settings.musicEnabled ? 'Bisukan semua audio' : 'Pulihkan pilihan audio'}>
+            {settings.soundEnabled || settings.musicEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
           <button type="button" className="icon-btn" onClick={() => setModal('settings')} title="Pengaturan">
             <Settings size={18} />
@@ -344,7 +374,7 @@ export function App() {
       {view === 'table' && standingsOpen && controller.match && !modal && <MatchStandingsModal match={controller.match} onPlayAgain={startPractice} onMenu={newGame} />}
       {view === 'table' && dice && <DiceRoll key={JSON.stringify(dice.roll)} roll={dice.roll} humanSeat={controller.humanSeat} onDone={() => setDice(null)} />}
       {abandonOpen && <AbandonMatchDialog onStay={() => setAbandonOpen(false)} onLeave={newGame} />}
-      {modal === 'settings' && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setModal(null)} tableView={tableView} onTableViewChange={changeTableView} devMode={devMode} onDevModeChange={changeDevMode} />}
+      {modal === 'settings' && <SettingsModal settings={settings} onAudioChange={changeAudio} onSave={saveSettings} onClose={() => setModal(null)} devMode={devMode} onDevModeChange={changeDevMode} />}
       {sandbox && <HandSandbox key={sandbox.initial ? 'outcome' : 'blank'} settings={settings} initial={sandbox.initial} onClose={() => setSandbox(null)} />}
       {modal === 'history' && (
         <HistoryModal

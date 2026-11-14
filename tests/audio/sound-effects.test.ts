@@ -253,8 +253,18 @@ describe('Audio: synthesis with a mock AudioContext', () => {
     const engine = engineWith(mock, { volume: 0.4 });
     engine.play('pung');
     const master = mock.gains[0]!;
-    expect(master.gain.setValueAtTime).toHaveBeenCalledWith(0.4, 10);
+    expect(master.gain.setValueAtTime).toHaveBeenCalledWith(0.4 ** 2, 10);
     expect(master.connect).toHaveBeenCalledWith(mock.destination);
+  });
+
+  it('detaches each voice gain from the shared bus when its source ends', () => {
+    const mock = createMockContext();
+    engineWith(mock).play('discard');
+    const voices = mock.gains.slice(1) as Array<{ disconnect?: () => void }>;
+    for (const v of voices) v.disconnect = vi.fn();
+    for (const node of [...mock.oscillators, ...mock.sources] as Array<{ onended?: () => void }>) node.onended?.();
+    expect(voices.length).toBeGreaterThan(0);
+    expect(voices.every((v) => (v.disconnect as ReturnType<typeof vi.fn>).mock.calls.length === 1)).toBe(true);
   });
 
   it('applies recipe waveforms, frequencies and pitch sweeps', () => {
@@ -351,6 +361,19 @@ describe('Audio: enable / volume / settings', () => {
     expect(factory).not.toHaveBeenCalled();
   });
 
+  it('applies master and effects curves to new and already playing effects', () => {
+    const mock = createMockContext();
+    const engine = engineWith(mock);
+    engine.play('hu');
+    expect(mock.gains[0]!.gain.setValueAtTime.mock.lastCall![0]).toBeCloseTo(0.16);
+    engine.applySettings({ soundEnabled: true, masterVolume: 0.5, effectsVolume: 0.4 });
+    expect(mock.gains[0]!.gain.setValueAtTime.mock.lastCall![0]).toBeCloseTo(0.04);
+    engine.applySettings({ soundEnabled: false, masterVolume: 0.5, effectsVolume: 0.4 });
+    expect(mock.gains[0]!.gain.setValueAtTime).toHaveBeenLastCalledWith(0, 10);
+    engine.applySettings({ soundEnabled: true, masterVolume: 0, effectsVolume: 1 });
+    expect(engine.play('discard')).toBe(false);
+  });
+
   it('clamps volume to [0, 1] and treats 0 as muted', () => {
     const mock = createMockContext();
     const engine = engineWith(mock);
@@ -376,12 +399,12 @@ describe('Audio: enable / volume / settings', () => {
 });
 
 describe('Audio: context lifecycle', () => {
-  it('resumes a suspended context on play and via unlock()', async () => {
-    const mock = createMockContext('suspended');
+  it.each(['suspended', 'interrupted'])('resumes a %s context on play and via unlock()', async (state) => {
+    const mock = createMockContext(state);
     const engine = engineWith(mock);
     expect(engine.play('draw')).toBe(true);
     expect(mock.ctx.resume).toHaveBeenCalled();
-    mock.ctx.state = 'suspended';
+    mock.ctx.state = state;
     await expect(engine.unlock()).resolves.toBe(true);
     expect(mock.ctx.state).toBe('running');
   });
@@ -399,6 +422,7 @@ describe('Audio: context lifecycle', () => {
     expect(engine.play('draw')).toBe(true);
     expect(factory).toHaveBeenCalledTimes(2);
     expect(second.oscillators.length).toBeGreaterThan(0);
+    expect(second.gains[0]!.connect).toHaveBeenCalledWith(second.destination);
   });
 
   it('dispose() closes the context and is idempotent', async () => {

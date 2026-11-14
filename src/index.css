@@ -2454,6 +2454,16 @@ select {
   .table-felt :is(.seat-left, .seat-right) .seat-sets .tile { --w: 18px; --h: 24px; }
 }
 
+/* Tablets between the phone step and the wide table. */
+@media (min-width: 561px) and (max-width: 900px) {
+  /* Side seats keep room for their sets strip beside the tile backs. */
+  .app .table-felt { grid-template-columns: minmax(64px, max-content) minmax(0, 1fr) minmax(64px, max-content); }
+  /* Fourteen tiles plus the drawn gap fit the row. */
+  .table-felt .hand-row > .tile { --w: min(52px, calc((100vw - 70px) / 16.8)); --h: calc(var(--w) * 1.36); }
+  /* Small side sets keep the pool wide; the top wind label moves right so the SISA tab never covers it. */
+  .table-felt :is(.seat-left, .seat-right) .seat-sets .tile { --w: 18px; --h: 24px; }
+  .felt-top { left: auto; right: 6px; transform: none; }
+}
 /* Tablets and phones: a flatter, stacked table that scrolls vertically only. */
 @media (max-width: 900px) {
   :root { --felt-tilt: 14deg; --board-tilt: 26deg; }

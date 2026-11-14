@@ -1,3 +1,4 @@
+import { DEFAULT_MASTER_VOLUME, DEFAULT_EFFECTS_VOLUME } from '../audio/volume';
 import { deriveRoundScore, type RoundScore, type KongPayment, gameDeltas, migrateKongPayments } from '../core/round-score';
 import type { KimMode as WallKimMode } from '../core/types';
 // ============================================================================
@@ -74,6 +75,11 @@ export interface GameSettings {
   aiDifficulty: AIDifficulty;
   animationSpeed: AnimationSpeed;
   soundEnabled: boolean;
+  musicEnabled: boolean;
+  /** Perceptual 0..1 sliders; each gain is squared before mixing. */
+  masterVolume: number;
+  effectsVolume: number;
+  musicVolume: number;
 }
 
 export type WinMethod = 'tsumo' | 'ron' | 'chiong_kong' | 'draw';
@@ -209,6 +215,10 @@ export const TOURNAMENT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   aiDifficulty: 'normal',
   animationSpeed: 'normal',
   soundEnabled: true,
+  musicEnabled: true,
+  musicVolume: 0.5,
+  masterVolume: DEFAULT_MASTER_VOLUME,
+  effectsVolume: DEFAULT_EFFECTS_VOLUME,
 });
 
 /** Relaxed casual rules (Kim meld claims permitted, patterns stack). */
@@ -225,6 +235,10 @@ export const CASUAL_SETTINGS: Readonly<GameSettings> = Object.freeze({
   aiDifficulty: 'easy',
   animationSpeed: 'normal',
   soundEnabled: true,
+  musicEnabled: true,
+  musicVolume: 0.5,
+  masterVolume: DEFAULT_MASTER_VOLUME,
+  effectsVolume: DEFAULT_EFFECTS_VOLUME,
 });
 
 /** The user's house choices (not PDF text): column from the match Kim choice, player-confirmed PDF bonus tiles. */
@@ -400,6 +414,10 @@ export function sanitizeSettings(
     aiDifficulty: pickEnum(src.aiDifficulty, AI_DIFFICULTIES, base.aiDifficulty),
     animationSpeed: pickEnum(src.animationSpeed, ANIMATION_SPEEDS, base.animationSpeed),
     soundEnabled: pickBool(src.soundEnabled, base.soundEnabled),
+    musicEnabled: pickBool(src.musicEnabled, base.musicEnabled),
+    masterVolume: isFiniteNumber(src.masterVolume) ? Math.max(0, Math.min(1, src.masterVolume)) : base.masterVolume,
+    effectsVolume: isFiniteNumber(src.effectsVolume) ? Math.max(0, Math.min(1, src.effectsVolume)) : base.effectsVolume,
+    musicVolume: isFiniteNumber(src.musicVolume) ? Math.max(0, Math.min(1, src.musicVolume)) : base.musicVolume,
   };
 }
 
@@ -510,6 +528,10 @@ export function applyPreset(
           aiDifficulty: current.aiDifficulty,
           animationSpeed: current.animationSpeed,
           soundEnabled: current.soundEnabled,
+          musicEnabled: current.musicEnabled,
+          musicVolume: current.musicVolume,
+          masterVolume: current.masterVolume,
+          effectsVolume: current.effectsVolume,
         };
       })()
     : preset;
