@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { RotateCcw, Save } from 'lucide-react';
 import {
   getPreset,
@@ -6,17 +6,15 @@ import {
   type GameSettings,
   type SettingsPresetName,
 } from '../../storage';
+import { soundEffects } from '../../audio';
 import { DIFFICULTY_LABEL } from '../labels';
-import { TABLE_VIEW_LABEL, type TableView } from '../table-view';
 import { Modal } from './Modal';
 
 interface SettingsModalProps {
   settings: GameSettings;
   onSave: (settings: GameSettings) => void;
   onClose: () => void;
-  /** Table view applies at once (a device preference, not part of the saved settings). */
-  tableView?: TableView;
-  onTableViewChange?: (view: TableView) => void;
+  onAudioChange?: (patch: Partial<Pick<GameSettings, 'soundEnabled' | 'musicEnabled' | 'musicVolume' | 'masterVolume' | 'effectsVolume'>>) => void;
   /** Developer mode applies at once too (device preference, see src/dev). */
   devMode?: boolean;
   onDevModeChange?: (on: boolean) => void;
@@ -29,6 +27,10 @@ export function withPreset(current: GameSettings, name: SettingsPresetName): Gam
     aiDifficulty: current.aiDifficulty,
     animationSpeed: current.animationSpeed,
     soundEnabled: current.soundEnabled,
+    musicEnabled: current.musicEnabled,
+    musicVolume: current.musicVolume,
+    masterVolume: current.masterVolume,
+    effectsVolume: current.effectsVolume,
     roundWind: current.roundWind,
     startingSeatWind: current.startingSeatWind,
   };
@@ -46,9 +48,23 @@ function Toggle({ label, hint, checked, disabled, onChange }: { label: string; h
   );
 }
 
-export function SettingsModal({ settings, onSave, onClose, tableView = '3d', onTableViewChange, devMode = false, onDevModeChange }: SettingsModalProps) {
+export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMode = false, onDevModeChange }: SettingsModalProps) {
+  const [initialAudio] = useState(() => ({
+    soundEnabled: settings.soundEnabled, musicEnabled: settings.musicEnabled,
+    musicVolume: settings.musicVolume, masterVolume: settings.masterVolume, effectsVolume: settings.effectsVolume,
+  }));
+  const lastSample = useRef(-Infinity);
   const [draft, setDraft] = useState<GameSettings>({ ...settings });
   const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => setDraft((d) => ({ ...d, [key]: value }));
+
+  const setAudio = <K extends 'soundEnabled' | 'musicEnabled' | 'musicVolume' | 'masterVolume' | 'effectsVolume'>(key: K, value: GameSettings[K]) => {
+    set(key, value);
+    onAudioChange?.({ [key]: value });
+    if (key === 'effectsVolume' && onAudioChange && performance.now() - lastSample.current >= 150) {
+      lastSample.current = performance.now();
+      soundEffects.playTileDiscard();
+    }
+  };
 
   return (
     <Modal
@@ -56,7 +72,7 @@ export function SettingsModal({ settings, onSave, onClose, tableView = '3d', onT
       onClose={onClose}
       footer={
         <>
-          <button type="button" className="btn" onClick={() => setDraft({ ...settings })}>
+          <button type="button" className="btn" onClick={() => { setDraft({ ...settings, ...initialAudio }); onAudioChange?.(initialAudio); }}>
             <RotateCcw size={14} /> Batalkan perubahan
           </button>
           <button type="button" className="btn btn-primary" onClick={() => onSave(draft)}>
@@ -79,19 +95,26 @@ export function SettingsModal({ settings, onSave, onClose, tableView = '3d', onT
               ))}
             </div>
           </div>
-          <div className="field">
-            <span>Tampilan meja</span>
-            <div className="segmented" role="group" aria-label="Tampilan meja">
-              {(['3d', 'flat'] as TableView[]).map((v) => (
-                <button key={v} type="button" className={tableView === v ? 'is-on' : ''} aria-pressed={tableView === v} onClick={() => onTableViewChange?.(v)}>
-                  {TABLE_VIEW_LABEL[v]}
-                </button>
-              ))}
-            </div>
-          </div>
           <Toggle label={`Animasi tile: ${draft.animationSpeed === 'off' ? 'mati' : 'aktif'}`}
             checked={draft.animationSpeed !== 'off'} onChange={enabled => set('animationSpeed', enabled ? 'slow' : 'off')} />
-          <Toggle label="Suara" checked={draft.soundEnabled} onChange={(v) => set('soundEnabled', v)} />
+        </section>
+        <section>
+          <h3>Suara</h3>
+          <label className="field">
+            <span>Volume utama: {Math.round(draft.masterVolume * 100)}%</span>
+            <input type="range" aria-label="Volume utama" min="0" max="100" step="1" value={Math.round(draft.masterVolume * 100)} onChange={(e) => setAudio('masterVolume', Number(e.target.value) / 100)} />
+          </label>
+          <Toggle label="Musik latar" checked={draft.musicEnabled} onChange={(v) => setAudio('musicEnabled', v)} />
+          <label className="field">
+            <span>Volume musik: {Math.round(draft.musicVolume * 100)}%</span>
+            <input type="range" aria-label="Volume musik" min="0" max="100" step="1" value={Math.round(draft.musicVolume * 100)} onChange={(e) => setAudio('musicVolume', Number(e.target.value) / 100)} />
+          </label>
+          <Toggle label="Efek suara" checked={draft.soundEnabled} onChange={(v) => setAudio('soundEnabled', v)} />
+          <label className="field">
+            <span>Volume efek: {Math.round(draft.effectsVolume * 100)}%</span>
+            <input type="range" aria-label="Volume efek" min="0" max="100" step="1" value={Math.round(draft.effectsVolume * 100)} onChange={(e) => setAudio('effectsVolume', Number(e.target.value) / 100)} />
+          </label>
+          <p className="field-note">Audio langsung diterapkan dan disimpan.</p>
         </section>
         {onDevModeChange && <section className="dev-settings">
           <h3>Developer</h3>

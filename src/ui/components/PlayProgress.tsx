@@ -61,7 +61,7 @@ export function PlayProgress({ controller, paused, blocked, pace, onPaceChange, 
           aria-label="Sembunyikan panel OPTION"
           onClick={() => onOptionsOpenChange(false)}
         >
-          <span aria-hidden="true">▼</span>
+          <span className="options-close-mark" aria-hidden="true">▶</span>
         </button>
       </header>
       <div className="options-panel-body">

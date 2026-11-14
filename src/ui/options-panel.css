@@ -11,8 +11,11 @@
   --hud-rail: 38px;
 }
 
-.app.is-table.options-hidden .table-felt {
-  grid-template-columns: minmax(110px, 0.75fr) minmax(0, 3fr) minmax(110px, 0.75fr) var(--hud-rail);
+/* Wide table only: at 900px and below the side column sits under the felt. */
+@media (min-width: 901px) {
+  .app.is-table.options-hidden .table-felt {
+    grid-template-columns: minmax(110px, 0.75fr) minmax(0, 3fr) minmax(110px, 0.75fr) var(--hud-rail);
+  }
 }
 
 /* The class sets display, which would otherwise beat the [hidden] attribute. */
@@ -168,9 +171,9 @@
   outline-offset: 2px;
 }
 
-/* Phone: the side column already sits under the felt (default hidden), so the tab becomes a plain
+/* 900px and below: the side column sits under the felt (default hidden), so the tab becomes a plain
    bar under TableInfo and the panel opens in place, never over the table. */
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .app.is-table .options-tab {
     flex: none;
     flex-direction: row;
@@ -183,18 +186,11 @@
     transform: none;
   }
 
-  .app.is-table .options-tab-mark {
+  /* The panel folds up and down under the table here, so the arrows turn with it. */
+  .app.is-table .options-tab-mark,
+  .app.is-table .options-close-mark {
+    display: inline-block;
     transform: rotate(-90deg);
-  }
-}
-
-@media (max-width: 900px) {
-  .app.is-table.options-hidden .table-felt {
-    grid-template-columns: 64px minmax(0, 1fr) 64px;
-  }
-
-  .app.is-table:not(.options-hidden) .table-felt {
-    grid-template-columns: 64px minmax(0, 1fr) 64px;
   }
 }
 
@@ -202,4 +198,17 @@
   .app.is-table.options-hidden {
     --hud-rail: 38px;
   }
+}
+
+/* Narrow side column: the scoreboard wraps names instead of cutting off its number columns. */
+.options-panel .match-scores {
+  width: 100%;
+}
+
+.options-panel .match-scores :is(th, td) {
+  padding: 3px 4px;
+}
+
+.options-panel .match-scores tbody th {
+  white-space: normal;
 }

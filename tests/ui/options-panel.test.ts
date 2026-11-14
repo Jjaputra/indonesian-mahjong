@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { MemoryStorage, getPreset } from '@/storage';
-import App, { OPTIONS_OPEN_KEY, loadOptionsOpen, saveOptionsOpen, tableViewAppClass } from '@/App';
+import App, { OPTIONS_OPEN_KEY, loadOptionsOpen, saveOptionsOpen, appClass } from '@/App';
 import { PlayProgress } from '@/ui/components/PlayProgress';
 import { GameController } from '@/ui/game-controller';
 
@@ -44,9 +44,9 @@ describe('options panel', () => {
   });
 
   it('adds options-hidden on the table shell when the panel is closed', () => {
-    expect(tableViewAppClass('table', 'flat', false)).toContain('options-hidden');
-    expect(tableViewAppClass('table', 'flat', true)).not.toContain('options-hidden');
-    expect(tableViewAppClass('menu', 'flat', false)).not.toContain('options-hidden');
+    expect(appClass('table', false)).toContain('options-hidden');
+    expect(appClass('table', true)).not.toContain('options-hidden');
+    expect(appClass('menu', false)).not.toContain('options-hidden');
   });
 
   it('keeps TableInfo visible while collapsed and exposes toggle buttons', () => {

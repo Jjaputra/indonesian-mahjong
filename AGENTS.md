@@ -29,7 +29,7 @@ Don't bring in other variants (Fuzhou "gold", Riichi, ...). `RULES.md` is the im
 | Notes, briefs and reference images | `.agents/` |
 | Requests not scheduled yet | `BACKLOG.md` |
 
-Dev preview: `npx vite --port 5199 --strictPort`. Then open `?demo=table|late|claim|hu|seri|dice|melds|final` (add `&view=flat`) to see a fixed table state.
+Dev preview: `npx vite --port 5199 --strictPort`. Then open `?demo=table|late|claim|hu|seri|dice|melds|final` to see a fixed table state.
 
 ## Checks
 
