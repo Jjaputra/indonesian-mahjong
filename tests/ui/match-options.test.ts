@@ -66,11 +66,11 @@ describe('v0.4.2 match options', () => {
     expect(standings(m).map(r => r.reachedAt)).toEqual([5, 5, 5, 5]);
   });
   it('re-rolls only tied highest chairs and retains every round', () => {
-    const values = [5, 5, 2, 2, 5, 5, 0, 0, 0, 1, 3, 3].map(n => n / 6);
+    const values = [5, 5, 5, 2, 2, 2, 5, 5, 5, 0, 0, 0, 0, 1, 2, 3, 3, 3].map(n => n / 6);
     const roll = rollOpeningDealer(() => values.shift()!);
     expect(roll).toEqual({ rounds: [
-      [{ seat: 'dong', dice: [6, 6] }, { seat: 'nan', dice: [3, 3] }, { seat: 'xi', dice: [6, 6] }, { seat: 'bei', dice: [1, 1] }],
-      [{ seat: 'dong', dice: [1, 2] }, { seat: 'xi', dice: [4, 4] }],
+      [{ seat: 'dong', dice: [6, 6, 6] }, { seat: 'nan', dice: [3, 3, 3] }, { seat: 'xi', dice: [6, 6, 6] }, { seat: 'bei', dice: [1, 1, 1] }],
+      [{ seat: 'dong', dice: [1, 2, 3] }, { seat: 'xi', dice: [4, 4, 4] }],
     ], dealer: 'xi' });
   });
   it('opening dice are deterministic and a bot dealer receives Timur and 14 tiles', () => {

@@ -15,8 +15,8 @@ export type DemoMode = 'table' | 'late' | 'claim' | 'hu' | 'seri' | 'dice' | 'me
 /** Sample opening roll with one tie re-roll, for `?demo=dice` before a match exposes its own. */
 export const DEMO_OPENING_ROLL: OpeningRoll = {
   rounds: [
-    [{ seat: 'dong', dice: [5, 4] }, { seat: 'nan', dice: [6, 3] }, { seat: 'xi', dice: [2, 2] }, { seat: 'bei', dice: [1, 6] }],
-    [{ seat: 'dong', dice: [3, 2] }, { seat: 'nan', dice: [6, 5] }],
+    [{ seat: 'dong', dice: [5, 4, 3] }, { seat: 'nan', dice: [6, 3, 3] }, { seat: 'xi', dice: [2, 2, 2] }, { seat: 'bei', dice: [1, 6, 2] }],
+    [{ seat: 'dong', dice: [3, 2, 1] }, { seat: 'nan', dice: [6, 5, 4] }],
   ],
   dealer: 'nan',
 };

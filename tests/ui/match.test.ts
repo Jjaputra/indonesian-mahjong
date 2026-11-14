@@ -408,6 +408,8 @@ describe('match review regressions', () => {
   it('a dealer on another chair receives Thien Fu on the untouched deal, for AI and human', () => {
     const c = new GameController({ settings: settings({ kimMode: 'off', kimEnabled: false, startingSeatWind: 'nan' }), humanSeat: 'nan', seed: 10, saveHistory: false, autoStart: false });
     c.startMatch();
+    c.match!.seating.dealer = 'nan';
+    c.newGame();
     const s = mutable(c);
     s.players.nan.hand = parseTileHand('1T 2T 3T 4T 5T 6T 7B 8B 9B 2S 3S 4S 9T 9T');
     s.players.nan.melds = []; s.players.nan.flowers = [];

@@ -45,7 +45,29 @@ function WindBadges({ seat, controller }: { seat: Seat; controller: GameControll
 function FlowerRack({ tiles, seat }: { tiles: readonly Tile[]; seat: Seat }) {
   if (!tiles.length) return <span className="rack-empty">Belum ada Bunga / Musim</span>;
   const ownNumber = ['dong', 'nan', 'xi', 'bei'].indexOf(seat) + 1;
-  return <span className="bonus-rack"><TileRow tiles={tiles} size="sm" /><small>Nomor sendiri: {ownNumber}</small></span>;
+  return <span className="bonus-rack" title={`Nomor sendiri: ${ownNumber}`}><TileRow tiles={tiles} size="sm" /><small>Nomor sendiri: {ownNumber}</small></span>;
+}
+
+/** Wind names painted on the discard frame's edges. */
+const FRAME_WIND: Record<Seat, [glyph: string, name: string]> = { dong: ['东', 'Dōng - EAST'], nan: ['南', 'Nán - SOUTH'], xi: ['西', 'Xī - WEST'], bei: ['北', 'Běi - NORTH'] };
+
+/** Revealed sets, then bunga / musim: one row (a column for the side seats) between a hand and the pool. */
+function SeatSets({ seat, controller, size, head }: { seat: Seat; controller: GameController; size?: 'md'; head?: ReactNode }) {
+  const s = controller.getState();
+  const p = s.players[seat];
+  return (
+    <div className="seat-sets">
+      {head}
+      <div data-meld-anchor={seat} className="melds">
+        {p.melds.map((m, i) => (
+          <MeldView key={i} meld={m} size={size} owner={seat} />
+        ))}
+      </div>
+      <span className="rack">
+        <FlowerRack tiles={p.flowers} seat={seatWindOf(s, seat)} />
+      </span>
+    </div>
+  );
 }
 
 /** `reveal` (developer mode, display only) shows the concealed tiles face-up. */
@@ -67,14 +89,7 @@ export function OpponentPanel({ seat, position, controller, reveal }: { seat: Se
         ))}
         <span className="count">{p.hand.length}</span>
       </div>
-      <div data-meld-anchor={seat} className="melds">
-        {p.melds.map((m, i) => (
-          <MeldView key={i} meld={m} owner={seat} />
-        ))}
-      </div>
-      <div className="rack">
-        <Flower2 size={12} /> <FlowerRack tiles={p.flowers} seat={seatWindOf(s, seat)} />
-      </div>
+      <SeatSets seat={seat} controller={controller} />
     </section>
   );
 }
@@ -94,7 +109,7 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
   useLayoutEffect(() => {
     const pool = poolRef.current;
     if (!pool) return;
-    // Late in a hand the pool outgrows the felt: shrink every discard until all of them fit.
+    // Tiles take the frame width / --pool-cols; late in a hand, when rows run out, shrink them until all fit.
     const fit = () => {
       let scale = 1;
       pool.style.setProperty('--pool-scale', '1');
@@ -113,27 +128,29 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
     <>
     <section className="center-area" aria-label="Area buangan">
       <div className="board-plane">
-        {(Object.entries(positions) as ['bottom' | 'right' | 'top' | 'left', Seat][]).map(([position, seat]) => {
-          const wind = seatWindOf(s, seat);
-          return (
-            <span key={position} className={`felt-wind felt-${position}${s.currentTurn === seat ? ' is-turn' : ''}`} aria-hidden="true">
-              {SEAT_SHORT[wind]} <b>{WIND_GLYPH[wind]}</b>{s.dealerSeat === seat && <small> · Dealer</small>}
-            </span>
-          );
-        })}
-        <div ref={poolRef} className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
-          {trail.length === 0 && !pending && <span className="muted">Belum ada buangan.</span>}
-          {trail.map((d, i) => (
-            <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d.tile.id === freshId ? ' is-fresh' : ''}`} data-from={source(d.seat)} data-seat={d.seat} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
-              <TileView tile={d.tile} size="sm" highlight={d.tile.id === freshId} />
-            </span>
-          ))}
+        <div className="pool-frame">
+          {/* No wall on the felt: this tab is also where a draw's tile flies from. */}
+          <p data-wall-anchor="" className={`wall-counter${left <= 20 ? ' is-low' : ''}`} aria-label={`Sisa ${left} tile di tembok`}>
+            SISA: <b>{left}</b> TILES
+          </p>
+          {(Object.entries(positions) as ['bottom' | 'right' | 'top' | 'left', Seat][]).map(([position, seat]) => {
+            const wind = seatWindOf(s, seat);
+            return (
+              <span key={position} className={`felt-wind felt-${position}${s.currentTurn === seat ? ' is-turn' : ''}`} aria-hidden="true">
+                <b>{FRAME_WIND[wind][0]}</b> {FRAME_WIND[wind][1]}{s.dealerSeat === seat && <small> · Dealer</small>}
+              </span>
+            );
+          })}
+          <div ref={poolRef} className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
+            {trail.length === 0 && !pending && <span className="muted">Belum ada buangan.</span>}
+            {trail.map((d, i) => (
+              <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d.tile.id === freshId ? ' is-fresh' : ''}`} data-from={source(d.seat)} data-seat={d.seat} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
+                <TileView tile={d.tile} size="sm" highlight={d.tile.id === freshId} />
+              </span>
+            ))}
+          </div>
         </div>
       </div>
-      {/* No wall on the felt: this counter is also where a draw's tile flies from. */}
-      <p data-wall-anchor="" className={`wall-counter${left <= 20 ? ' is-low' : ''}`} aria-label={`Sisa ${left} tile di tembok`}>
-        Sisa <b>{left}</b> tile
-      </p>
       {pending && (
         <div key={pending.tile.id} className="pending-discard" data-pending-discard="" data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${PLAYER_NAME[pending.discarder]} ke area buangan tengah`}>
           <span>
@@ -145,8 +162,7 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
       {won && <p className={`hu-burst${won.scoring.isValidHu ? '' : ' is-lew-fit'}`} role="status">{won.scoring.isValidHu ? 'HU' : 'LEW FIT'}<small>{PLAYER_NAME[won.winner]}</small></p>}
     </section>
     <aside className="table-hud" aria-label="Info meja">
-      <TableMotion controller={controller} />
-      {progress}
+      {progress ?? <TableMotion controller={controller} />}
     </aside>
     </>
   );
@@ -197,18 +213,12 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
     <section className={`human-area${active ? ' is-active' : ''}`} data-seat-panel={seat} aria-label="Tangan Anda">
       {hud}
       {coach && <div className="coach-slot">{coach}</div>}
-      <div className="seat-head">
-        <strong>{PLAYER_NAME[seat]}</strong>
-        <WindBadges seat={seat} controller={controller} />
-        <span className="rack">
-          <Flower2 size={12} /> <FlowerRack tiles={p.flowers} seat={seatWindOf(s, seat)} />
-        </span>
-      </div>
-      <div data-meld-anchor={seat} className="melds">
-        {p.melds.map((m, i) => (
-          <MeldView key={i} meld={m} size="md" owner={seat} />
-        ))}
-      </div>
+      <SeatSets seat={seat} controller={controller} size="md" head={
+        <div className="seat-head">
+          <strong>{PLAYER_NAME[seat]}</strong>
+          <WindBadges seat={seat} controller={controller} />
+        </div>
+      } />
       <div data-hand-anchor={seat} className="hand-row" role="group" aria-label="Tile di tangan">
         {rest.map((t) => tileButton(t, false))}
         {drawn && <span className="drawn-gap" />}

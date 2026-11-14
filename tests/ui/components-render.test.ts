@@ -85,19 +85,20 @@ describe('UI render smoke tests', () => {
     expect(html).not.toContain('wall-stack');
     expect(html).toContain('Selatan');
     expect(html).toContain('Timur');
-    expect(html).toContain(`Sisa <b>${c.remainingDrawable}</b> tile`);
+    expect(html).toContain(`SISA: <b>${c.remainingDrawable}</b> TILES`);
     expect((html.match(/tile-lg/g) ?? []).length).toBe(c.getState().players.dong.hand.length);
   });
 
-  it('opening dice overlay rolls two dice per seat from the match roll and can be skipped', () => {
+  it('opening dice overlay shows three still dice per seat and waits for Lempar', () => {
     const c = new GameController({ settings: settings(), autoStart: false, seed: 5, saveHistory: false });
     c.startMatch();
     const roll = openingRollOf(c.match)!;
     expect(roll.rounds[0]).toHaveLength(4);
     const html = renderToString(createElement(DiceRoll, { roll, humanSeat: c.humanSeat, onDone: noop }));
-    expect((html.match(/class="die is-rolling"/g) ?? []).length).toBe(8);
+    expect((html.match(/class="die"/g) ?? []).length).toBe(12);
+    expect(html).not.toContain("is-rolling");
     expect(html).toContain('Lempar dadu: angka tertinggi jadi dealer');
-    expect(html).toContain('Lewati');
+    expect(html).toContain('Lempar dadu</button>');
     for (const name of ['Anda', 'Bot Kanan', 'Bot Seberang', 'Bot Kiri']) expect(html).toContain(name);
   });
 
