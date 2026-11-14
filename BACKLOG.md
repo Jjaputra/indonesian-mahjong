@@ -2,18 +2,13 @@
 
 Player requests noted for later. Not scheduled yet.
 
-## Visual (players, 2026-11-14)
+## Done in v0.6.0 (2026-11-14)
 
-1. **Bigger discards.** The central discards are too small to read. v0.5.10 shrinks them so a long hand fits; the next layout should keep them readable instead (see item 2).
-2. **Table layout like the mockup.** Each player's Pung/Jia/Kong and bunga/musim sit in a row above their own hand rather than beside it. The discards fill a framed rectangle in fixed rows with "SISA: n TILES" on its corner, and the wind names (西 Xī - WEST, ...) are printed along its edges. Rows hold 17 tiles with the options panel open and 20 when it is hidden.
-3. **Bot difficulty on the main menu.** Show the bot difficulty setting on the front menu instead of only in Settings.
-4. **Collapsible side panel.** Tabel Total Poin, tempo, activity and the other side cards fold into one "OPTION" tab on the right edge that can be hidden or shown. When it is hidden the table uses the full width.
-
-## Dice (players, 2026-11-14; low priority)
-
-- Use **3 dice** (totals up to 18), as the group plays at the table.
-- Don't roll automatically when a hand ends with a win. Pause on the result, and roll only after the players press OK.
-- Context: "cuma pagede-gede aja", since the app has no wall from which to take the Kim and bunga.
+- Bigger discards in a framed rectangle, 17 per row (20 with OPTION hidden), "SISA: n TILES", wind labels on the edges.
+- Each seat's Pung/Jia/Kong and bunga/musim in one strip between its hidden tiles and the discards.
+- Bot difficulty chosen on the main menu.
+- Collapsible OPTION panel (TableInfo stays visible).
+- Three dice; never auto-roll; "Lempar dadu" then "OK, mulai main"; the dealer rolls at the start of each next hand.
 
 ## Bigger items
 

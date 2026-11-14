@@ -1,8 +1,10 @@
-import { createElement } from 'react';
+import { createElement, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { AIDifficulty } from '@/storage';
+import { DIFFICULTY_LABEL } from '@/ui/labels';
 import { AbandonMatchDialog } from '@/ui/components/AbandonMatchDialog';
-import { MainMenu } from '@/ui/components/MainMenu';
+import { DIFFICULTY_NOTE, MainMenu } from '@/ui/components/MainMenu';
 
 const noop = () => undefined;
 
@@ -58,7 +60,79 @@ describe('MainMenu', () => {
     expect(off).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Tanpa Kim</button>');
   });
 
+  it('renders bot difficulty choices with label, options, and one-line note', () => {
+    const html = renderToStaticMarkup(createElement(MainMenu, {
+      difficulty: 'normal',
+      onDifficultyChange: noop,
+      lastResult: null,
+      onPractice: noop,
+    }));
+    expect(html).toContain('role="radiogroup" aria-label="Tingkat kesulitan bot"');
+    expect(html).toContain('<button type="button" role="radio" aria-checked="false">Mudah</button>');
+    expect(html).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Normal</button>');
+    expect(html).toContain('<button type="button" role="radio" aria-checked="false">Sulit</button>');
+    expect(html).toContain(DIFFICULTY_NOTE.normal);
+    expect(html).toContain('Tiga bot · Normal · 16 game');
+  });
 
+  it('omits bot difficulty choice if onDifficultyChange is not provided', () => {
+    const html = renderToStaticMarkup(createElement(MainMenu, {
+      difficulty: 'normal',
+      lastResult: null,
+      onPractice: noop,
+    }));
+    expect(html).not.toContain('aria-label="Tingkat kesulitan bot"');
+  });
+
+  it('renders correct note and summary line for each difficulty level', () => {
+    for (const level of ['easy', 'normal', 'hard'] as const) {
+      const html = renderToStaticMarkup(createElement(MainMenu, {
+        difficulty: level,
+        onDifficultyChange: noop,
+        lastResult: null,
+        onPractice: noop,
+      }));
+      expect(html).toContain(`aria-checked="true" class="is-on">${DIFFICULTY_LABEL[level]}</button>`);
+      expect(html).toContain(DIFFICULTY_NOTE[level]);
+      expect(html).toContain(`Tiga bot · ${DIFFICULTY_LABEL[level]} · 16 game`);
+    }
+  });
+
+  it('triggers onDifficultyChange callback when clicking difficulty buttons', () => {
+    const onDifficultyChange = vi.fn();
+    const tree = MainMenu({
+      difficulty: 'normal',
+      onDifficultyChange,
+      lastResult: null,
+      onPractice: noop,
+    });
+    const section = (tree as any).props.children;
+    const children = Array.isArray(section.props.children) ? section.props.children : [section.props.children];
+    const difficultyChoice = children.find((c: any) => c && c.props && c.props.label === 'Tingkat kesulitan bot');
+    expect(difficultyChoice).toBeDefined();
+
+    expect(difficultyChoice.props.value).toBe('normal');
+    difficultyChoice.props.onChange('hard');
+    expect(onDifficultyChange).toHaveBeenCalledWith('hard');
+
+    difficultyChoice.props.onChange('easy');
+    expect(onDifficultyChange).toHaveBeenCalledWith('easy');
+  });
+
+  it('updates label and note when difficulty changes in a stateful harness', () => {
+    function StatefulMenu() {
+      const [diff, setDiff] = useState<AIDifficulty>('easy');
+      return createElement(MainMenu, {
+        difficulty: diff,
+        onDifficultyChange: setDiff,
+        lastResult: null,
+        onPractice: noop,
+      });
+    }
+    const initialHtml = renderToStaticMarkup(createElement(StatefulMenu));
+    expect(initialHtml).toContain('Tiga bot · Mudah · 16 game');
+    expect(initialHtml).toContain(DIFFICULTY_NOTE.easy);
+  });
 });
 
 describe('AbandonMatchDialog', () => {

@@ -1,0 +1,205 @@
+/* Collapsible OPTION rail: overrides index.css HUD layout without editing index.css. */
+
+.app.is-table .table-hud .play-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.app.is-table.options-hidden {
+  --hud-rail: 38px;
+}
+
+.app.is-table.options-hidden .table-felt {
+  grid-template-columns: minmax(110px, 0.75fr) minmax(0, 3fr) minmax(110px, 0.75fr) var(--hud-rail);
+}
+
+/* The class sets display, which would otherwise beat the [hidden] attribute. */
+.options-panel[hidden] {
+  display: none;
+}
+
+/* Hidden on a wide screen: TableInfo keeps its full width in the felt's top-right corner, the OPTION tab under it.
+   At 900px and below the side column sits under the felt, so TableInfo stays in flow there. */
+@media (min-width: 901px) {
+  .app.is-table.options-hidden .table-hud .play-progress > .table-info {
+    position: absolute;
+    z-index: 6;
+    top: 8px;
+    right: 12px;
+    width: 236px;
+  }
+
+  .app.is-table.options-hidden .table-hud {
+    padding-top: 144px;
+  }
+}
+
+.options-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.options-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid #c8141c;
+  background: linear-gradient(#d41a22, #9e0f16);
+  color: #fff8e8;
+  border-radius: 10px 10px 0 0;
+}
+
+.options-panel-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.options-panel-sub {
+  flex: 1 1 auto;
+  margin: 0;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #ffe8c8;
+}
+
+.options-panel-close {
+  margin-left: auto;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.options-panel-close:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.options-panel-close:focus-visible {
+  outline: 3px solid #ffd56b;
+  outline-offset: 2px;
+}
+
+.options-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 6px;
+  border-radius: 0 0 10px 10px;
+}
+
+.options-panel.is-open {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.options-panel.is-open .options-panel-body {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.options-panel.is-open .match-board {
+  order: unset;
+  border-radius: 10px;
+}
+
+.options-panel.is-open .table-tools {
+  order: unset;
+}
+
+.options-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 120px;
+  margin: 0;
+  padding: 10px 4px;
+  border: 1px solid #e3d5b4;
+  border-radius: 10px;
+  background: linear-gradient(#fff8e8, #f0e2c4);
+  color: #4a1206;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+.options-tab-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  text-transform: uppercase;
+}
+
+.options-tab-mark {
+  font-size: 11px;
+  color: #c8141c;
+}
+
+.options-tab:hover {
+  background: linear-gradient(#fffdf4, #f6e8c8);
+}
+
+.options-tab:focus-visible {
+  outline: 3px solid #ffd56b;
+  outline-offset: 2px;
+}
+
+/* Phone: the side column already sits under the felt (default hidden), so the tab becomes a plain
+   bar under TableInfo and the panel opens in place, never over the table. */
+@media (max-width: 640px) {
+  .app.is-table .options-tab {
+    flex: none;
+    flex-direction: row;
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+
+  .app.is-table .options-tab-label {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  .app.is-table .options-tab-mark {
+    transform: rotate(-90deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .app.is-table.options-hidden .table-felt {
+    grid-template-columns: 64px minmax(0, 1fr) 64px;
+  }
+
+  .app.is-table:not(.options-hidden) .table-felt {
+    grid-template-columns: 64px minmax(0, 1fr) 64px;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1150px) {
+  .app.is-table.options-hidden {
+    --hud-rail: 38px;
+  }
+}

@@ -214,18 +214,19 @@ export function countedGames(match: MatchState): number {
   return match.hands.length;
 }
 export interface OpeningRoll {
-  rounds: Array<Array<{ seat: Seat; dice: [number, number] }>>;
+  rounds: Array<Array<{ seat: Seat; dice: [number, number, number] }>>;
+  kind?: 'dealer';
   dealer: Seat;
 }
-export function rollOpeningDealer(rng: () => number = Math.random): OpeningRoll {
+export function rollOpeningDealer(rng: () => number = Math.random, dealer?: Seat): OpeningRoll {
   const rounds: OpeningRoll['rounds'] = [];
-  let tied: Seat[] = [...SEAT_ORDER];
+  let tied: Seat[] = dealer ? [dealer] : [...SEAT_ORDER];
   while (true) {
-    const round = tied.map(seat => ({ seat, dice: [1 + Math.floor(rng() * 6), 1 + Math.floor(rng() * 6)] as [number, number] }));
+    const round = tied.map(seat => ({ seat, dice: [1 + Math.floor(rng() * 6), 1 + Math.floor(rng() * 6), 1 + Math.floor(rng() * 6)] as [number, number, number] }));
     rounds.push(round);
-    const high = Math.max(...round.map(r => r.dice[0] + r.dice[1]));
-    tied = round.filter(r => r.dice[0] + r.dice[1] === high).map(r => r.seat);
-    if (tied.length === 1) return { rounds, dealer: tied[0]! };
+    const high = Math.max(...round.map(r => r.dice.reduce((sum, value) => sum + value, 0)));
+    tied = round.filter(r => r.dice.reduce((sum, value) => sum + value, 0) === high).map(r => r.seat);
+    if (tied.length === 1) return { rounds, dealer: tied[0]!, ...(dealer ? { kind: 'dealer' as const } : {}) };
   }
 }
 export type DeadWallOption = 'none' | '14';

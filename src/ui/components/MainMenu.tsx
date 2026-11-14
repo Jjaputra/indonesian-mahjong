@@ -1,10 +1,14 @@
 import { ArrowRight } from 'lucide-react';
 import { keyToTile } from '../../core/tiles';
+import type { AIDifficulty } from '../../storage';
+import { DIFFICULTY_LABEL } from '../labels';
 import { type DeadWallOption, type DealerWinRule, type MatchTimeLimit } from '../match';
 import { TileView } from './TileView';
 
 export interface MainMenuProps {
-  difficultyLabel: string;
+  difficulty?: AIDifficulty;
+  onDifficultyChange?: (difficulty: AIDifficulty) => void;
+  difficultyLabel?: string;
   lastResult: string | null;
   onPractice: () => void;
   kimEnabled?: boolean;
@@ -40,6 +44,18 @@ function MenuChoice<T>({ label, value, options, onChange }: { label: string; val
   );
 }
 
+export const DIFFICULTY_NOTE: Record<AIDifficulty, string> = {
+  easy: 'Bot bermain santai tanpa membaca buangan berbahaya; cocok untuk pemula.',
+  normal: 'Bot bermain seimbang, menyusun kombinasi standar dengan variasi wajar.',
+  hard: 'Bot bermain efisien, membaca buangan berbahaya, dan mengejar nilai tinggi.',
+};
+
+export const DIFFICULTY_OPTIONS: readonly ChoiceOption<AIDifficulty>[] = (['easy', 'normal', 'hard'] as const).map((value) => ({
+  value,
+  label: DIFFICULTY_LABEL[value],
+  note: DIFFICULTY_NOTE[value],
+}));
+
 const KIM_OPTIONS: readonly ChoiceOption<'natural' | 'dedicated' | 'off'>[] = [
   { value: 'natural', label: 'Kim dari tile', note: 'Satu wajah tile diundi tiap game; keempat kopinya jadi Kim.' },
   { value: 'dedicated', label: 'Kim tambahan (pemula)', note: 'Empat tile KIM khusus ditambahkan ke tembok (148 tile).' },
@@ -57,7 +73,27 @@ const TIME_OPTIONS: readonly ChoiceOption<MatchTimeLimit>[] = [
 /** A few real tiles fanned across the card: winds, dragons and a Kim. */
 const SHOWCASE = ['WD', 'WN', 'WX', 'WB', 'DZ', 'KIM', '8B'].map((key, i) => keyToTile(key, 90 + i));
 
-export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, onKimChange, kimMode, onKimModeChange, deadWall, onDeadWallChange, timeLimitMinutes, onTimeLimitChange }: MainMenuProps) {
+export function MainMenu({
+  difficulty,
+  onDifficultyChange,
+  difficultyLabel,
+  lastResult,
+  onPractice,
+  kimEnabled,
+  onKimChange,
+  kimMode,
+  onKimModeChange,
+  deadWall,
+  onDeadWallChange,
+  timeLimitMinutes,
+  onTimeLimitChange,
+}: MainMenuProps) {
+  const activeDifficulty: AIDifficulty =
+    difficulty ??
+    (difficultyLabel ? ((Object.keys(DIFFICULTY_LABEL) as AIDifficulty[]).find((k) => DIFFICULTY_LABEL[k] === difficultyLabel)) : undefined) ??
+    'normal';
+  const activeDifficultyLabel = difficulty ? DIFFICULTY_LABEL[difficulty] : (difficultyLabel ?? DIFFICULTY_LABEL[activeDifficulty]);
+
   return (
     <main className="main-menu">
       <section className="menu-card" aria-label="Menu utama">
@@ -70,12 +106,13 @@ export function MainMenu({ difficultyLabel, lastResult, onPractice, kimEnabled, 
         {lastResult !== null && <p className="menu-last">Terakhir: {lastResult}</p>}
         {(onKimModeChange || onKimChange) && <MenuChoice label="Pilihan Kim" value={kimMode ?? (kimEnabled ? 'natural' : 'off')} options={KIM_OPTIONS}
           onChange={(mode) => { if (onKimModeChange) onKimModeChange(mode); else onKimChange?.(mode !== 'off'); }} />}
+        {onDifficultyChange && <MenuChoice label="Tingkat kesulitan bot" value={activeDifficulty} options={DIFFICULTY_OPTIONS} onChange={onDifficultyChange} />}
         {onDeadWallChange && <MenuChoice label="Akhir tembok" value={deadWall ?? 'none'} options={DEAD_WALL_OPTIONS} onChange={onDeadWallChange} />}
         {timeLimitMinutes !== undefined && onTimeLimitChange && <MenuChoice label="Waktu" value={timeLimitMinutes} options={TIME_OPTIONS} onChange={onTimeLimitChange} />}
         <div className="menu-choices">
           <button type="button" className="btn btn-primary menu-choice" onClick={onPractice}>
             <strong>Mulai bermain <ArrowRight size={20} aria-hidden="true" /></strong>
-            <span>Tiga bot · {difficultyLabel} · 16 game</span>
+            <span>Tiga bot · {activeDifficultyLabel} · 16 game</span>
           </button>
         </div>
       </section>

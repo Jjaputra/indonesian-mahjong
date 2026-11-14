@@ -13,6 +13,8 @@ function controller(winner: Seat, melds: Meld[], minHuTay = 5) {
   const storage = new MemoryStorage();
   const c = new GameController({ settings: { ...getPreset('tournament'), minHuTay, kimEnabled: false, kimMode: 'off', animationSpeed: 'off', soundEnabled: false }, seed: 4, autoStart: false, storage });
   c.startMatch();
+  c.match!.seating.dealer = 'dong';
+  c.newGame();
   const s = c.getState() as GameEngineState;
   const p = s.players[winner];
   p.melds = melds;

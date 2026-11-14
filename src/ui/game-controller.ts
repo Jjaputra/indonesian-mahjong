@@ -182,6 +182,8 @@ export class GameController {
   /** Bumped on every change so React can re-render */
   version = 0;
   gameSerial = 0;
+  /** Runtime-only dice presentation for the current hand. */
+  handRoll: ReturnType<typeof rollOpeningDealer> | null = null;
   private presentationToken: object | null = null;
   get isPresenting(): boolean { return this.presentationToken !== null; }
 
@@ -316,6 +318,7 @@ export class GameController {
     const openingRoll = rollOpeningDealer(this.baseSeed === undefined ? Math.random : createMulberry32(this.baseSeed));
     this.match = createMatch(openingRoll.dealer, this.nextSettings.roundWind, this.nextSettings.minHuTay, dealerWinRule, timeLimitMinutes, this.now());
     this.match.openingRoll = openingRoll;
+    this.handRoll = openingRoll;
     this.match.deadWall = deadWall;
     this.matchKim = { kimEnabled: this.nextSettings.kimEnabled, kimMode: this.nextSettings.kimMode };
     this.newGame();
@@ -331,6 +334,7 @@ export class GameController {
     this.tickMatchClock();
     if (!this.match || !this.outcome || isMatchOver(this.match)) return false;
     this.newGame();
+    this.handRoll = rollOpeningDealer(this.rng, this.match.seating.dealer);
     return true;
   }
 

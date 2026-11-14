@@ -28,9 +28,32 @@ import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsFor
 import { DIFFICULTY_LABEL, tileText } from './ui/labels';
 import { releaseVersion } from './ui/release';
 import { tayKoinText } from './ui/components/points';
+import { getStorage, type StorageLike } from './storage';
 import { loadTableView, saveTableView, TABLE_VIEW_LABEL, type TableView } from './ui/table-view';
 
 type View = 'menu' | 'table';
+
+export const OPTIONS_OPEN_KEY = 'itm.options-open.v1';
+
+export function loadOptionsOpen(storage?: StorageLike): boolean {
+  try {
+    const stored = (storage ?? getStorage()).getItem(OPTIONS_OPEN_KEY);
+    if (stored === '0' || stored === 'false') return false;
+    if (stored === '1' || stored === 'true') return true;
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) return false;
+    return true;
+  }
+  catch { return true; }
+}
+
+export function saveOptionsOpen(open: boolean, storage?: StorageLike): void {
+  try { (storage ?? getStorage()).setItem(OPTIONS_OPEN_KEY, open ? '1' : '0'); } catch { /* Keep the live choice. */ }
+}
+
+export function tableViewAppClass(view: View, tableView: TableView, optionsOpen: boolean): string {
+  return `app${view === 'table' ? ' is-table' : ' is-menu'}${tableView === 'flat' ? ' view-flat' : ''}${view === 'table' && !optionsOpen ? ' options-hidden' : ''}`;
+}
+
 type ModalName = 'settings' | 'history' | null;
 
 const EVENT_SOUND: Partial<Record<GameEventType, SoundEffectName>> = {
@@ -83,7 +106,12 @@ export function App() {
   const [standingsOpen, setStandingsOpen] = useState(false);
   const [tableView, setTableView] = useState<TableView>(loadTableView);
   const changeTableView = (next: TableView) => { setTableView(next); saveTableView(next); };
-  const [dice, setDice] = useState<{ roll: OpeningRoll; autoClose: boolean } | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(loadOptionsOpen);
+  const changeOptionsOpen = useCallback((open: boolean) => {
+    setOptionsOpen(open);
+    saveOptionsOpen(open);
+  }, []);
+  const [dice, setDice] = useState<{ roll: OpeningRoll } | null>(null);
   const [deadWall, setDeadWall] = useState<DeadWallOption>(() => { migrateMatchLengthPreference(); loadDealerWinRule(); return loadDeadWall(); });
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<MatchTimeLimit>(loadMatchTimeLimit);
   const [history, setHistory] = useState(() => loadGameHistory());
@@ -147,14 +175,14 @@ export function App() {
     controller.setSettings({ ...settings, startingSeatWind: 'dong' });
     controller.startMatch('stay', timeLimitMinutes, deadWall);
     const roll = openingRollOf(controller.match);
-    setDice(roll ? { roll, autoClose: true } : null);
+    setDice(roll ? { roll } : null);
     setMatchStarted(true);
     setView('table');
   };
 
   // Continuous match: the next hand keeps the bot pause choice and the match's Kim mode.
   const nextHand = () => {
-    if (controller.nextHand()) { setResultOpen(false); setSelectedId(null); }
+    if (controller.nextHand()) { setDice(controller.handRoll ? { roll: controller.handRoll } : null); setResultOpen(false); setSelectedId(null); }
   };
   const openStandings = () => {
     setResultOpen(false);
@@ -212,7 +240,7 @@ export function App() {
       startPractice();
       setPaused(true);
       // The dice demo holds on the announcement; before the match exposes a roll it shows a sample.
-      if (demo.mode === 'dice') setDice({ roll: openingRollOf(controller.match) ?? DEMO_OPENING_ROLL, autoClose: false });
+      if (demo.mode === 'dice') setDice({ roll: openingRollOf(controller.match) ?? DEMO_OPENING_ROLL });
       else {
         setDice(null);
         driveDemo(controller, demo.mode === 'melds' || demo.mode === 'seri' ? 'table' : demo.mode === 'final' ? 'hu' : demo.mode);
@@ -233,8 +261,8 @@ export function App() {
 
   const pos = seatPositions(controller.humanSeat);
   return (
-    <div className={`app${view === 'table' ? ' is-table' : ' is-menu'}${tableView === 'flat' ? ' view-flat' : ''}`}>
-      <header className="app-header">
+    <div className={tableViewAppClass(view, tableView, optionsOpen)}>
+      <header className="app-header" inert={dice !== null || undefined}>
         <div className="brand">
           <span className="brand-tile">金</span>
           <div>
@@ -272,20 +300,26 @@ export function App() {
           const stored = persistSettings(settings, { kimEnabled: kimMode !== 'off', kimMode });
           setSettings(stored);
           controller.setSettings(stored);
+        }} difficulty={settings.aiDifficulty} onDifficultyChange={diff => {
+          const stored = persistSettings(settings, { aiDifficulty: diff });
+          setSettings(stored);
+          controller.setSettings(stored);
         }} difficultyLabel={DIFFICULTY_LABEL[settings.aiDifficulty]} onPractice={startPractice}
           timeLimitMinutes={timeLimitMinutes} onTimeLimitChange={limit => { setTimeLimitMinutes(limit); saveMatchTimeLimit(limit); }}
           deadWall={deadWall} onDeadWallChange={option => { setDeadWall(option); saveDeadWall(option); }}
           lastResult={history[0] ? history[0].winner === null ? 'Seri' : tayKoinText(history[0]) : null} />
       ) : (
-        <main className="table-felt">
+        <main className="table-felt" inert={dice !== null || undefined}>
           {controller.getState().kimFace && <div className="kim-indicator">Kim: {tileText({ ...controller.getState().kimFace!, id: 'kim-indicator', isKim: false })}{controller.getState().kimIndicator && <span className="kim-pointer"> · Penunjuk {tileText({ ...controller.getState().kimIndicator!, id: 'kim-pointer', isKim: false })}</span>}</div>}
           <OpponentPanel seat={pos.top} position="top" controller={controller} reveal={devMode && revealOpponents} />
           <OpponentPanel seat={pos.left} position="left" controller={controller} reveal={devMode && revealOpponents} />
-          <CenterArea controller={controller} progress={<>
+          <CenterArea controller={controller} progress={
             <PlayProgress controller={controller} paused={paused} blocked={automationBlocked} pace={pace} onPaceChange={changePace} onToggleMotion={toggleMotion}
-              onPause={() => setPaused(p => !p)} onStep={() => singleAutomationStep(controller, automationBlocked || !paused)} />
-            {devMode && <DevTools controller={controller} revealOpponents={revealOpponents} onRevealChange={setRevealOpponents} />}
-          </>} />
+              onPause={() => setPaused(p => !p)} onStep={() => singleAutomationStep(controller, automationBlocked || !paused)}
+              optionsOpen={optionsOpen} onOptionsOpenChange={changeOptionsOpen}>
+              {devMode && <DevTools controller={controller} revealOpponents={revealOpponents} onRevealChange={setRevealOpponents} />}
+            </PlayProgress>
+          } />
           <OpponentPanel seat={pos.right} position="right" controller={controller} reveal={devMode && revealOpponents} />
           <div className="seat-bottom">
             <HumanArea controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId}
@@ -308,7 +342,7 @@ export function App() {
         matchSummary={controller.match ? <MatchResultNote match={controller.match} /> : undefined}
         onOpenSandbox={devMode && outcome.kind === 'hu' ? () => setSandbox({ initial: devHandFromOutcome(outcome, controller.getState()) }) : undefined} />}
       {view === 'table' && standingsOpen && controller.match && !modal && <MatchStandingsModal match={controller.match} onPlayAgain={startPractice} onMenu={newGame} />}
-      {view === 'table' && dice && <DiceRoll roll={dice.roll} humanSeat={controller.humanSeat} autoClose={dice.autoClose} onDone={() => setDice(null)} />}
+      {view === 'table' && dice && <DiceRoll key={JSON.stringify(dice.roll)} roll={dice.roll} humanSeat={controller.humanSeat} onDone={() => setDice(null)} />}
       {abandonOpen && <AbandonMatchDialog onStay={() => setAbandonOpen(false)} onLeave={newGame} />}
       {modal === 'settings' && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setModal(null)} tableView={tableView} onTableViewChange={changeTableView} devMode={devMode} onDevModeChange={changeDevMode} />}
       {sandbox && <HandSandbox key={sandbox.initial ? 'outcome' : 'blank'} settings={settings} initial={sandbox.initial} onClose={() => setSandbox(null)} />}
