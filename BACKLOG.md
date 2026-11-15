@@ -16,6 +16,16 @@ Player requests noted for later. Not scheduled yet.
 - **Lew Fit koin penalty**: not decided yet, 0 for now.
 - **Polish ideas (2026-11-13)**: auto-save and resume a match, install as an app (PWA), a shorter Hu screen on phones, a "waiting tiles" hint, a 450-koin starting balance, and bots that play around koin.
 
+## Visual polish, subtle (Jason 2026-11-15, after looking at the Mahbar app)
+
+Keep it light, not flashy.
+- A short callout ("PUNG", "KONG", "HU") when a claim is made.
+- A brief Hu celebration.
+- Smoother tile motion.
+- Optional claim voice lines, which could later become a cosmetic.
+
+Not planned for now: ranks, a cosmetics shop, voice chat.
+
 ## Multiplayer decisions (players, WhatsApp 2026-11-15)
 
 - **Hosting.** Cloudflare Workers + Durable Objects (one per room), with D1 for accounts. Start on the free plan and upgrade to Workers Paid ($5/month) only when we hit the limits.
