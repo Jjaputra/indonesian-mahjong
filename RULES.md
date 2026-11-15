@@ -245,6 +245,7 @@ Not implemented yet; this is the rule for the multiplayer build.
 - Each room sets a time per move (default 15 s). The lobby shows it together with the other room rules.
 - **Discard turn times out.** The player's turn is skipped and the tile they just drew from the wall is discarded for them. The choice is never random, and no bot plays for them. They play normally on their next turn, and nobody is kicked or replaced, however many times it happens.
 - **Claim window times out** (Jia, Pung, Kong, Hu). This counts as pass.
+- **Claim prompts stay semi-automatic, as in the single-player game** (players, 2026-11-15). Jia, Pung, Kong and Hu buttons appear only when that player can actually make the claim. The claim timer runs only while those buttons are shown. A player never has to press Skip on a discard they cannot claim.
 - A player who disconnects keeps their seat and timeouts apply as above. Reconnecting resumes play.
 
 Open edge cases. These are proposals until the players confirm them:
