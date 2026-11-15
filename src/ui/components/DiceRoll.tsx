@@ -66,25 +66,24 @@ export function DiceRoll({ roll, humanSeat, onDone }: { roll: OpeningRoll; human
   const best = Math.max(...totals);
   const tied = current.filter((_, i) => totals[i] === best).map((e) => e.seat);
   const status = !step.started
-    ? roll.kind === 'dealer' ? 'Dealer siap lempar dadu' : 'Lempar dadu: angka tertinggi jadi dealer'
+    ? 'Lempar dadu: angka tertinggi jadi dealer'
     : step.done
-    ? roll.kind === 'dealer' ? `Dealer lempar: ${totals[0]}` : `${PLAYER_NAME[roll.dealer]} jadi dealer (Timur)`
+    ? `${PLAYER_NAME[roll.dealer]} jadi dealer (Timur)`
     : step.rolling
-      ? roll.kind === 'dealer' ? 'Dealer lempar dadu' : step.round === 0 ? 'Lempar dadu: angka tertinggi jadi dealer' : `Lempar ulang: ${current.map((e) => PLAYER_NAME[e.seat]).join(', ')}`
+      ? step.round === 0 ? 'Lempar dadu: angka tertinggi jadi dealer' : `Lempar ulang: ${current.map((e) => PLAYER_NAME[e.seat]).join(', ')}`
       : tied.length > 1 ? `Seri ${best}: ${tied.map((s) => PLAYER_NAME[s]).join(' & ')} lempar ulang` : `${PLAYER_NAME[tied[0]!]} tertinggi (${best})`;
 
   return (
-    <div className="dice-overlay" role="dialog" aria-modal="true" aria-label={roll.kind === 'dealer' ? 'Lempar dadu dealer' : 'Lempar dadu pembuka'}>
+    <div className="dice-overlay" role="dialog" aria-modal="true" aria-label="Lempar dadu pembuka">
       <div className="dice-board">
         {(Object.entries(positions) as [string, Seat][]).map(([position, seat]) => {
-          if (roll.kind === 'dealer' && seat !== roll.dealer) return null;
           const shown = latest(seat);
           const live = shown?.round === step.round;
           const rolling = live && step.rolling;
           const total = shown ? shown.entry.dice.reduce((sum, value) => sum + value, 0) : null;
           const winner = step.done && seat === roll.dealer;
           return (
-            <div key={seat} className={`dice-seat dice-${roll.kind === 'dealer' ? 'single' : position}${live ? '' : ' is-out'}${winner ? ' is-dealer' : ''}`}>
+            <div key={seat} className={`dice-seat dice-${position}${live ? '' : ' is-out'}${winner ? ' is-dealer' : ''}`}>
               <strong>{PLAYER_NAME[seat]}</strong>
               <span className="dice-pair">
                 {shown && shown.entry.dice.map((v, i) => <Die key={`${shown.round}-${i}`} value={step.started ? v : 1} rolling={rolling} />)}

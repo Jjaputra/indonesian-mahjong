@@ -80,10 +80,11 @@ describe('three-dice flow', () => {
     }
   });
 
-  it('keeps the opening roll during results, then gives the next dealer a single-seat roll', () => {
+  it('rolls only at match start; the next hand deals without another roll', () => {
     const c = new GameController({ settings: getPreset('tournament'), autoStart: false, seed: 7, saveHistory: false });
     c.startMatch();
-    const opening = c.handRoll;
+    const opening = c.match?.openingRoll;
+    expect(opening?.rounds[0]).toHaveLength(4);
     expect(c.nextHand()).toBe(false);
     const s = c.getState() as GameEngineState;
     s.wall = new Wall([], null);
@@ -91,13 +92,8 @@ describe('three-dice flow', () => {
     s.players[c.humanSeat].hand = parseTileHand('1T 2T 3T 4T 5T 6T 7B 8B 9B 1W 1W 2W 3W');
     c.humanDraw(); c.step();
     expect(c.outcome?.kind).toBe('seri');
-    expect(c.handRoll).toBe(opening);
     expect(c.nextHand()).toBe(true);
-    expect(c.handRoll?.kind).toBe('dealer');
-    expect(c.handRoll?.rounds).toHaveLength(1);
-    expect(c.handRoll?.rounds[0]).toHaveLength(1);
-    expect(c.handRoll?.rounds[0]?.[0]?.seat).toBe(c.getState().dealerSeat);
-    expect(c.handRoll?.rounds[0]?.[0]?.dice).toHaveLength(3);
     expect(c.match?.openingRoll).toBe(opening);
+    expect('handRoll' in c).toBe(false);
   });
 });

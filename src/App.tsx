@@ -234,7 +234,7 @@ export function App() {
 
   // Continuous match: the next hand keeps the bot pause choice and the match's Kim mode.
   const nextHand = () => {
-    if (controller.nextHand()) { setDice(controller.handRoll ? { roll: controller.handRoll } : null); setResultOpen(false); setSelectedId(null); }
+    if (controller.nextHand()) { setResultOpen(false); setSelectedId(null); }
   };
   const openStandings = () => {
     setResultOpen(false);

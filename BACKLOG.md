@@ -8,7 +8,7 @@ Player requests noted for later. Not scheduled yet.
 - Each seat's Pung/Jia/Kong and bunga/musim in one strip between its hidden tiles and the discards.
 - Bot difficulty chosen on the main menu.
 - Collapsible OPTION panel (TableInfo stays visible).
-- Three dice; never auto-roll; "Lempar dadu" then "OK, mulai main"; the dealer rolls at the start of each next hand.
+- Three dice; never auto-roll; "Lempar dadu" then "OK, mulai main". (The per-hand dealer roll was removed in v0.6.5: it decided nothing, players 2026-11-15.)
 
 ## Bigger items
 
