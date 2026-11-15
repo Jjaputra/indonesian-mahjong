@@ -56,7 +56,7 @@ function KoinSum({ match, live }: { match: MatchState; live?: Record<Seat, numbe
  * `liveKong` is the hand in progress's Kong payments: already paid, so they count in the koin column,
  * with a "+6 kong" chip beside each owner until the hand is recorded.
  */
-export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = 'dong', liveKong = [] }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat; human?: Seat; liveKong?: readonly KongPaymentView[] }) {
+export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = 'dong', liveKong = [], names = PLAYER_NAME }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat; human?: Seat; liveKong?: readonly KongPaymentView[]; names?: Record<Seat, string> }) {
   const live = kongDeltas(liveKong);
   return (
     <div className="match-board" aria-label="Papan skor pertandingan">
@@ -70,7 +70,7 @@ export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = '
           {standings(match).map((row) => { const { seat, rank, hu, tay } = row; const koin = row.koin + live[seat]; const owns = liveKong.some((p) => p.owner === seat); return (
             <tr key={seat} className={`match-score${seat === dealer ? ' is-dealer' : ''}${rank === 1 && koin > 0 ? ' is-leader' : ''}${seat === human ? ' is-human' : ''}`}>
               <td className="rank">#{rank}</td>
-              <th scope="row">{PLAYER_NAME[seat]}{seat === dealer && <Crown size={11} aria-label="Dealer" className="dealer-mark" />}
+              <th scope="row">{names[seat]}{seat === dealer && <Crown size={11} aria-label="Dealer" className="dealer-mark" />}
                 {owns && <span className="kong-chip" title="Koin Kong game ini, sudah dibayar">{signedKoin(live[seat])} kong</span>}</th>
               <td className={`num koin ${koinTone(koin)}`}><b>{signedKoin(koin)}</b></td>
               <td className="num">{tay}</td>

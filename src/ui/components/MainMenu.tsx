@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Users } from 'lucide-react';
 import { keyToTile } from '../../core/tiles';
 import type { AIDifficulty } from '../../storage';
 import { DIFFICULTY_LABEL } from '../labels';
@@ -21,12 +21,17 @@ export interface MainMenuProps {
   onTimeLimitChange?: (limit: MatchTimeLimit) => void;
   dealerWinRule?: DealerWinRule;
   onDealerWinRuleChange?: (rule: DealerWinRule) => void;
+  /** Online play: set only when a room server is configured. */
+  onOnline?: () => void;
+  /** A room this browser can rejoin ("Lanjutkan room CODE"). */
+  resumeRoomCode?: string | null;
+  onResumeRoom?: () => void;
 }
 
 interface ChoiceOption<T> { value: T; label: string; note: string }
 
 /** A pregame choice as large tap buttons: one radio group, each option with a one-line explanation. */
-function MenuChoice<T>({ label, value, options, onChange }: { label: string; value: T; options: readonly ChoiceOption<T>[]; onChange: (value: T) => void }) {
+export function MenuChoice<T>({ label, value, options, onChange }: { label: string; value: T; options: readonly ChoiceOption<T>[]; onChange: (value: T) => void }) {
   const current = options.find((o) => o.value === value) ?? options[0]!;
   return (
     <div className="menu-option">
@@ -87,6 +92,9 @@ export function MainMenu({
   onDeadWallChange,
   timeLimitMinutes,
   onTimeLimitChange,
+  onOnline,
+  resumeRoomCode,
+  onResumeRoom,
 }: MainMenuProps) {
   const activeDifficulty: AIDifficulty =
     difficulty ??
@@ -114,6 +122,14 @@ export function MainMenu({
             <strong>Mulai bermain <ArrowRight size={20} aria-hidden="true" /></strong>
             <span>Tiga bot · {activeDifficultyLabel} · 16 game</span>
           </button>
+          {resumeRoomCode && onResumeRoom && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onResumeRoom}>
+            <strong>Lanjutkan room {resumeRoomCode}</strong>
+            <span>Kursi Anda masih disimpan</span>
+          </button>}
+          {onOnline && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onOnline}>
+            <strong><Users size={20} aria-hidden="true" /> Main bareng teman</strong>
+            <span>Room pribadi · undang lewat tautan</span>
+          </button>}
         </div>
       </section>
     </main>
