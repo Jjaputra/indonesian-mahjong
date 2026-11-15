@@ -247,8 +247,9 @@ Not implemented yet; this is the rule for the multiplayer build.
 - **Claim window times out** (Jia, Pung, Kong, Hu). This counts as pass.
 - A player who disconnects keeps their seat and timeouts apply as above. Reconnecting resumes play.
 
+- **Discard times out right after the player claimed Pung or Jia** (Jason, 2026-11-15). The claimed tile is the one that gets discarded, so the claim is undone. The meld's other tiles go back into the hand concealed, and the claimed tile goes back to the discards from this player. Play continues with the player after them, as after any discard.
+
 Open edge cases. These are proposals until the players confirm them:
-- Timeout after a claim (Pung or Jia), when no tile was just drawn: discard the right-most tile of the sorted concealed hand.
 - The drawn tile completes a self-drawn Hu: the timeout does not declare Hu, so the tile is discarded.
 - The drawn tile is a bunga or musim: the automatic replacement happens first, then the replacement tile is discarded.
 - The drawn tile is a Kim: it is discarded like any other tile.
