@@ -126,5 +126,4 @@
 }
 
 
-.dice-single { grid-area: top; }
 .dice-confirm:disabled { opacity: 0.65; cursor: wait; }
