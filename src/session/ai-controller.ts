@@ -54,7 +54,7 @@ export type AITurnAction =
   | { type: 'hu' }
   | { type: 'ankong'; tiles: Tile[] }
   | { type: 'kakan'; tileId: string; meldIndex: number }
-  | { type: 'discard'; tileId: string };
+  | { type: 'discard'; tileId: string; forcedKim?: true };
 
 const copyTiles = (tiles: readonly Tile[]): Tile[] => tiles.map((t) => ({ ...t }));
 const copyMelds = (melds: readonly Meld[]): Meld[] => melds.map((m) => ({ ...m, tiles: copyTiles(m.tiles) }));
@@ -263,8 +263,9 @@ export function decideTurnAction(obs: AIObservation, rng: () => number): AITurnA
   }
   const tileId = chooseDiscard(obs, rng);
   if (tileId) return { type: 'discard', tileId };
-  // Only reachable with a hand of nothing but undiscardable Kim; fall back to any legal tile.
-  return { type: 'discard', tileId: legal.discardableTileIds[0] ?? obs.hand[0]!.id };
+  // The authoritative session must explicitly permit the all-Kim escape for this bot decision.
+  return { type: 'discard', tileId: legal.discardableTileIds[0] ?? obs.hand[0]!.id,
+    ...(legal.discardableTileIds.length === 0 && obs.hand.every(isKim) ? { forcedKim: true as const } : {}) };
 }
 
 const CLAIM_CHANCE: Record<AIDifficulty, { kong: number; pung: number; jia: number }> = {

@@ -1,0 +1,24 @@
+import { it, expect } from 'vitest';
+import worker, { originAllowed, roomCode, type Env } from '../../server/router';
+import { isRoomCode } from '../../src/net/protocol';
+
+it('allows only the configured production, preview and local origins', () => {
+  for (const origin of ['https://indomahjong.pages.dev', 'https://branch-name.indomahjong.pages.dev', 'http://localhost:5199']) expect(originAllowed(origin)).toBe(true);
+  for (const origin of [null, 'https://evil.example', 'https://indomahjong.pages.dev.evil.example', 'http://indomahjong.pages.dev', 'http://localhost:5199.evil.example']) expect(originAllowed(origin)).toBe(false);
+  for (let i = 0; i < 100; i++) expect(isRoomCode(roomCode())).toBe(true);
+});
+it('creates with collision retry, forwards known WS routes and returns unknown rooms', async () => {
+  let creates = 0;
+  const env: Env = { ROOM_CREATION_LIMITER: { limit: async () => ({ success: true }) }, ROOMS: { idFromName: n => n, get: () => ({ fetch: async req => {
+    if (new URL(req.url).pathname.startsWith('/create/')) return new Response(null, { status: ++creates === 1 ? 409 : 201 });
+    return Response.json({ code: 'room_not_found', message: 'Room tidak ditemukan.' }, { status: 404 });
+  } }) } };
+  const request = (path: string, method = 'GET', origin = 'http://localhost:5199') => new Request(`https://worker.test${path}`, { method, headers: { Origin: origin } });
+  const result = await worker.fetch(request('/rooms', 'POST'), env);
+  expect(result.status).toBe(201); expect(creates).toBe(2); expect(isRoomCode((await result.json()).code)).toBe(true);
+  expect(result.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:5199');
+  const missing = await worker.fetch(request('/rooms/ABCDEF/ws'), env); expect(missing.status).toBe(404);
+  expect(await missing.json()).toMatchObject({ code: 'room_not_found' });
+  expect((await worker.fetch(request('/rooms', 'OPTIONS'), env)).status).toBe(204);
+  expect((await worker.fetch(request('/rooms', 'POST', 'https://evil.example'), env)).status).toBe(403);
+});
