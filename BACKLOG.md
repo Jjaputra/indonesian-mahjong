@@ -20,12 +20,19 @@ Player requests noted for later. Not scheduled yet.
 
 - **Hosting.** Cloudflare Workers + Durable Objects (one per room), with D1 for accounts. Start on the free plan and upgrade to Workers Paid ($5/month) only when we hit the limits.
 - **Turn timer.** Every decision has a time limit: the discard turn and claim windows (Jia, Pung, Kong, Hu). The room lobby shows the timer seconds and the rules.
-- **Timeout.**
-  - On a discard turn, the player is skipped for that turn only: the tile just drawn from the wall is discarded for them. They play normally next turn and are not kicked.
-  - A claim window that times out counts as pass.
-- **AFK.** Two consecutive timeouts mark the player AFK and a bot takes the seat.
-  - The player stays in the room (option B) and can take the seat back at any time.
-  - A disconnected player can rejoin and resume.
-  - Open: does the AFK bot only discard the drawn tile, or play fully?
-- **The lobby shows** Kim / Bo Kim and a Min Tay choice of 0 / 3 / 5 / 8. The engine already accepts 0–100.
+- **Timeout.** The rule is in `RULES.md`, "Multiplayer turn timer". A timeout on a turn skips that turn and discards the drawn tile. A timeout on a claim is a pass. A bot never takes over the seat. (This replaces the earlier AFK/bot takeover idea; players decided 2026-11-15.)
+- **Room form ("Buat Room"), modeled on a lobby screenshot the players shared.** The lobby shows these settings before anyone joins:
+
+  | Field | Options |
+  | --- | --- |
+  | Mode Kim | natural / dedicated (Bo Kim) / off |
+  | Min Tay | 0 / 3 / 5 (default) / 8 |
+  | Waktu giliran | 5 / 10 / 15 (default) / 20 / 30 s / 1 min / tanpa batas (practice) |
+  | Jumlah hand | 16 / 16++, with an optional 90-minute limit |
+  | Isi kursi kosong dengan bot | on, with a bot level |
+  | Room privat (invite code) | default on |
+  | Boleh ditonton | on/off; spectators never see hidden tiles |
+
+  Ranked play and ladders come later.
+- **Never copy:** an entry fee, tickets or any real-money stake. Online gambling is illegal in Indonesia, and Google refuses ads for it.
 - **Premium payment candidates.** DOKU (a player suggests its payment links are easy), Midtrans, Xendit.

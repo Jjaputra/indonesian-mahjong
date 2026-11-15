@@ -237,3 +237,18 @@ For Sam Am Kang (#33) and Si Am Kang (#34), an Ankong still counts as a conceale
 The players' tournament reference confirms the v0.5.5 Hu Round Score: “1 tay = 1 koin; dimakan (Hu dari buangan) yang dimakan bayar 2× total tay, yang lain 1×; zemo semua bayar 2×”. Kong koin is separate from these Hu payments and does not change Tay.
 
 API: Hu/Seri outcomes and match/history records expose `kongPayments` (completed payments only) and `gameDeltas` (Hu plus all Kong payments); `roundScore` remains the Hu part. `GameController.currentKongPayments` is available during play and resets on the next game. Sandbox payments assume all kong/ankong melds were completed by the winner; hand codes retain their existing format. Legacy records load with an empty payment list and Hu-only (or zero) game deltas.
+
+## Multiplayer turn timer (house rule, players 2026-11-15)
+
+Not implemented yet; this is the rule for the multiplayer build.
+
+- Each room sets a time per move (default 15 s). The lobby shows it together with the other room rules.
+- **Discard turn times out.** The player's turn is skipped and the tile they just drew from the wall is discarded for them. The choice is never random, and no bot plays for them. They play normally on their next turn, and nobody is kicked or replaced, however many times it happens.
+- **Claim window times out** (Jia, Pung, Kong, Hu). This counts as pass.
+- A player who disconnects keeps their seat and timeouts apply as above. Reconnecting resumes play.
+
+Open edge cases. These are proposals until the players confirm them:
+- Timeout after a claim (Pung or Jia), when no tile was just drawn: discard the right-most tile of the sorted concealed hand.
+- The drawn tile completes a self-drawn Hu: the timeout does not declare Hu, so the tile is discarded.
+- The drawn tile is a bunga or musim: the automatic replacement happens first, then the replacement tile is discarded.
+- The drawn tile is a Kim: it is discarded like any other tile.
