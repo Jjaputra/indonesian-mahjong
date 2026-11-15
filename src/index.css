@@ -817,7 +817,8 @@ button.tile {
 .tile.is-clickable {
   cursor: pointer;
 }
-.tile.is-clickable:hover:not(.is-disabled) {
+/* Hover never pulls a selected tile back down to hover height. */
+.tile.is-clickable:hover:not(.is-disabled):not(.is-selected) {
   transform: translateY(-4px);
 }
 .tile.is-selected {
@@ -2273,7 +2274,7 @@ select {
   box-shadow: 0 -9px 0 0 var(--tile-back), 0 -10px 0 0 var(--tile-back-edge), 0 3px 0 #cdbf9c, 0 8px 12px rgba(0, 0, 0, 0.45);
 }
 .table-felt .hand-row > .tile.is-kim { background: linear-gradient(#fffef8 58%, #e9dcfa); outline-offset: 2px; }
-.table-felt .hand-row > .tile.is-clickable:hover:not(.is-disabled) { transform: translateY(-6px); }
+.table-felt .hand-row > .tile.is-clickable:hover:not(.is-disabled):not(.is-selected) { transform: translateY(-6px); }
 .table-felt .hand-row > .tile.is-selected {
   transform: translateY(-16px);
   border-color: #ffd56b;
@@ -2281,7 +2282,8 @@ select {
 }
 .table-felt .hand-row > .tile.is-drawn { outline: 2px dashed #ffd56b; outline-offset: 3px; }
 .table-felt .hand-row > .tile.is-disabled { opacity: 1; filter: brightness(0.72) saturate(0.7); }
-.table-felt .hand-row > .tile:focus-visible { outline: 3px solid #ffd56b; outline-offset: 3px; transform: translateY(-6px); }
+.table-felt .hand-row > .tile:focus-visible { outline: 3px solid #ffd56b; outline-offset: 3px; }
+.table-felt .hand-row > .tile:focus-visible:not(.is-selected) { transform: translateY(-6px); }
 .table-felt .drawn-gap { width: 16px; }
 
 /* ---------- Action pills over the near edge of the felt ---------- */
