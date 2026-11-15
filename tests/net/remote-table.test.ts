@@ -1,0 +1,145 @@
+import { describe, expect, it } from 'vitest';
+import { TableSession } from '../../src/session';
+import { DEFAULT_SETTINGS, MemoryStorage } from '../../src/storage';
+import { DEFAULT_ROOM_CONFIG } from '../../src/net/protocol';
+import { RemoteTable } from '../../src/net/remote-table';
+import { PLAYER_NAME } from '../../src/ui/labels';
+import { RemoteController, seatNames, spectatorBottomNames } from '../../src/ui/components/remote-adapter';
+import { fakeNetwork, fakeTimers, roomInfo } from './fake-transport';
+
+function joined(initialConfig?: typeof DEFAULT_ROOM_CONFIG) {
+  const net = fakeNetwork(), clock = fakeTimers();
+  const table = new RemoteTable({ server: 'https://mp.example', code: 'ABC234', name: 'Jason', storage: new MemoryStorage(), initialConfig,
+    socketFactory: net.factory, timers: clock.timers, now: () => clock.now });
+  table.connect();
+  net.last.open();
+  net.last.receive({ type: 'welcome', token: 't', seat: 'dong', host: true, serverNow: 0, room: roomInfo() });
+  return { net, table, clock };
+}
+
+const oneHumanSession = () => new TableSession({ settings: { ...DEFAULT_SETTINGS }, seats: { dong: 'human', nan: 'bot', xi: 'bot', bei: 'bot' }, seed: 5, now: () => 1000 });
+
+describe('RemoteTable actions', () => {
+  it('act carries the version of the latest view', () => {
+    const { net, table } = joined();
+    const session = oneHumanSession();
+    net.last.receive({ type: 'view', serverNow: 0, view: session.viewFor('dong') });
+    expect(table.act({ type: 'draw' })).toBe(true);
+    expect(net.last.ofType('act')[0]!.action).toEqual({ type: 'draw', version: session.version });
+    session.setConnected('nan', false);
+    expect(session.version).toBeGreaterThan(0);
+    net.last.receive({ type: 'view', serverNow: 0, view: session.viewFor('dong') });
+    table.act({ type: 'discard', tileId: 'x' });
+    expect(net.last.ofType('act')[1]!.action).toMatchObject({ type: 'discard', tileId: 'x', version: session.version });
+  });
+
+  it('refuses to act before the first view', () => {
+    const { net, table } = joined();
+    expect(table.act({ type: 'pass' })).toBe(false);
+    expect(net.last.ofType('act')).toHaveLength(0);
+  });
+
+  it('sends the Buat Room config once after the first welcome of a created room', () => {
+    const config = { ...DEFAULT_ROOM_CONFIG, minHuTay: 8 as const };
+    const { net, table } = joined(config);
+    expect(net.last.ofType('config')).toEqual([{ type: 'config', config }]);
+    net.last.receive({ type: 'welcome', token: 't', seat: 'dong', host: true, serverNow: 0, room: roomInfo() });
+    expect(net.last.ofType('config')).toHaveLength(1);
+    expect(table.isHost).toBe(true);
+  });
+
+  it('sit and stand only send; seat and host come from the server', () => {
+    const { net, table } = joined();
+    table.stand();
+    table.sit('xi');
+    expect(net.last.sent.slice(-2)).toEqual([{ type: 'stand' }, { type: 'sit', seat: 'xi' }]);
+    expect(table.getState().seat).toBe('dong');
+    net.last.receive({ type: 'room', room: roomInfo(), seat: 'xi', host: false });
+    expect(table.getState()).toMatchObject({ seat: 'xi', host: false });
+    net.last.receive({ type: 'room', room: roomInfo(), seat: null, host: true });
+    expect(table.getState()).toMatchObject({ seat: null, host: true });
+    expect(table.isHost).toBe(true);
+  });
+});
+
+describe('end of hand', () => {
+  it('stamps the end once; later views of the same finished hand keep the first time', () => {
+    const { net, table, clock } = joined();
+    const view = oneHumanSession().viewFor('dong');
+    net.last.receive({ type: 'view', serverNow: 0, view });
+    expect(table.getState().handEndedAt).toBeNull();
+    clock.advance(1_000);
+    net.last.receive({ type: 'view', serverNow: 0, view: { ...view, phase: 'RESOLVED_HU' } });
+    expect(table.getState().handEndedAt).toBe(1_000);
+    clock.advance(5_000);
+    net.last.receive({ type: 'view', serverNow: 0, view: { ...view, phase: 'RESOLVED_HU', version: view.version + 1 } });
+    expect(table.getState().handEndedAt).toBe(1_000);
+    net.last.receive({ type: 'view', serverNow: 0, view });
+    expect(table.getState().handEndedAt).toBeNull();
+  });
+});
+
+describe('names and spectators', () => {
+  it('builds room names without touching the shared PLAYER_NAME', () => {
+    const before = { ...PLAYER_NAME };
+    const { table } = joined();
+    expect(seatNames(table)).toMatchObject({ dong: 'Jason (Anda)', nan: 'Kursi Selatan' });
+    expect(PLAYER_NAME).toEqual(before);
+  });
+
+  it('renders a spectator from Dong with every hand hidden and a Menonton label', () => {
+    const { net, table } = joined();
+    const session = oneHumanSession();
+    net.last.receive({ type: 'room', room: roomInfo(), seat: null, host: false });
+    net.last.receive({ type: 'view', serverNow: 0, view: session.viewFor(null) });
+    const remote = new RemoteController(table);
+    expect(remote.spectator).toBe(true);
+    expect(remote.humanSeat).toBe('dong');
+    const players = remote.getState().players;
+    expect(players.dong.hand).toHaveLength(14);
+    expect(Object.values(players).every(p => p.hand.every(t => t.id.startsWith('hidden-')))).toBe(true);
+    expect(remote.getHumanActions()).toMatchObject({ canDiscard: false, canDraw: false, claim: null });
+    expect(spectatorBottomNames(table).dong).toBe('Jason · Menonton');
+    expect(seatNames(table).dong).toBe('Jason');
+  });
+});
+
+describe('RemoteController (table adapter)', () => {
+  it('exposes the own hand, hidden opponent tiles and legal actions from a SeatView', () => {
+    const { net, table } = joined();
+    const session = oneHumanSession();
+    net.last.receive({ type: 'view', serverNow: 0, view: session.viewFor('dong') });
+    const remote = new RemoteController(table);
+    const state = remote.getState();
+    expect(state.players.dong.hand).toHaveLength(session.viewFor('dong').hand.length);
+    expect(state.players.nan.hand.every(t => t.id.startsWith('hidden-'))).toBe(true);
+    const actions = remote.getHumanActions();
+    expect(actions.claim).toBeNull();
+    expect(actions.canDiscard).toBe(true);
+    remote.humanDiscard(actions.discardableTileIds[0]!);
+    expect(net.last.ofType('act').at(-1)!.action).toMatchObject({ type: 'discard', tileId: actions.discardableTileIds[0], version: session.version });
+  });
+
+  it('badges a human seat that is offline or AFK, never a bot', () => {
+    const { net, table } = joined();
+    const session = oneHumanSession();
+    session.setConnected('nan', false);
+    net.last.receive({ type: 'room', seat: 'dong', host: true, room: roomInfo({ seats: roomInfo().seats.map(s => s.seat === 'xi' ? { ...s, name: 'Bot', bot: true } : s) }) });
+    net.last.receive({ type: 'view', serverNow: 0, view: session.viewFor('dong') });
+    const remote = new RemoteController(table);
+    expect(remote.presence('nan')).toBe('Offline');
+    expect(remote.presence('dong')).toBeNull();
+    session.setConnected('xi', false);
+    net.last.receive({ type: 'view', serverNow: 0, view: session.viewFor('dong') });
+    expect(remote.presence('xi')).toBeNull();
+  });
+
+  it('shows no actions to a spectator', () => {
+    const { net, table } = joined();
+    const session = oneHumanSession();
+    net.last.receive({ type: 'welcome', token: 't', seat: null, host: false, serverNow: 0, room: roomInfo() });
+    net.last.receive({ type: 'view', serverNow: 0, view: session.viewFor(null) });
+    const remote = new RemoteController(table);
+    expect(remote.getHumanActions()).toMatchObject({ canDraw: false, canDiscard: false, claim: null });
+  });
+});

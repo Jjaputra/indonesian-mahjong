@@ -122,7 +122,7 @@ describe('TableSession', () => {
         const wallIds = new Set(raw.wall.tiles.slice(raw.wall.headIndex, raw.wall.tailIndex + 1).map(t => t.id));
         for (const viewer of [null, ...SEAT_ORDER]) {
           const view = s.viewFor(viewer);
-          const hidden = new Set(SEAT_ORDER.filter(seat => seat !== viewer).flatMap(seat => raw.players[seat].hand.map(t => t.id)));
+          const hidden = new Set(SEAT_ORDER.filter(seat => seat !== viewer && !(raw.phase === 'RESOLVED_HU' && seat === raw.winnerSeat)).flatMap(seat => raw.players[seat].hand.map(t => t.id)));
           expect(containsTile(view, hidden)).toBe(false);
           expect(containsTile(view, wallIds)).toBe(false);
           expect(view.hand).toEqual(viewer ? raw.players[viewer].hand : []);
@@ -143,6 +143,49 @@ describe('TableSession', () => {
     expect(checked).toBe(3375);
     expect(claimWindows).toBeGreaterThan(50);
   }, 120000);
+
+  it('reveals only the declared Hu winner until the next deal, including after eviction', () => {
+    const s = rig(d => {
+      d.options.settings.kimEnabled = false; d.state.rules.kimEnabled = false;
+      d.state.players.dong.hand = [1, 1, 1, 2, 3, 4, 5, 6, 7, 8, 8, 8, 9, 9].map((v, i) => tile(v, `public-hu-${i}`));
+    });
+    expect(s.viewFor(null).lastHand).toBeNull();
+    expect(s.apply('dong', { type: 'selfHu', version: s.version }).ok).toBe(true);
+    const data = s.serialize();
+    for (const viewer of [null, ...SEAT_ORDER]) {
+      const view = s.viewFor(viewer);
+      expect(view.phase).toBe('RESOLVED_HU');
+      expect(view.lastHand).toMatchObject({ winner: 'dong', winMethod: 'tsumo', discarder: null, hand: data.state.players.dong.hand, melds: data.state.players.dong.melds });
+      expect(view.lastHand!.breakdown.length).toBeGreaterThan(0);
+      expect(view.lastHand!.payments).toEqual(view.lastHandResult);
+      const hidden = new Set(SEAT_ORDER.filter(seat => seat !== viewer && seat !== 'dong').flatMap(seat => data.state.players[seat].hand.map(t => t.id)));
+      expect(containsTile(view, hidden)).toBe(false);
+    }
+    expect(TableSession.deserialize(data, now).viewFor(null).lastHand).toEqual(s.viewFor(null).lastHand);
+    expect(s.apply('dong', { type: 'nextHand', version: s.version }).ok).toBe(true);
+    expect(s.viewFor(null).lastHand).toBeNull();
+  });
+
+  it('reveals nobody for Seri or a rejected Lew Fit declaration', () => {
+    const seri = rig(d => {
+      d.state.phase = 'TURN_DRAW'; d.state.selfDrawSeat = null; d.state.players.dong.hand.pop();
+      d.state.wall = { ...d.state.wall, tailIndex: d.state.wall.headIndex };
+      d.state.wall.tiles[d.state.wall.headIndex] = tile(1, 'seri-flower', 'flower');
+    });
+    expire(seri, 'dong');
+    expect(seri.viewFor(null).phase).toBe('DRAW_SERI');
+    expect(seri.viewFor(null).lastHand).toMatchObject({ winner: null, hand: [], melds: [], breakdown: [], winMethod: 'draw' });
+    const lewFit = rig(d => {
+      d.options.settings.minHuTay = 10000; d.state.rules.minHuTay = 10000;
+      d.state.players.dong.hand = Array.from({ length: 14 }, (_, i) => tile(1, `invalid-hu-${i}`));
+    });
+    expect(lewFit.apply('dong', { type: 'selfHu', version: lewFit.version }).ok).toBe(false);
+    expect(lewFit.viewFor(null).lastHand).toBeNull();
+    for (const s of [seri, lewFit]) for (const viewer of [null, ...SEAT_ORDER]) {
+      const hidden = new Set(SEAT_ORDER.filter(seat => seat !== viewer).flatMap(seat => s.serialize().state.players[seat].hand.map(t => t.id)));
+      expect(containsTile(s.viewFor(viewer), hidden)).toBe(false);
+    }
+  });
 
   it('hides claim eligibility from other seats and spectators, with a claimant-independent deadline', () => {
     const a = claimSession(['nan']), b = claimSession(['xi', 'bei']);

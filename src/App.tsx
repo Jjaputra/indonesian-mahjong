@@ -18,6 +18,8 @@ import { DevTools } from './ui/components/DevTools';
 import { devHandFromOutcome, type DevHand } from './dev/hand-code';
 import { SettingsModal } from './ui/components/SettingsModal';
 import { MainMenu } from './ui/components/MainMenu';
+import { OnlineScreen } from './ui/components/OnlineScreen';
+import { loadLastRoom, mpServerUrl, parseRoomParam } from './net/room-store';
 import { AbandonMatchDialog } from './ui/components/AbandonMatchDialog';
 import { GameController, type GameEventType } from './ui/game-controller';
 import { PlayProgress } from './ui/components/PlayProgress';
@@ -30,7 +32,7 @@ import { releaseVersion } from './ui/release';
 import { tayKoinText } from './ui/components/points';
 import { getStorage, type StorageLike } from './storage';
 
-type View = 'menu' | 'table';
+type View = 'menu' | 'table' | 'online';
 
 export const OPTIONS_OPEN_KEY = 'itm.options-open.v1';
 
@@ -97,7 +99,12 @@ export function App() {
   const [paused, setPaused] = useState(false);
   const [pace, setPace] = useState(loadPracticePace);
   useEffect(() => savePracticePace(pace), [pace]);
-  const [view, setView] = useState<View>('menu');
+  // Online play needs a configured room server; an invite link (?room=CODE) opens it directly.
+  const mpServer = mpServerUrl();
+  const [inviteCode, setInviteCode] = useState(() => mpServer && typeof window !== 'undefined' ? parseRoomParam(window.location.search) : null);
+  const [view, setView] = useState<View>(inviteCode ? 'online' : 'menu');
+  const [onlineTable, setOnlineTable] = useState(false);
+  const [resumeOnline, setResumeOnline] = useState(false);
   const [matchStarted, setMatchStarted] = useState(false);
   const [modal, setModal] = useState<ModalName>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -308,7 +315,7 @@ export function App() {
 
   const pos = seatPositions(controller.humanSeat);
   return (
-    <div className={appClass(view, optionsOpen)}>
+    <div className={appClass(view === 'online' && onlineTable ? 'table' : view === 'online' ? 'menu' : view, optionsOpen)}>
       <header className="app-header" inert={dice !== null || undefined}>
         <div className="brand">
           <span className="brand-tile">金</span>
@@ -338,8 +345,12 @@ export function App() {
         </div>
       </header>
 
-      {view === 'menu' ? (
-        <MainMenu kimMode={settings.kimMode ?? (settings.kimEnabled ? 'natural' : 'off')} onKimModeChange={kimMode => {
+      {view === 'online' && mpServer ? (
+        <OnlineScreen server={mpServer} inviteCode={inviteCode} resume={resumeOnline} onTableChange={setOnlineTable} optionsOpen={optionsOpen} onOptionsOpenChange={changeOptionsOpen}
+          onExit={() => { setInviteCode(null); setResumeOnline(false); setView('menu'); }} />
+      ) : view === 'menu' ? (
+        <MainMenu onOnline={mpServer ? () => setView('online') : undefined}
+          resumeRoomCode={mpServer ? loadLastRoom()?.code : null} onResumeRoom={() => { setResumeOnline(true); setView('online'); }} kimMode={settings.kimMode ?? (settings.kimEnabled ? 'natural' : 'off')} onKimModeChange={kimMode => {
           const stored = persistSettings(settings, { kimEnabled: kimMode !== 'off', kimMode });
           setSettings(stored);
           controller.setSettings(stored);

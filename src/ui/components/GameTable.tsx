@@ -11,12 +11,18 @@ import { handReadingLine } from '../hand-reading';
 import { isFirstGoAround, isInitialDealtHand, seatWindOf, toFullRules, toScoringOverlap } from '../win-context';
 import { MeldView, TileBack, TileRow, TileView } from './TileView';
 
+/** Display name per seat; single player uses PLAYER_NAME, online tables pass the room's nicknames. */
+export type SeatNames = Record<Seat, string>;
+
 /** Screen position of each seat relative to the human at the bottom (turn order runs counter-clockwise). */
 export function seatPositions(human: Seat): Record<'bottom' | 'right' | 'top' | 'left', Seat> {
   const order: Seat[] = ['dong', 'nan', 'xi', 'bei'];
   const i = order.indexOf(human);
   return { bottom: human, right: order[(i + 1) % 4]!, top: order[(i + 2) % 4]!, left: order[(i + 3) % 4]! };
 }
+
+/** Online tables only: "Offline" / "AFK" next to a human seat (the controller opts in with `presence`). */
+const presenceOf = (controller: GameController, seat: Seat) => (controller as { presence?: (seat: Seat) => string | null }).presence?.(seat) ?? null;
 
 function WindBadges({ seat, controller }: { seat: Seat; controller: GameController }) {
   const s = controller.getState();
@@ -37,6 +43,7 @@ function WindBadges({ seat, controller }: { seat: Seat; controller: GameControll
         </span>
       )}
       {s.players[seat].isPaoChin && <span className="badge badge-pao">Pao Chin</span>}
+      {presenceOf(controller, seat) && <span className="badge badge-presence">{presenceOf(controller, seat)}</span>}
     </span>
   );
 }
@@ -71,15 +78,15 @@ function SeatSets({ seat, controller, size, head }: { seat: Seat; controller: Ga
 }
 
 /** `reveal` (developer mode, display only) shows the concealed tiles face-up. */
-export function OpponentPanel({ seat, position, controller, reveal }: { seat: Seat; position: string; controller: GameController; reveal?: boolean }) {
+export function OpponentPanel({ seat, position, controller, reveal, names = PLAYER_NAME }: { seat: Seat; position: string; controller: GameController; reveal?: boolean; names?: SeatNames }) {
   const s = controller.getState();
   const p = s.players[seat];
   const active = s.currentTurn === seat && (s.phase === 'ACTION_DECISION' || s.phase === 'TURN_DRAW');
   const kimInMelds = p.melds.flatMap((m) => m.tiles).filter(isKim).length;
   return (
-    <section className={`seat-panel seat-${position}${active ? ' is-active' : ''}`} aria-label={`${PLAYER_NAME[seat]} — ${SEAT_LABEL[seatWindOf(s, seat)]}`}>
+    <section className={`seat-panel seat-${position}${active ? ' is-active' : ''}`} aria-label={`${names[seat]} — ${SEAT_LABEL[seatWindOf(s, seat)]}`}>
       <div className="seat-head">
-        <strong>{PLAYER_NAME[seat]}</strong>
+        <strong>{names[seat]}</strong>
         <WindBadges seat={seat} controller={controller} />
         {kimInMelds > 0 && <span className="badge badge-kim">KIM ×{kimInMelds}</span>}
       </div>
@@ -94,7 +101,7 @@ export function OpponentPanel({ seat, position, controller, reveal }: { seat: Se
   );
 }
 
-export function CenterArea({ controller, progress }: { controller: GameController; progress?: ReactNode }) {
+export function CenterArea({ controller, progress, names = PLAYER_NAME }: { controller: GameController; progress?: ReactNode; names?: SeatNames }) {
   const s = controller.getState();
   const pending = s.discardPending;
   const trail = controller.discardTrail;
@@ -144,7 +151,7 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
           <div ref={poolRef} className={`discard-pool${trail.length === 0 && !pending ? ' is-empty' : ''}`} aria-label="Riwayat buangan">
             {trail.length === 0 && !pending && <span className="muted">Belum ada buangan.</span>}
             {trail.map((d, i) => (
-              <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d.tile.id === freshId ? ' is-fresh' : ''}`} data-from={source(d.seat)} data-seat={d.seat} title={`${PLAYER_NAME[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
+              <span key={d.tile.id} className={`pool-tile seat-mark-${d.seat}${d.tile.id === freshId ? ' is-fresh' : ''}`} data-from={source(d.seat)} data-seat={d.seat} title={`${names[d.seat]} · ${tileText(d.tile)} (#${i + 1})`}>
                 <TileView tile={d.tile} size="sm" highlight={d.tile.id === freshId} />
               </span>
             ))}
@@ -152,14 +159,14 @@ export function CenterArea({ controller, progress }: { controller: GameControlle
         </div>
       </div>
       {pending && (
-        <div key={pending.tile.id} className="pending-discard" data-pending-discard="" data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${PLAYER_NAME[pending.discarder]} ke area buangan tengah`}>
+        <div key={pending.tile.id} className="pending-discard" data-pending-discard="" data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${names[pending.discarder]} ke area buangan tengah`}>
           <span>
-            {pending.isPromotedKong ? 'Kakan oleh' : 'Buangan'} {PLAYER_NAME[pending.discarder]}:
+            {pending.isPromotedKong ? 'Kakan oleh' : 'Buangan'} {names[pending.discarder]}:
           </span>
           <TileView tile={pending.tile} size="lg" highlight />
         </div>
       )}
-      {won && <p className={`hu-burst${won.scoring.isValidHu ? '' : ' is-lew-fit'}`} role="status">{won.scoring.isValidHu ? 'HU' : 'LEW FIT'}<small>{PLAYER_NAME[won.winner]}</small></p>}
+      {won && <p className={`hu-burst${won.scoring.isValidHu ? '' : ' is-lew-fit'}`} role="status">{won.scoring.isValidHu ? 'HU' : 'LEW FIT'}<small>{names[won.winner]}</small></p>}
     </section>
     <aside className="table-hud" aria-label="Info meja">
       {progress ?? <TableMotion controller={controller} />}
@@ -177,9 +184,12 @@ interface HumanAreaProps {
   coach?: ReactNode;
   /** Action pills (see ActionHud): they float just above this seat, on the felt's near edge */
   hud?: ReactNode;
+  names?: SeatNames;
+  /** Spectators: the bottom seat shows tile backs and cannot pick tiles. */
+  facedown?: boolean;
 }
 
-export function HumanArea({ controller, actions, selectedId, onSelect, coach, hud }: HumanAreaProps) {
+export function HumanArea({ controller, actions, selectedId, onSelect, coach, hud, names = PLAYER_NAME, facedown }: HumanAreaProps) {
   const s = controller.getState();
   const seat = controller.humanSeat;
   const p = s.players[seat];
@@ -215,14 +225,14 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
       {coach && <div className="coach-slot">{coach}</div>}
       <SeatSets seat={seat} controller={controller} size="md" head={
         <div className="seat-head">
-          <strong>{PLAYER_NAME[seat]}</strong>
+          <strong>{names[seat]}</strong>
           <WindBadges seat={seat} controller={controller} />
         </div>
       } />
       <div data-hand-anchor={seat} className="hand-row" role="group" aria-label="Tile di tangan">
-        {rest.map((t) => tileButton(t, false))}
-        {drawn && <span className="drawn-gap" />}
-        {drawn && tileButton(drawn, true)}
+        {facedown ? p.hand.map((t) => <TileBack key={t.id} size="lg" />) : rest.map((t) => tileButton(t, false))}
+        {!facedown && drawn && <span className="drawn-gap" />}
+        {!facedown && drawn && tileButton(drawn, true)}
       </div>
 
     </section>
@@ -296,11 +306,13 @@ export function ActionHud({
   actions,
   selectedId,
   onSelect,
+  names = PLAYER_NAME,
 }: {
   controller: GameController;
   actions: HumanActions;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  names?: SeatNames;
 }) {
   const claim = actions.claim;
   const coach = coachFor({ controller, actions, selectedId });
@@ -318,7 +330,7 @@ export function ActionHud({
     <div className="action-hud" role="toolbar" aria-label="Aksi">
       {claim && (
         <div className="claim-banner">
-          {claim.isPromotedKong ? 'Chiong Kong?' : 'Klaim buangan'} {PLAYER_NAME[claim.discarder]}: <TileView tile={claim.tile} size="sm" />
+          {claim.isPromotedKong ? 'Chiong Kong?' : 'Klaim buangan'} {names[claim.discarder]}: <TileView tile={claim.tile} size="sm" />
         </div>
       )}
       {actions.canReplaceFlowers && (

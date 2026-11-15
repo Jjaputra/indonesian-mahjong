@@ -23,11 +23,16 @@ Don't bring in other variants (Fuzhou "gold", Riichi, ...). `RULES.md` is the im
 | Tay scoring | `src/scoring/` (`scoring-engine.ts`, `hand-parser.ts`) |
 | Bots | `src/ai/` |
 | Developer mode (hand codes, sandbox) | `src/dev/` |
+| Multiplayer game session (seat-agnostic, used by the server) | `src/session/` (`table-session.ts`) |
+| Multiplayer wire protocol and client | `src/net/` (`protocol.ts` is the contract for both sides) |
+| Room server (Cloudflare Worker + Durable Object) | `server/` (`room.ts` logic, `index.ts` DO adapter, `router.ts`) |
 | Save data and history | `src/storage/storage.ts` (persist new Meld fields here) |
 | UI | `src/ui/` (`game-controller.ts`, `components/`), styles in `src/index.css` |
 | Tests | `tests/<area>/`, mirroring `src/` |
 | Notes, briefs and reference images | `.agents/` |
 | Requests not scheduled yet | `BACKLOG.md` |
+
+Multiplayer locally: `npm run server:dev` (room server on :8787), then `VITE_MP_SERVER=http://localhost:8787 npx vite --port 5199 --strictPort`. Use a second port for a second player; each origin has its own seat token.
 
 Dev preview: `npx vite --port 5199 --strictPort`. Then open `?demo=table|late|claim|hu|seri|dice|melds|final` to see a fixed table state.
 

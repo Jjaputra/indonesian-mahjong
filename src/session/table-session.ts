@@ -1,9 +1,9 @@
 import { GameEngine, canFormWinningHand, type GameEngineState } from '../core/game-engine';
 import { SEAT_ORDER, sortTiles, createCompleteTileSet } from '../core/tiles';
 import type { ClaimActionType, LegalActions, Meld, Seat, Tile } from '../core/types';
-import { Wall, createGameWall, type SerializedWall } from '../core/wall';
+import { Wall, createGameWall, shuffleTiles, type SerializedWall } from '../core/wall';
 import { kongPayment, type KongPayment } from '../core/round-score';
-import { canFormWinningHandWithKim } from '../kim/wildcard-solver';
+import { canFormWinningHandWithKim, isKim } from '../kim/wildcard-solver';
 import type { AIDifficulty, GameSettings } from '../storage';
 import { buildObservation, builtInStrategy, evaluateSelfDrawHu, evaluateDiscardHu } from './ai-controller';
 import { toFullRules, toScoringOverlap } from './win-context';
@@ -17,11 +17,14 @@ export type SessionAction = (
   | { type: 'claim'; kind: Exclude<ClaimActionType, 'pass'>; tileIds?: string[] }
 ) & { version: number };
 export type Result = { ok: true; version: number } | { ok: false; code: 'stale_version' | 'illegal_action' | 'not_due'; message: string };
+/** A numeric replay seed, or independent random words for every shuffle decision. */
+export type HandSeed = number | number[];
 export interface SessionOptions {
   settings: GameSettings;
   seats: Record<Seat, 'human' | 'bot'>;
   seed: number;
   now: () => number;
+  handSeed?: () => HandSeed;
   botLevel?: AIDifficulty;
   hostSeat?: Seat;
   turnTimeMs?: number;
@@ -42,9 +45,20 @@ export interface PublicSessionPlayer {
   connected: boolean;
   afk: boolean;
 }
+export interface LastHand {
+  winner: Seat | null;
+  winMethod: 'tsumo' | 'ron' | 'chiong_kong' | 'draw';
+  discarder: Seat | null;
+  hand: Tile[];
+  melds: Meld[];
+  breakdown: { pattern: string; tay: number }[];
+  payments: MatchState['hands'][number];
+}
 export interface SerializedSession {
+  lastHand?: LastHand | null;
+  handSeed?: HandSeed;
   schema: 1;
-  options: Omit<SessionOptions, 'now'>;
+  options: Omit<SessionOptions, 'now' | 'handSeed'>;
   state: Omit<GameEngineState, 'wall'> & { wall: SerializedWall };
   match: MatchState;
   payments: KongPayment[];
@@ -60,20 +74,24 @@ const copy = <T>(value: T): T => structuredClone(value);
 /** Authoritative, transport-free table. Only viewFor is suitable for clients. */
 export class TableSession {
   private engine!: GameEngine;
-  private readonly options: Omit<SessionOptions, 'now'>;
+  private readonly options: Omit<SessionOptions, 'now' | 'handSeed'>;
   private readonly now: () => number;
   private match: MatchState;
   private payments: KongPayment[] = [];
+  private lastHand: LastHand | null = null;
   private decisions: PendingDecision[] = [];
   private claimDeadline: number | null = null;
   private rngState: number;
   private handIndex = 0;
+  private handSeed?: HandSeed;
+  private handSeedSource?: () => HandSeed;
   private presence = Object.fromEntries(SEAT_ORDER.map(seat => [seat, { connected: true, afk: false }])) as SerializedSession['presence'];
   version = 0;
 
-  constructor({ now, ...options }: SessionOptions) {
+  constructor({ now, handSeed, ...options }: SessionOptions) {
     if (!Number.isFinite(options.seed) || !Number.isFinite(options.turnTimeMs ?? 15000) || (options.turnTimeMs ?? 15000) <= 0) throw new Error('Invalid session configuration');
     this.now = now;
+    this.handSeedSource = handSeed;
     this.options = copy(options);
     this.rngState = options.seed;
     this.match = createMatch(options.settings.startingSeatWind, options.settings.roundWind, options.settings.minHuTay, 'rotate', null, now());
@@ -92,8 +110,20 @@ export class TableSession {
   };
 
   private deal(): void {
+    this.lastHand = null;
     const rules = toFullRules(this.options.settings);
-    const wall = createGameWall(rules.kimMode ?? (rules.kimEnabled ? 'dedicated' : 'off'), this.options.seed + this.handIndex++).wall;
+    this.handSeed = copy(this.handSeedSource?.() ?? this.options.seed + this.handIndex);
+    const seed = this.handSeed;
+    if (Array.isArray(seed) ? seed.length < 148 || seed.some(word => !Number.isInteger(word) || word < 0 || word > 0xffffffff) : !Number.isFinite(seed)) throw new Error('Invalid hand seed');
+    this.handIndex++;
+    let wall = createGameWall(rules.kimMode ?? (rules.kimEnabled ? 'dedicated' : 'off'), Array.isArray(seed) ? seed[0]! : seed).wall;
+    if (Array.isArray(seed)) {
+      // The indicator is already public. Shuffle the private wall with independent CSPRNG
+      // words, rather than compressing server entropy into Mulberry32's 32-bit state.
+      const data = wall.serialize();
+      let index = 1;
+      wall = Wall.deserialize({ ...data, tiles: shuffleTiles(data.tiles, () => seed[index++]! / 0x100000000) });
+    }
     this.engine = new GameEngine(rules, wall, {
       dealerSeat: this.match.seating.dealer, roundWind: this.match.seating.prevailingWind,
       huValidator: (hand, melds, tile) => canFormWinningHand([...hand, tile], rules.kimEnabled) || canFormWinningHandWithKim([...hand, tile], melds, rules),
@@ -139,7 +169,7 @@ export class TableSession {
         const scores = new Map(SEAT_ORDER.map(seat => [seat, this.state.pendingClaims[seat]?.action === 'hu' ? evaluateDiscardHu(this.observation(seat)) : null]));
         const result = this.engine.resolveClaimWindow();
         if (result.winningAction === 'hu') {
-          this.settle(result.winnerSeat!, scores.get(result.winnerSeat!)!.totalTay, pending.isPromotedKong ? 'chiong_kong' : 'ron', pending.discarder);
+          this.settle(result.winnerSeat!, scores.get(result.winnerSeat!)!.totalTay, pending.isPromotedKong ? 'chiong_kong' : 'ron', pending.discarder, scores.get(result.winnerSeat!)?.patterns);
         } else if (result.winningAction === 'kong' || pending.isPromotedKong) {
           this.payments.push(kongPayment(result.winningAction === 'kong' ? result.nextTurn : pending.discarder, pending.tile, false));
         }
@@ -157,8 +187,13 @@ export class TableSession {
     this.decisions = waiting.map(d => ({ ...d, deadline: d.kind === 'claim' ? this.claimDeadline! : this.decisions.find(old => old.seat === d.seat && old.kind === d.kind)?.deadline ?? deadline }));
   }
 
-  private settle(winner: Seat | null, tay: number, winMethod?: 'tsumo' | 'ron' | 'chiong_kong', discarder?: Seat): void {
+  private settle(winner: Seat | null, tay: number, winMethod?: 'tsumo' | 'ron' | 'chiong_kong', discarder?: Seat, patterns: { name: string; tay: number }[] = []): void {
     this.match = recordHand(this.match, winner, winner !== null, tay, this.now(), winMethod ? { winMethod, discarder } : undefined, this.payments);
+    const player = winner ? this.state.players[winner] : null;
+    this.lastHand = { winner, winMethod: winMethod ?? 'draw', discarder: discarder ?? null,
+      hand: copy(player?.hand ?? []), melds: copy(player?.melds ?? []),
+      breakdown: patterns.map(p => ({ pattern: p.name, tay: p.tay })), payments: copy(this.match.hands.at(-1)!) };
+
   }
 
   apply(seat: Seat, action: SessionAction): Result {
@@ -187,7 +222,7 @@ export class TableSession {
           this.engine.declareKakan(seat, action.tileId, action.meldIndex); break;
         case 'selfHu':
           if (!legal.canSelfDrawHu) throw new Error('Hu tidak valid.');
-          this.engine.declareSelfDrawHu(seat); this.settle(seat, legal.selfHuScore!.totalTay, 'tsumo'); break;
+          this.engine.declareSelfDrawHu(seat); this.settle(seat, legal.selfHuScore!.totalTay, 'tsumo', undefined, legal.selfHuScore!.patterns); break;
         case 'paoChin': if (!legal.canPaoChin || !this.engine.declarePaoChin(seat)) throw new Error('Pao Chin tidak valid.'); break;
         case 'claim': case 'pass': {
           if (!this.decisions.some(d => d.seat === seat && d.kind === 'claim')) throw new Error('Tidak ada klaim.');
@@ -251,15 +286,22 @@ export class TableSession {
     if (!d) return false;
     const obs = this.observation(d.seat);
     let action: SessionAction;
+    let forceKim = false;
     if (d.kind === 'claim') {
       const c = builtInStrategy.decideClaim(obs, this.random);
       action = c.action === 'pass' ? { type: 'pass', version: this.version } : { type: 'claim', kind: c.action, tileIds: c.meldTiles?.map(t => t.id), version: this.version };
     } else if (this.state.phase === 'TURN_DRAW') action = { type: 'draw', version: this.version };
     else {
       const a = builtInStrategy.decideTurnAction(obs, this.random);
+      forceKim = a.type === 'discard' && a.forcedKim === true && obs.legal.discardableTileIds.length === 0 && obs.hand.every(isKim);
       action = a.type === 'hu' ? { type: 'selfHu', version: this.version } : a.type === 'ankong' ? { type: 'ankong', tileIds: a.tiles.map(t => t.id), version: this.version } : { ...a, version: this.version };
     }
-    return this.apply(d.seat, action).ok;
+    if (!forceKim) return this.apply(d.seat, action).ok;
+    // Only an all-Kim bot hand may use the same narrow exception as a timeout.
+    const saved = { ...this.state.rules };
+    Object.assign(this.state.rules, { kimMode: 'dedicated', kimDiscardAllowed: true });
+    try { return this.apply(d.seat, action).ok; }
+    finally { Object.assign(this.state.rules, saved); }
   }
 
   setConnected(seat: Seat, connected: boolean): void {
@@ -275,28 +317,31 @@ export class TableSession {
       hand: seat ? s.players[seat].hand : [], drawnTileId: seat && s.selfDrawSeat === seat ? s.players[seat].hand.at(-1)?.id ?? null : null,
       legal: seat ? this.actions(seat) : null,
       players: Object.fromEntries(SEAT_ORDER.map(chair => { const p = s.players[chair]; return [chair, { seat: chair, melds: p.melds, flowers: p.flowers, discards: p.discards, concealedCount: p.hand.length, isPaoChin: p.isPaoChin, ...this.presence[chair] }]; })) as Record<Seat, PublicSessionPlayer>,
-      pendingDecisions: this.decisions.filter(d => d.seat === seat),
-      claimWindow: s.phase === 'CLAIM_WINDOW' ? { deadline: this.claimDeadline! } : null,
+      pendingDecisions: this.decisions.filter(d => d.seat === seat).map(d => ({ ...d, deadline: d.deadline as number | null })),
+      claimWindow: s.phase === 'CLAIM_WINDOW' ? { deadline: this.claimDeadline as number | null } : null,
       deadline: s.phase === 'CLAIM_WINDOW' ? this.claimDeadline : this.decisions.find(d => d.kind === 'turn')?.deadline ?? null,
-      match: this.match, lastHandResult: this.match.hands.at(-1) ?? null, matchOver: isMatchOver(this.match),
+      lastHand: this.lastHand, match: this.match, lastHandResult: this.match.hands.at(-1) ?? null, matchOver: isMatchOver(this.match),
     });
   }
 
   serialize(): SerializedSession {
-    return copy({ schema: 1, options: this.options, state: { ...this.state, wall: this.state.wall.serialize() }, match: this.match, payments: this.payments, version: this.version, rngState: this.rngState, handIndex: this.handIndex, decisions: this.decisions, claimDeadline: this.claimDeadline, presence: this.presence });
+    return copy({ handSeed: this.handSeed, lastHand: this.lastHand, schema: 1, options: this.options, state: { ...this.state, wall: this.state.wall.serialize() }, match: this.match, payments: this.payments, version: this.version, rngState: this.rngState, handIndex: this.handIndex, decisions: this.decisions, claimDeadline: this.claimDeadline, presence: this.presence });
   }
 
   private restore(data: SerializedSession): void {
     Object.assign(this.engine.getState(), copy(data.state), { wall: Wall.deserialize(copy(data.state.wall)) });
+    this.handSeed = data.handSeed;
+    this.lastHand = copy(data.lastHand ?? null);
     this.match = copy(data.match); this.payments = copy(data.payments); this.version = data.version;
     this.rngState = data.rngState; this.handIndex = data.handIndex; this.decisions = copy(data.decisions); this.presence = copy(data.presence);
     this.claimDeadline = data.claimDeadline;
   }
 
-  static deserialize(data: SerializedSession, now: () => number): TableSession {
+  static deserialize(data: SerializedSession, now: () => number, handSeed?: () => HandSeed): TableSession {
     if (data.schema !== 1) throw new Error('Unsupported session schema');
     const session = new TableSession({ ...data.options, now });
     session.restore(data);
+    session.handSeedSource = handSeed;
     return session;
   }
 }
