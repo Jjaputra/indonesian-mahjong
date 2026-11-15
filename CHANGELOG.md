@@ -1,6 +1,18 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.7.0] - 2026-11-16
+### Added
+- **Main bareng teman** (online multiplayer). Create a private room, invite friends with a 6-character code or a link, and share it to WhatsApp. Empty seats can be filled with bots.
+- Room rules the host can change in the lobby: Kim mode, Min Tay, turn time (5 s to 60 s, or no limit), the 90-minute limit, bot level and spectators.
+- A turn timer. When it runs out, the just-drawn tile is discarded and a claim counts as a pass. Bots never take over a player's seat.
+- Automatic reconnect and "Lanjutkan room". A seat is kept when a player drops out, and an Offline/AFK badge shows on the table.
+- A "Cara undang teman" guide in the online menu and the lobby.
+- The game is now also at indomahjong.pages.dev.
+### Security
+- Hidden tiles never leave the server: each player receives only their own hand, and every hand is shuffled with fresh cryptographic randomness.
+
 ### Docs
 - Recorded the players' multiplayer decisions in `BACKLOG.md`.
 - Added the multiplayer turn-timer house rule and the room form fields.
