@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { FlaskConical, History, RotateCcw, Settings, Volume2, VolumeX } from 'lucide-react';
-import { AudioQuickMute, backgroundMusic, soundEffects, playSound, type SoundEffectName } from './audio';
+import { AudioSettingsWriter, AudioQuickMute, backgroundMusic, soundEffects, playSound, type SoundEffectName } from './audio';
 import {
   clearGameHistory,
   deleteGameRecord,
@@ -124,6 +124,10 @@ export function App() {
   };
 
   const [quickMute] = useState(() => new AudioQuickMute());
+  const [audioWriter] = useState(() => new AudioSettingsWriter(patch => { updateSettings(patch); }));
+  const liveAudioSettings = useRef(settings);
+  liveAudioSettings.current = settings;
+  useEffect(() => { audioWriter.flush(); }, [modal, audioWriter]);
   useEffect(() => {
     backgroundMusic.applySettings(settings);
     soundEffects.applySettings(settings);
@@ -137,26 +141,35 @@ export function App() {
       void soundEffects.unlock();
     };
     const visibility = () => {
+      if (document.hidden) audioWriter.flush();
       backgroundMusic.setPaused(document.hidden);
-      if (!document.hidden && unlocked) void backgroundMusic.start();
+      // Effects use their own context, which iOS can interrupt while hidden.
+      if (!document.hidden && unlocked) { void backgroundMusic.start(); void soundEffects.unlock(); }
     };
+    const pagehide = () => audioWriter.flush();
+    window.addEventListener('pagehide', pagehide);
     document.addEventListener('pointerdown', unlock);
     document.addEventListener('click', unlock);
     document.addEventListener('keydown', unlock);
     document.addEventListener('visibilitychange', visibility);
     return () => {
+      audioWriter.flush();
+      window.removeEventListener('pagehide', pagehide);
       document.removeEventListener('pointerdown', unlock);
       document.removeEventListener('click', unlock);
       document.removeEventListener('keydown', unlock);
       document.removeEventListener('visibilitychange', visibility);
       void backgroundMusic.dispose();
     };
-  }, []);
+  }, [audioWriter]);
   const changeAudio = (patch: Partial<Pick<GameSettings, 'soundEnabled' | 'musicEnabled' | 'musicVolume' | 'masterVolume' | 'effectsVolume'>>, fromQuickMute = false) => {
     // Only a real switch change drops the mute snapshot (Batalkan perubahan resends unchanged values).
     if (!fromQuickMute && ((patch.soundEnabled ?? settings.soundEnabled) !== settings.soundEnabled
       || (patch.musicEnabled ?? settings.musicEnabled) !== settings.musicEnabled)) quickMute.clear();
-    const stored = persistSettings(settings, patch);
+    const stored = { ...liveAudioSettings.current, ...patch };
+    liveAudioSettings.current = stored;
+    audioWriter.queue(patch);
+    if (fromQuickMute || patch.soundEnabled !== undefined || patch.musicEnabled !== undefined) audioWriter.flush();
     backgroundMusic.applySettings(stored);
     soundEffects.applySettings(stored);
     soundRef.current = stored.soundEnabled;

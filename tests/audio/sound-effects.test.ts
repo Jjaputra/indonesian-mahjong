@@ -374,6 +374,15 @@ describe('Audio: enable / volume / settings', () => {
     expect(engine.play('discard')).toBe(false);
   });
 
+  it.each([{ masterVolume: 0, volume: 1 }, { masterVolume: 1, volume: 0 }])('creates no nodes at zero effective gain: %j', options => {
+    const mock = createMockContext();
+    const engine = engineWith(mock, options);
+    for (const name of SOUND_EFFECT_NAMES) expect(engine.play(name)).toBe(false);
+    expect(mock.ctx.createGain).not.toHaveBeenCalled();
+    expect(mock.ctx.createOscillator).not.toHaveBeenCalled();
+    expect(mock.ctx.createBufferSource).not.toHaveBeenCalled();
+  });
+
   it('clamps volume to [0, 1] and treats 0 as muted', () => {
     const mock = createMockContext();
     const engine = engineWith(mock);
@@ -399,14 +408,18 @@ describe('Audio: enable / volume / settings', () => {
 });
 
 describe('Audio: context lifecycle', () => {
-  it.each(['suspended', 'interrupted'])('resumes a %s context on play and via unlock()', async (state) => {
+  it.each(['suspended', 'interrupted'])('drops effects in a %s context until unlock()', async (state) => {
     const mock = createMockContext(state);
     const engine = engineWith(mock);
-    expect(engine.play('draw')).toBe(true);
-    expect(mock.ctx.resume).toHaveBeenCalled();
-    mock.ctx.state = state;
+    expect(engine.play('draw')).toBe(false);
+    expect(mock.ctx.createGain).not.toHaveBeenCalled();
+    expect(mock.ctx.createOscillator).not.toHaveBeenCalled();
+    expect(mock.ctx.createBufferSource).not.toHaveBeenCalled();
+    expect(mock.ctx.resume).not.toHaveBeenCalled();
     await expect(engine.unlock()).resolves.toBe(true);
     expect(mock.ctx.state).toBe('running');
+    expect(engine.play('draw')).toBe(true);
+    expect(mock.oscillators).toHaveLength(toneCount('draw'));
   });
 
   it('recreates the context after it was closed externally', () => {

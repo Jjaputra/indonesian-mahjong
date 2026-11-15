@@ -4,6 +4,7 @@ import { defaultAudioContextFactory, type AudioContextFactory, type AudioContext
 
 const BEAT = 60 / 74;
 const FADE = 1.5;
+const VOLUME_FADE = 0.065;
 const SCALE = [0, 2, 4, 7, 9];
 const clamp = (n: number) => clampVolume(n, DEFAULT_MUSIC_VOLUME);
 export const AUDIO_MUTE_STORAGE_KEY = 'itm.audio-mute.v1';
@@ -59,7 +60,7 @@ export class MusicEngine {
   private step = 0;
   private seed: number;
   private degree = 2;
-  private ramp = { from: 0, to: 0, start: 0 };
+  private ramp = { from: 0, to: 0, start: 0, duration: FADE };
 
   constructor(private options: { contextFactory?: AudioContextFactory; enabled?: boolean; volume?: number; masterVolume?: number; seed?: number } = {}) {
     this.enabled = options.enabled ?? true;
@@ -74,9 +75,13 @@ export class MusicEngine {
   }
 
   applySettings(settings: Pick<GameSettings, 'musicEnabled' | 'musicVolume' | 'masterVolume'>): void {
+    const enabledChanged = this.enabled !== settings.musicEnabled;
+    const volumeChanged = this.volume !== clamp(settings.musicVolume) || this.masterVolume !== clampVolume(settings.masterVolume);
     this.volume = clamp(settings.musicVolume);
     this.masterVolume = clampVolume(settings.masterVolume);
-    this.setEnabled(settings.musicEnabled);
+    this.enabled = settings.musicEnabled;
+    if (enabledChanged) this.sync();
+    else if (volumeChanged) this.sync(VOLUME_FADE);
   }
 
   setEnabled(enabled: boolean): void {
@@ -86,7 +91,7 @@ export class MusicEngine {
 
   setVolume(volume: number): void {
     this.volume = clamp(volume);
-    this.fade(this.timer !== undefined ? this.level() : 0);
+    this.sync(VOLUME_FADE);
   }
 
   /** Music trim preserves the original default level: 1^2 * 0.5^2 * 0.6 = 0.15. */
@@ -103,7 +108,7 @@ export class MusicEngine {
         this.master?.disconnect?.();
         this.master = null;
         this.context = null;
-        this.ramp = { from: 0, to: 0, start: 0 };
+        this.ramp = { from: 0, to: 0, start: 0, duration: FADE };
       }
       this.context ??= (this.options.contextFactory ?? defaultAudioContextFactory)();
       if (!this.context) return false;
@@ -122,22 +127,22 @@ export class MusicEngine {
     } else this.sync();
   }
 
-  private fade(target: number): void {
+  private fade(target: number, duration = FADE): void {
     if (!this.master || !this.context) return;
     const now = this.context.currentTime;
-    const fraction = Math.min(1, Math.max(0, (now - this.ramp.start) / FADE));
+    const fraction = Math.min(1, Math.max(0, (now - this.ramp.start) / this.ramp.duration));
     const current = this.ramp.from + (this.ramp.to - this.ramp.from) * fraction;
     const param = this.master.gain as GainNodeLike['gain'] & { cancelScheduledValues?: (t: number) => void };
     param.cancelScheduledValues?.(now);
     param.setValueAtTime(current, now);
-    param.linearRampToValueAtTime(target, now + FADE);
-    this.ramp = { from: current, to: target, start: now };
+    param.linearRampToValueAtTime(target, now + duration);
+    this.ramp = { from: current, to: target, start: now, duration };
   }
 
-  private sync(): void {
+  private sync(duration = FADE): void {
     const ctx = this.context;
     if (!ctx) return;
-    const playing = this.requested && this.enabled && !this.paused && ctx.state === 'running';
+    const playing = this.requested && this.enabled && !this.paused && ctx.state === 'running' && this.level() > 0;
     if (playing) {
       if (!this.master) {
         this.master = ctx.createGain();
@@ -149,15 +154,16 @@ export class MusicEngine {
         this.schedule();
         this.timer = setInterval(() => this.schedule(), 250);
       }
-      this.fade(this.level());
+      if (this.ramp.to !== this.level()) this.fade(this.level(), duration);
     } else {
       clearInterval(this.timer);
       this.timer = undefined;
-      this.fade(0);
+      if (this.ramp.to !== 0) this.fade(0, duration);
       for (const voice of this.voices) {
         // Notes queued ahead never sound, so a quick re-enable cannot double the beat.
         if (voice.start > ctx.currentTime) voice.osc.stop(ctx.currentTime);
-        else if (voice.end > ctx.currentTime + FADE) {
+        // A slider dip to 0 keeps sustained pads, so a quick drag back up cannot cut them while audible.
+        else if (duration === FADE && voice.end > ctx.currentTime + FADE) {
           voice.end = ctx.currentTime + FADE;
           voice.osc.stop(voice.end);
         }
@@ -191,6 +197,7 @@ export class MusicEngine {
 
   private schedule(): void {
     const ctx = this.context!;
+    if (this.level() === 0 || ctx.state !== 'running') return;
     for (const voice of this.voices) if (voice.end < ctx.currentTime) this.release(voice);
     // Skip missed beats after suspension or a long main-thread stall, never catch up in a burst.
     this.next = Math.max(this.next, ctx.currentTime + 0.02);
@@ -222,6 +229,7 @@ export class MusicEngine {
     for (const voice of this.voices) this.release(voice);
     this.master?.disconnect?.();
     this.master = null;
+    this.ramp = { from: 0, to: 0, start: 0, duration: FADE };
     const ctx = this.context;
     this.context = null;
     try { await ctx?.close?.(); } catch { /* unavailable context */ }

@@ -33,7 +33,7 @@ describe('procedural music', () => {
   it('starts once, looks ahead, fades volume, stops and toggles', async () => {
     vi.useFakeTimers();
     const { ctx, nodes, gains } = mockContext();
-    const music = new MusicEngine({ contextFactory: () => ctx, seed: 7 });
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx });
     expect(await music.start()).toBe(true);
     expect(vi.getTimerCount()).toBe(1);
     expect(nodes.length).toBeGreaterThan(0);
@@ -42,7 +42,7 @@ describe('procedural music', () => {
     await music.start();
     expect(vi.getTimerCount()).toBe(1);
     music.setVolume(1);
-    expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0.6, 1.5);
+    expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0.6, 0.065);
     music.setEnabled(false);
     expect(vi.getTimerCount()).toBe(0);
     expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 1.5);
@@ -54,10 +54,81 @@ describe('procedural music', () => {
     expect(ctx.close).toHaveBeenCalledOnce();
   });
 
+  it('retargets slider ramps from their interpolated gain without clicks', async () => {
+    vi.useFakeTimers();
+    const { ctx, gains } = mockContext();
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx });
+    await music.start();
+    ctx.currentTime = 1.5;
+    music.setVolume(1);
+    expect(gains[0]!.gain.setValueAtTime).toHaveBeenLastCalledWith(0.15, 1.5);
+    expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0.6, 1.565);
+    ctx.currentTime = 1.5325;
+    music.applySettings({ musicEnabled: true, musicVolume: 1, masterVolume: 0.5 });
+    expect(gains[0]!.gain.setValueAtTime.mock.lastCall![0]).toBeCloseTo(0.375);
+    expect(gains[0]!.gain.linearRampToValueAtTime.mock.lastCall![1]).toBeCloseTo(1.5975);
+    await music.start(); // Repeated user gestures must not stretch the slider ramp.
+    expect(gains[0]!.gain.linearRampToValueAtTime.mock.lastCall![1]).toBeCloseTo(1.5975);
+    await music.dispose();
+  });
+
+  it.each(['music', 'master'] as const)('stops synthesis at zero %s gain and resumes without a backlog', async channel => {
+    vi.useFakeTimers();
+    const { ctx, nodes } = mockContext();
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx, volume: channel === 'music' ? 0 : 0.5, masterVolume: channel === 'master' ? 0 : 1 });
+    await music.start();
+    expect(nodes).toHaveLength(0);
+    expect(vi.getTimerCount()).toBe(0);
+    music.applySettings({ musicEnabled: true, musicVolume: 0.5, masterVolume: 1 });
+    expect(nodes.length).toBeGreaterThan(0);
+    music.applySettings({ musicEnabled: true, musicVolume: channel === 'music' ? 0 : 0.5, masterVolume: channel === 'master' ? 0 : 1 });
+    expect(vi.getTimerCount()).toBe(0);
+    const count = nodes.length;
+    ctx.currentTime = 120;
+    vi.advanceTimersByTime(120000);
+    expect(nodes).toHaveLength(count);
+    music.applySettings({ musicEnabled: true, musicVolume: 0.5, masterVolume: 1 });
+    expect(nodes.slice(count).every(n => n.start.mock.calls[0]![0] > 120)).toBe(true);
+    expect(vi.getTimerCount()).toBe(1);
+    await music.dispose();
+  });
+
+  it('keeps sounding pads on a slider dip to zero so a quick drag back up does not cut them', async () => {
+    vi.useFakeTimers();
+    const { ctx, nodes } = mockContext();
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx });
+    await music.start();
+    ctx.currentTime = 0.5;
+    const sounding = nodes.filter(n => (n.start.mock.calls[0]![0] as number) <= ctx.currentTime);
+    expect(sounding.length).toBeGreaterThan(0);
+    const before = sounding.map(n => n.stop.mock.calls.length);
+    music.setVolume(0);
+    expect(sounding.map(n => n.stop.mock.calls.length)).toEqual(before);
+    music.setEnabled(false);
+    expect(sounding.some((n, i) => n.stop.mock.calls.length > before[i]!)).toBe(true);
+    await music.dispose();
+  });
+
+  it('starts a fresh fade from zero after dispose and restart', async () => {
+    vi.useFakeTimers();
+    const first = mockContext();
+    const second = mockContext();
+    const factory = vi.fn().mockReturnValueOnce(first.ctx).mockReturnValueOnce(second.ctx);
+    const music = new MusicEngine({ seed: 7, contextFactory: factory });
+    await music.start();
+    first.ctx.currentTime = 3;
+    await music.dispose();
+    second.ctx.currentTime = 10;
+    await music.start();
+    expect(second.gains[0]!.gain.setValueAtTime).toHaveBeenLastCalledWith(0, 10);
+    expect(second.gains[0]!.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0.15, 11.5);
+    await music.dispose();
+  });
+
   it('cancels queued notes on disable so a quick re-enable does not double the beat', async () => {
     vi.useFakeTimers();
     const { ctx, nodes } = mockContext();
-    const music = new MusicEngine({ contextFactory: () => ctx, seed: 7 });
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx });
     await music.start();
     ctx.currentTime = 0.1;
     const queued = nodes.filter(n => n.start.mock.calls[0]![0] > 0.1);
@@ -70,19 +141,19 @@ describe('procedural music', () => {
   it('applies master and music curves live and keeps zero silent', async () => {
     vi.useFakeTimers();
     const { ctx, gains } = mockContext();
-    const music = new MusicEngine({ contextFactory: () => ctx });
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx });
     await music.start();
     music.applySettings({ musicEnabled: true, musicVolume: 0.4, masterVolume: 0.5 });
     expect(gains[0]!.gain.linearRampToValueAtTime.mock.lastCall![0]).toBeCloseTo(0.024);
     music.applySettings({ musicEnabled: true, musicVolume: 0.4, masterVolume: 0 });
-    expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 1.5);
+    expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 0.065);
     await music.dispose();
   });
 
   it('recovers interrupted contexts on gestures and visibility resume', async () => {
     vi.useFakeTimers();
     const { ctx } = mockContext();
-    const music = new MusicEngine({ contextFactory: () => ctx });
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx });
     await music.start();
     ctx.state = 'interrupted';
     await music.start();
@@ -101,7 +172,7 @@ describe('procedural music', () => {
     const first = mockContext();
     const second = mockContext();
     const factory = vi.fn().mockReturnValueOnce(first.ctx).mockReturnValueOnce(second.ctx);
-    const music = new MusicEngine({ contextFactory: factory });
+    const music = new MusicEngine({ seed: 7, contextFactory: factory });
     await music.start();
     first.ctx.state = 'closed';
     expect(await music.start()).toBe(true);
@@ -116,7 +187,7 @@ describe('procedural music', () => {
     vi.useFakeTimers();
     const { ctx } = mockContext();
     ctx.state = 'suspended';
-    const music = new MusicEngine({ contextFactory: () => ctx });
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx });
     await music.start();
     expect(ctx.resume).toHaveBeenCalledOnce();
     music.setPaused(true);
@@ -132,7 +203,7 @@ describe('procedural music', () => {
   it('does not create timers without a context or when the factory throws', async () => {
     vi.useFakeTimers();
     for (const contextFactory of [() => null, () => { throw new Error('blocked'); }]) {
-      const music = new MusicEngine({ contextFactory });
+      const music = new MusicEngine({ seed: 7, contextFactory });
       expect(await music.start()).toBe(false);
       music.setEnabled(false);
       music.setVolume(0.4);
@@ -145,7 +216,7 @@ describe('procedural music', () => {
   it('keeps live voices bounded over an hour and releases finished nodes', async () => {
     vi.useFakeTimers();
     const { ctx, nodes, gains, active } = mockContext();
-    const music = new MusicEngine({ contextFactory: () => ctx, seed: 7 });
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx });
     await music.start();
     let maxLive = 0;
     for (let tick = 1; tick <= 14400; tick++) {
@@ -164,7 +235,7 @@ describe('procedural music', () => {
   it('disconnects a voice immediately when its oscillator ends', async () => {
     vi.useFakeTimers();
     const { ctx, nodes } = mockContext();
-    const music = new MusicEngine({ contextFactory: () => ctx });
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx });
     await music.start();
     nodes[0]!.onended!();
     expect(nodes[0]!.disconnect).toHaveBeenCalledOnce();
@@ -174,13 +245,13 @@ describe('procedural music', () => {
   it('applies independent settings and clamps music volume', async () => {
     vi.useFakeTimers();
     const { ctx, gains } = mockContext();
-    const music = new MusicEngine({ contextFactory: () => ctx, enabled: false });
+    const music = new MusicEngine({ seed: 7, contextFactory: () => ctx, enabled: false });
     await music.start();
     expect(vi.getTimerCount()).toBe(0);
     music.applySettings({ musicEnabled: true, musicVolume: 9, masterVolume: 1 });
     expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0.6, 1.5);
     music.setVolume(-1);
-    expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 1.5);
+    expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 0.065);
     await music.dispose();
   });
 });

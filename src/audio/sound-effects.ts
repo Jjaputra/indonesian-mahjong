@@ -357,12 +357,9 @@ export class SoundEngine {
   play(name: SoundEffectName): boolean {
     if (!this.enabled || effectiveGain(this.masterVolume, this.volume) <= 0 || !isSoundEffectName(name)) return false;
     const ctx = this.getContext();
-    if (!ctx) return false;
+    if (!ctx || ctx.state !== 'running') return false;
 
     try {
-      if ((ctx.state === 'suspended' || ctx.state === 'interrupted') && ctx.resume) {
-        ctx.resume().catch(() => undefined);
-      }
       const t0 = ctx.currentTime;
       if (!this.output) {
         this.output = ctx.createGain();
