@@ -57,7 +57,7 @@ All three must pass before you report done. For scoring changes, add tests that 
 
 ## Release (coordinator only)
 
-1. Bump `version` in `package.json`, then `npm install --package-lock-only --silent`.
+1. Bump `version` in `package.json`, then `npm install --package-lock-only --silent`. Move the `[Unreleased]` notes in `CHANGELOG.md` under the new version with today's date; add a line for every player-visible change.
 2. Run the checks.
 3. Commit with a `feat:`/`fix:` message ending `(vX.Y.Z)`, push the branch, open a PR to `main`, and merge it.
 4. `main` deploys to GitHub Pages through `.github/workflows/pages.yml`. Watch the run with `gh run watch`.
