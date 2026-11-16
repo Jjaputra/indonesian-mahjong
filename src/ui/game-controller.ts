@@ -751,7 +751,7 @@ export class GameController {
     const before = this.flowerCounts();
     const r = this.engine.declareAnkong(seat, tiles);
     this.payKong(seat, tiles[0]!, true);
-    this.addLog(`${PLAYER_NAME[seat]} Ankong ${tileText(tiles[0]!)}.`, seat);
+    this.addLog(`${PLAYER_NAME[seat]} Kong ${tileText(tiles[0]!)}.`, seat);
     this.emit('kong', seat);
     this.logNewFlowers(before);
     if (seat === this.humanSeat) this.humanDrawnTileId = r.replacementTile?.id ?? null;
@@ -767,7 +767,7 @@ export class GameController {
   private kakanFor(seat: Seat, tileId: string, meldIndex: number): void {
     this.engine.declareKakan(seat, tileId, meldIndex);
     const tile = this.getState().discardPending?.tile;
-    this.addLog(`${PLAYER_NAME[seat]} Kakan (Kong tambahan) ${tile ? tileText(tile) : ''} — menunggu Chiong Kong.`, seat);
+    this.addLog(`${PLAYER_NAME[seat]} Kong ${tile ? tileText(tile) : ''} — menunggu Chiong Kong.`, seat);
     this.emit('kong', seat);
     if (seat === this.humanSeat) this.humanDrawnTileId = null;
   }

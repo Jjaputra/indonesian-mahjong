@@ -29,7 +29,7 @@ export const MELD_LABEL: Record<MeldType, string> = {
   jia: 'Jia',
   pung: 'Pung',
   kong: 'Kong',
-  ankong: 'Ankong',
+  ankong: 'Kong',
 };
 
 export const WIN_METHOD_LABEL: Record<WinMethod, string> = {

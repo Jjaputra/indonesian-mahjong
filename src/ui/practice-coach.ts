@@ -90,10 +90,10 @@ export function practiceCoachLine(input: PracticeCoachInput): CoachLine {
     return { text: `Hand Anda bisa langsung Cin; tekan Pao Chin untuk mendeklarasikannya${discardTail(input)}.`, emphasis: 'pao-chin' };
   }
   if (input.ankongOptions.length > 0) {
-    return { text: `Anda memegang empat tile sama; tekan Ankong untuk Kong tertutup${discardTail(input)}.`, emphasis: 'ankong' };
+    return { text: `Anda memegang empat tile sama; tekan Kong untuk Kong tertutup${discardTail(input)}.`, emphasis: 'ankong' };
   }
   if (input.kakanOptions.length > 0) {
-    return { text: `Tile ini melengkapi Pung terbuka Anda; tekan Kakan untuk menjadikannya Kong${discardTail(input)}.`, emphasis: 'kakan' };
+    return { text: `Tile ini melengkapi Pung terbuka Anda; tekan Kong untuk menambahkannya ke Pung Anda${discardTail(input)}.`, emphasis: 'kakan' };
   }
   if (input.canDiscard) {
     const id = input.selectedTileId;
