@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-16
+### Changed
+- House rule (players, 2026-11-16): Kim may be discarded, but nobody can claim a discarded Kim. That means no Jia, Pung, Kong or Hu on it. The Turnamen preset keeps the PDF ban.
+- House rule: choosing "Tanpa Kim" sets Min Tay to 3; a Kim mode sets 5. The room host can still change it.
+- Saved settings move to the house rules once; an explicit Turnamen choice is kept.
+
 ## [0.7.1] - 2026-11-16
 ### Changed
 - A Kong claimed from a discard now opens the hand: a self-draw scores Ce Mo instead of Ce Mo Pu Ciu Jen, and a discard win no longer scores Mun. It still counts for Sam/Si Am Kang. A Kong you draw yourself keeps the hand concealed. (Players, 2026-11-16; the Mun part waits for the group's confirmation.)
