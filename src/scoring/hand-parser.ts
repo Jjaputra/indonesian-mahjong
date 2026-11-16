@@ -1,4 +1,4 @@
-import { isConcealedSet } from '../core/melds';
+import { isConcealedTripletForAmKang, keepsHandConcealed } from '../core/melds';
 import type { WinContext } from './types';
 import type { Meld, Tile } from '../core/types';
 import { isKim } from '../kim/wildcard-solver';
@@ -49,7 +49,7 @@ export function describeKind(t: TileKind): string {
 
 export function concealedTripletReason(features: Pick<HandFeatures, 'triplets'>): string {
   const trips = features.triplets.filter(t => t.concealed);
-  return `${trips.length} tris tertutup: ${trips.map(t => `${describeKind(t.kind)} ${t.setType === 'kong' ? 'Kong' : t.setType === 'ankong' ? 'Ankong' : 'tris'}`).join(', ')}`;
+  return `${trips.length} tris tertutup: ${trips.map(t => `${describeKind(t.kind)} ${t.setType === 'kong' ? 'Kong' : t.setType === 'ankong' ? 'Kong sendiri' : 'tris'}`).join(', ')}`;
 }
 
 function kindOf(t: Tile): TileKind {
@@ -62,7 +62,7 @@ function isTripletMeld(m: MeldComposition): boolean {
 
 /** Sets that open the hand (#42 vs #43/#44). Tan Tiau counts claims separately, see claimedMeldCount. */
 export function countOpenSets(melds: readonly Meld[]): number {
-  return melds.filter((m) => !isConcealedSet(m)).length;
+  return melds.filter((m) => !keepsHandConcealed(m)).length;
 }
 
 /** The face a declared set is named by: its lowest natural tile, so a Jia or a Kim-filled claim reads right. */
@@ -108,7 +108,7 @@ export function parseHandFeatures(
       } else if (isTripletMeld(m)) {
         const isKimThi = m.type === 'kim_thi' || (m.kimCount === 3 && m.tiles.every(isKim));
         const natural = m.representedTiles.find((t) => t.type !== 'kim') ?? m.representedTiles[0]!;
-        triplets.push({ kind: kindOf(natural), concealed: !m.isOpen, isKimThi, setType: m.type });
+        triplets.push({ kind: kindOf(natural), concealed: !m.isOpen || isConcealedTripletForAmKang(m), isKimThi, setType: m.type });
       }
     }
   }
@@ -122,7 +122,7 @@ export function parseHandFeatures(
     || concealedSequences.some(m => m.tiles.some(matchesWin));
   if (context?.isDiscardWin && !context.isSelfDraw && !nonTripletCompletion) {
     const index = solved.melds.filter(isTripletMeld).findIndex(m => !m.isOpen
-      && !isConcealedSet(m) && m.tiles.some(matchesWin));
+      && !isConcealedTripletForAmKang(m) && m.tiles.some(matchesWin));
     if (index >= 0) triplets[index] = { ...triplets[index]!, concealed: false };
   }
   const isSelfRobbingKong = !!context?.isSelfDraw
@@ -139,8 +139,8 @@ export function parseHandFeatures(
     pairs: solved.shape === 'standard' ? (solved.pair ? [solved.pair] : [])
       : solved.shape === 'seven_pairs' ? (solved.pairs ?? []) : [],
     claimedMeldCount: openMelds.filter(m => m.type !== 'ankong').length,
-    openSetDescriptions: openMelds.filter(m => !isConcealedSet(m)).map(m =>
-      `${m.type === 'kong' ? 'Kong tambahan' : m.type === 'pung' ? 'Pung' : 'Jia'} ${describeKind(meldKind(m))} terbuka`),
+    openSetDescriptions: openMelds.filter(m => !keepsHandConcealed(m)).map(m =>
+      `${m.type === 'kong' ? (m.fromConcealedTriplet ? 'Kong dari buangan' : 'Kong tambahan') : m.type === 'pung' ? 'Pung' : 'Jia'} ${describeKind(meldKind(m))} terbuka`),
     kimCount: solved.totalKims,
     isBoKim: solved.mode === 'NK',
   };
@@ -159,7 +159,7 @@ export function instantConcealedTriplets(concealed: readonly Tile[], openMelds: 
   }
   return [
     ...[...groups.values()].filter(tiles => tiles.length >= 3).map(tiles => ({ kind: kindOf(tiles[0]!), concealed: true, isKimThi: false, setType: 'pung' as const })),
-    ...openMelds.filter(isConcealedSet).map(m => ({ kind: meldKind(m), concealed: true, isKimThi: false, setType: m.type })),
+    ...openMelds.filter(isConcealedTripletForAmKang).map(m => ({ kind: meldKind(m), concealed: true, isKimThi: false, setType: m.type })),
   ];
 }
 

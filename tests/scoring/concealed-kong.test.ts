@@ -32,12 +32,17 @@ function includes(r: ScoringResult, yes: number[], no: number[]) {
 const xiKong: Meld = { type: 'kong', tiles: [1, 2, 3, 4].map(i => keyToTile('WX', i)), claimedFrom: 'nan', fromConcealedTriplet: true };
 
 describe('Kong on a concealed triplet house rule', () => {
+  it('undeclared four identical tiles count as two pairs for Tjit Tuei', () => {
+    const r = evaluate('Undeclared four tiles / Tjit Tuei', '1111m33p55p77s99s Zh | win Zh ce_mo');
+    includes(r, [16, 44], [33, 34, 42, 43]);
+    expect(r.patterns.find(p => p.id === 16)?.tay).toBe(20);
+  });
   for (const withKim of [true, false]) it(`A: Xi Kong, three concealed triplets, Kim=${withKim}`, () => {
     const r = evaluate(`A ${withKim ? 'Kim' : 'no Kim'}`, `${withKim ? kimBase : base} | kong WWWW | win Zh ce_mo${withKim ? ' | kim 9m' : ''}`);
-    includes(r, [34, 44], [33, 42]);
+    includes(r, [34, 42], [33, 43, 44]);
     expect(r.patterns.find(p => p.id === 34)?.tay).toBe(withKim ? 20 : 30);
     expect(r.patterns.find(p => p.id === 34)?.description).toContain('西 Kong');
-    expect(r.patterns.find(p => p.id === 44)?.description).toContain('Kong dari buangan di atas tris tertutup');
+    expect(r.patterns.find(p => p.id === 42)?.description).toContain('Kong dari buangan 西 terbuka');
   });
   for (const withKim of [true, false]) it(`A2: Ankong, Kim=${withKim}`, () => {
     const r = evaluate(`A2 ${withKim ? 'Kim' : 'no Kim'}`, `${withKim ? kimBase : base} | ankong WWWW | win Zh ce_mo${withKim ? ' | kim 9m' : ''}`);
@@ -45,15 +50,19 @@ describe('Kong on a concealed triplet house rule', () => {
     expect(r.patterns.find(p => p.id === 34)?.tay).toBe(withKim ? 20 : 30);
     expect(r.patterns.find(p => p.id === 44)?.description).not.toContain('Kong dari buangan');
   });
-  it('B: two triplets, concealed Jia, claimed Kong', () => {
-    const r = evaluate('B', '111m222p345s Zh | kong WWWW | win Zh ce_mo');
-    includes(r, [33, 44], [34, 42]); expect(r.patterns.find(p => p.id === 33)?.tay).toBe(5);
+  for (const withKim of [true, false]) it(`B: two triplets, concealed Jia, claimed Kong, Kim=${withKim}`, () => {
+    const r = evaluate(`B ${withKim ? 'Kim' : 'no Kim'}`, `${withKim ? '11m9m22p9m345s Zh' : '111m222p345s Zh'} | kong WWWW | win Zh ce_mo${withKim ? ' | kim 9m' : ''}`);
+    includes(r, [33, 42], [34, 43, 44]); expect(r.patterns.find(p => p.id === 33)?.tay).toBe(5);
+  });
+  for (const withKim of [true, false]) it(`B2: two triplets, concealed Jia, Ankong, Kim=${withKim}`, () => {
+    const r = evaluate(`B2 ${withKim ? 'Kim' : 'no Kim'}`, `${withKim ? '11m9m22p9m345s Zh' : '111m222p345s Zh'} | ankong WWWW | win Zh ce_mo${withKim ? ' | kim 9m' : ''}`);
+    includes(r, [33, 44], [34, 42, 43]);
   });
   it('C: discard completes the pair', () => {
-    includes(evaluate('C', `${base} | kong WWWW | win Zh buangan:S`), [34, 43], [33, 42, 44]);
+    includes(evaluate('C', `${base} | kong WWWW | win Zh buangan:S`), [34], [33, 42, 43, 44]);
   });
-  it('discard-completed triplet loses concealment while the declared Kong keeps it', () => {
-    includes(evaluate('Discard triplet completion', '111m222p33s ZhZh | kong WWWW | win 3s buangan:S'), [33, 43], [34, 44]);
+  it('discard-completed triplet loses Am Kang concealment while the claimed Kong retains it', () => {
+    includes(evaluate('Discard triplet completion', '111m222p33s ZhZh | kong WWWW | win 3s buangan:S'), [33], [34, 42, 43, 44]);
   });
   for (const set of ['pung 555m', 'jia 654m', 'kakan WWWW']) it(`D: ${set} opens the hand`, () => {
     const r = evaluate(`D ${set}`, `${base} | ${set} | win Zh ce_mo`);
@@ -62,9 +71,12 @@ describe('Kong on a concealed triplet house rule', () => {
     const ron = evaluateDevHand(parse(`${base} | ${set} | win Zh buangan:S`), settings).scoring;
     includes(ron, [], [43, 44]);
   });
+  it('Ankong keeps Mun on a discard win', () => {
+    includes(evaluate('Ankong discard', `${base} | ankong WWWW | win Zh buangan:S`), [34, 43], [33, 42, 44]);
+  });
   it('keeps Tan Tiau counting a concealed-triplet Kong as a claim', () => {
     includes(evaluate('Tan Tiau', 'Zh | kong WWWW | pung 111m | pung 222p | jia 345s | win Zh ce_mo'), [41, 42], [43, 44]);
-    expect(countOpenSets([xiKong])).toBe(0);
+    expect(countOpenSets([xiKong])).toBe(1);
   });
   it('keeps claimed Kong and Zhong payments at 1 and 2', () => {
     for (const [face, amount] of [['WWWW', 1], ['ZhZhZhZh', 2]] as const) {

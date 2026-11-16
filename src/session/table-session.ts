@@ -214,11 +214,11 @@ export class TableSession {
         case 'draw': if (!legal.canDraw) throw new Error('Tidak bisa tarik.'); this.engine.startTurnDraw(seat); break;
         case 'discard': this.engine.discard(seat, action.tileId); break;
         case 'ankong': {
-          if (!legal.ankongOptions.some(group => group.length === action.tileIds.length && group.every(t => action.tileIds.includes(t.id)))) throw new Error('Ankong tidak valid.');
+          if (!legal.ankongOptions.some(group => group.length === action.tileIds.length && group.every(t => action.tileIds.includes(t.id)))) throw new Error('Kong tidak valid.');
           const group = tiles(action.tileIds); this.engine.declareAnkong(seat, group); this.payments.push(kongPayment(seat, group[0]!, true)); break;
         }
         case 'kakan':
-          if (!legal.kakanOptions.some(o => o.tile.id === action.tileId && o.meldIndex === action.meldIndex)) throw new Error('Kakan tidak valid.');
+          if (!legal.kakanOptions.some(o => o.tile.id === action.tileId && o.meldIndex === action.meldIndex)) throw new Error('Kong tidak valid.');
           this.engine.declareKakan(seat, action.tileId, action.meldIndex); break;
         case 'selfHu':
           if (!legal.canSelfDrawHu) throw new Error('Hu tidak valid.');

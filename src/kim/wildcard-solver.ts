@@ -1,4 +1,4 @@
-import { isConcealedSet } from '../core/melds';
+import { keepsHandConcealed } from '../core/melds';
 import { KimValidator } from './kim-validator';
 import type { GameRules, Meld, MeldType, Seat, Tile, TileType } from '../core/types';
 import {
@@ -489,7 +489,7 @@ export function solveStandardHand(
       assignments,
       claimedFrom: m.claimedFrom,
       fromConcealedTriplet: m.fromConcealedTriplet,
-      isOpen: !isConcealedSet(m),
+      isOpen: !keepsHandConcealed(m),
       kimCount: kCount,
     };
   });
