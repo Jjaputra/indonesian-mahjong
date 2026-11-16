@@ -195,6 +195,7 @@ describe('F03 turn boundaries', () => {
     const engine = quietEngine();
     const kim = keyToTile('KIM', 4);
     engine.getState().players.dong.hand.push(kim);
+    engine.getState().rules.kimDiscardAllowed = false;
     expect(() => engine.discard('dong', kim.id)).toThrow(/Kim/i);
   });
 });
@@ -317,9 +318,9 @@ describe('F06 solver boundaries', () => {
 });
 
 describe('F07 Kim-rule boundaries', () => {
-  it('fills omitted Kim toggles from the tournament preset', () => {
+  it('fills omitted Kim toggles from the house defaults', () => {
     const resolved = resolveKimRules({ kimEnabled: true, minHuTay: 5 });
-    expect(resolved.kimDiscardAllowed).toBe(false);
+    expect(resolved.kimDiscardAllowed).toBe(true);
     expect(resolved.allowKimInMeldClaim).toBe(false);
     expect(resolved.allowKimInPair).toBe(true);
   });

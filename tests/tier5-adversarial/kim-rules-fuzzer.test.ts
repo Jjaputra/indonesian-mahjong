@@ -57,10 +57,10 @@ describe('Tier 5 Adversarial Verification: Kim Joker System Rules & Validator', 
       }
     });
 
-    it('prohibits discarding Kim tiles under casual preset by default, permits when kimDiscardAllowed is true', () => {
+    it('permits discarding Kim tiles under casual preset by default and explicit permission', () => {
       for (let i = 1; i <= 4; i++) {
         const kim = makeTile('KIM', i);
-        expect(casualValidator.canDiscard(kim).valid).toBe(false);
+        expect(casualValidator.canDiscard(kim).valid).toBe(true);
         const allowDiscardValidator = new KimValidator({ ...CASUAL_KIM_RULES, kimDiscardAllowed: true });
         const check = allowDiscardValidator.canDiscard(kim);
         expect(check.valid).toBe(true);
@@ -299,10 +299,10 @@ describe('Tier 5 Adversarial Verification: Kim Joker System Rules & Validator', 
       }
     });
 
-    it('returns empty array [] by default, or all 14 tile IDs when kimDiscardAllowed is enabled', () => {
+    it('returns all 14 tile IDs by default and when explicitly enabled', () => {
       const all14Kims = Array.from({ length: 14 }, (_, i) => makeTile('KIM', (i % 4) + 1));
       const discardableDefault = casualValidator.getDiscardableTileIds(all14Kims);
-      expect(discardableDefault.length).toBe(0);
+      expect(discardableDefault.length).toBe(14);
 
       const allowDiscardValidator = new KimValidator({ ...CASUAL_KIM_RULES, kimDiscardAllowed: true });
       const discardable = allowDiscardValidator.getDiscardableTileIds(all14Kims);
@@ -600,9 +600,9 @@ describe('Tier 5 Adversarial Verification: Kim Joker System Rules & Validator', 
           expect(discardableIds).toContain(t.id);
         }
 
-        // Invariant: Under default casual rules, Kims cannot be discarded (only naturals)
+        // Invariant: Under house casual rules, all tiles are discardable
         const defaultDiscardable = casualValidator.getDiscardableTileIds(hand);
-        expect(defaultDiscardable.length).toBe(selectedNaturals.length);
+        expect(defaultDiscardable.length).toBe(hand.length);
       }
     });
 
@@ -711,8 +711,8 @@ describe('Tier 5 Adversarial Verification: Kim Joker System Rules & Validator', 
         action: 'jia',
         meldTiles: [makeTile('4T', 1), makeTile('5T', 1)],
       };
-      // In tournament rules, claims without Kim in meldTiles pass canClaimDeclaration:
-      expect(tournamentValidator.canClaimDeclaration(declJia, discardedKim).valid).toBe(true);
+      // A discarded Kim is never claimable, regardless of tiles in hand:
+      expect(tournamentValidator.canClaimDeclaration(declJia, discardedKim).valid).toBe(false);
 
       // But in tournament rules, discardedKim can never exist because discarding Kim is prohibited
       expect(tournamentValidator.canDiscard(discardedKim).valid).toBe(false);

@@ -31,7 +31,7 @@ import { isKimAllowedInClaim } from '../kim/kim-validator';
 
 export const DEFAULT_RULES: GameRules = {
   kimEnabled: true,
-  kimDiscardAllowed: false,
+  kimDiscardAllowed: true,
   allowKimInMeldClaim: false,
   minHuTay: 5,
 };
@@ -302,7 +302,6 @@ export class GameEngine {
     };
 
     if (mergedRules.kimMode === 'natural') {
-      mergedRules.kimDiscardAllowed = false;
       mergedRules.allowKimInMeldClaim = false;
     }
     const dealerSeat: Seat = options?.dealerSeat ?? 'dong';
@@ -615,7 +614,7 @@ export class GameEngine {
     }
 
     const tile = player.hand[tileIndex]!;
-    if ((this.state.rules.kimMode === 'natural' || !this.state.rules.kimDiscardAllowed) && isKim(tile)) {
+    if (!this.state.rules.kimDiscardAllowed && isKim(tile)) {
       throw new Error('Discarding Kim is prohibited under tournament rules');
     }
 
@@ -818,6 +817,10 @@ export class GameEngine {
 
     if (declaration.seat === discarder) {
       throw new Error(`Discarder "${discarder}" cannot claim their own discarded tile`);
+    }
+
+    if (isKim(discardTile) && declaration.action !== 'pass') {
+      throw new Error('A discarded Kim cannot be claimed');
     }
 
     // Verify Kim prohibition in meld claims
@@ -1449,7 +1452,7 @@ export class GameEngine {
       const effectiveHandSize = player.hand.length + player.melds.length * 3;
       if (effectiveHandSize === 14) {
         const discardable = player.hand
-          .filter((t) => (this.state.rules.kimMode !== 'natural' && this.state.rules.kimDiscardAllowed) || !isKim(t))
+          .filter((t) => this.state.rules.kimDiscardAllowed || !isKim(t))
           .map((t) => t.id);
         result.discardableTileIds = discardable;
         result.canDiscard = discardable.length > 0;
@@ -1500,6 +1503,8 @@ export class GameEngine {
 
       if (seat !== discarder) {
         result.canPass = true;
+
+        if (isKim(tile)) return result;
 
         // Hu check
         if (this.huValidator(player.hand, player.melds, tile, false)) {

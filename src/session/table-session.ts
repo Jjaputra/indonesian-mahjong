@@ -262,7 +262,7 @@ export class TableSession {
           const tile = this.state.selfDrawSeat === seat ? p.hand.at(-1) : sortTiles(p.hand).at(-1);
           if (!tile) throw new Error('Timeout without a tile');
           // Proposed multiplayer exception: a timed-out Kim is discarded too. Restore the
-          // ordinary engine rules immediately; manual Kim discards remain forbidden.
+          // ordinary engine rules immediately; this override is redundant under house rules.
           const rules = this.state.rules;
           const saved = { ...rules };
           Object.assign(rules, { kimMode: 'dedicated', kimDiscardAllowed: true });

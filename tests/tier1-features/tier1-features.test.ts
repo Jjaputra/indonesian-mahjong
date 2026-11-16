@@ -437,9 +437,9 @@ describe('F07 Kim rule configuration', () => {
     expect(TOURNAMENT_KIM_RULES.kimEnabled).toBe(true);
   });
 
-  it('casual rules allow a Kim meld claim and still forbid a Kim discard', () => {
+  it('casual rules allow a Kim meld claim and a Kim discard', () => {
     expect(CASUAL_KIM_RULES.allowKimInMeldClaim).toBe(true);
-    expect(new KimValidator(CASUAL_KIM_RULES).canDiscard(keyToTile('KIM')).valid).toBe(false);
+    expect(new KimValidator(CASUAL_KIM_RULES).canDiscard(keyToTile('KIM')).valid).toBe(true);
   });
 
   it('strict rules disable Kim', () => {

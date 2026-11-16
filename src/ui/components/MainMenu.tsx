@@ -13,7 +13,7 @@ export interface MainMenuProps {
   onPractice: () => void;
   kimEnabled?: boolean;
   kimMode?: 'natural' | 'dedicated' | 'off';
-  onKimModeChange?: (mode: 'natural' | 'dedicated' | 'off') => void;
+  onKimModeChange?: (mode: 'natural' | 'dedicated' | 'off', minHuTay: 3 | 5) => void;
   deadWall?: DeadWallOption;
   onDeadWallChange?: (option: DeadWallOption) => void;
   onKimChange?: (enabled: boolean) => void;
@@ -113,7 +113,7 @@ export function MainMenu({
         <p className="muted">Anda dan tiga lawan. Satu meja.</p>
         {lastResult !== null && <p className="menu-last">Terakhir: {lastResult}</p>}
         {(onKimModeChange || onKimChange) && <MenuChoice label="Pilihan Kim" value={kimMode ?? (kimEnabled ? 'natural' : 'off')} options={KIM_OPTIONS}
-          onChange={(mode) => { if (onKimModeChange) onKimModeChange(mode); else onKimChange?.(mode !== 'off'); }} />}
+          onChange={(mode) => { if (onKimModeChange) onKimModeChange(mode, mode === 'off' ? 3 : 5); else onKimChange?.(mode !== 'off'); }} />}
         {onDifficultyChange && <MenuChoice label="Tingkat kesulitan bot" value={activeDifficulty} options={DIFFICULTY_OPTIONS} onChange={onDifficultyChange} />}
         {onDeadWallChange && <MenuChoice label="Akhir tembok" value={deadWall ?? 'none'} options={DEAD_WALL_OPTIONS} onChange={onDeadWallChange} />}
         {timeLimitMinutes !== undefined && onTimeLimitChange && <MenuChoice label="Waktu" value={timeLimitMinutes} options={TIME_OPTIONS} onChange={onTimeLimitChange} />}

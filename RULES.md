@@ -155,7 +155,7 @@ Pattern Tay, total Tay and the minimum-Tay check are unchanged: a 3-Tay hand wit
 
 `createGameWall(kimMode: KimMode, seed?)` returns `{ wall: Wall, kimFace: TileFace | null, kimIndicator: TileFace | null }`; the boolean compatibility overload returns `Wall` and retains true = dedicated / false = off. Engine state exposes `kimFace` and `kimIndicator` (null in off/dedicated mode). Wall cloning and serialization retain the indicator face. Raw engine rules without `kimMode` retain boolean compatibility; fresh app settings/presets default to natural. Explicit legacy stored `kimEnabled: true/false` migrates to dedicated/off; malformed mode values fall back to natural. Settings stay frozen during a hand.
 
-Natural Kim cannot be discarded or used to claim Jia/Pung/Kong, even if a casual toggle allowed legacy dedicated-joker claims. Core discard validation, human legal actions and bot selection enforce this. Consequently a tile of the chosen Kim face cannot enter the discard pile and cannot be claimed from a discard. Concealed nominal use remains allowed. Dealer starts with 14 tiles, other players with 13 (existing inventory assumption).
+Natural Kim may be discarded under the house rule, but cannot be used from hand to claim Jia/Pung/Kong, even if a casual toggle allowed legacy dedicated-joker claims. A discarded Kim cannot be claimed for Jia, Pung, Kong or Hu; engine legal actions, human actions and bots enforce this. Concealed nominal use remains allowed. Dealer starts with 14 tiles, other players with 13 (existing inventory assumption).
 
 **Indicator revision confirmed by players (2026-11-12).** Random Kim selection remains acceptable. The later instruction "1 tile sebelum kim -1 jumlahnya" supersedes the earlier answer that no flipped indicator was needed. Suited Kim n uses indicator n-1 in the same suit, wrapping Kim 1 to indicator 9 (Kim 5 Tong removes one 4 Tong; Kim 2 Sok removes one 1 Sok). **Honor assumption for this app:** winds cycle Dong → Nan → Xi → Bei → Dong, and dragons follow the PDF row order Zhong → Fat → Pat → Zhong; use the preceding face, wrapping Kim Dong to Bei and Kim Zhong to Pat. Players have not specified honor mapping. A seed controls shuffle, random Kim selection, and deterministic removal of one physical indicator copy.
 
@@ -255,3 +255,11 @@ Open edge cases. These are proposals until the players confirm them:
 - The drawn tile completes a self-drawn Hu: the timeout does not declare Hu, so the tile is discarded.
 - The drawn tile is a bunga or musim: the automatic replacement happens first, then the replacement tile is discarded.
 - The drawn tile is a Kim: it is discarded like any other tile.
+
+## Kim discard and minimum Hu (house rules, players 2026-11-16)
+
+Kim may be discarded in natural and dedicated modes. A discarded Kim goes to the discard pool and cannot be claimed by anyone for Jia, Pung, Kong or Hu ("orang ga boleh makan kim"); no claim timer waits for it. Bots retain their high valuation of Kim but may discard it.
+
+Selecting Tanpa Kim sets Min Tay to 3; selecting either Kim mode sets it to 5. Room hosts may then choose a different minimum. Single player, casual, practice and online defaults follow these house rules. Old saves that forced natural Kim to be non-discardable migrate to this rule.
+
+These choices deliberately override the PDF ban on discarding Kim (p. 7 section 4 and p. 11 section 5.3) and its minimum of 5 Tay. TOURNAMENT_SETTINGS / TOURNAMENT_KIM_RULES retain the PDF behaviour. The timer rule above that Kim is discarded like any other tile follows the ordinary house rule; the tournament timeout exception remains available.

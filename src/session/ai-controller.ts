@@ -136,7 +136,7 @@ export function evaluateSelfDrawHu(obs: AIObservation): ScoringResult | null {
 
 /** Scores a Hu on the pending discard (or promoted Kong tile). */
 export function evaluateDiscardHu(obs: AIObservation): ScoringResult | null {
-  if (!obs.pendingDiscard) return null;
+  if (!obs.pendingDiscard || isKim(obs.pendingDiscard.tile)) return null;
   return scoreHu(
     { hand: obs.hand, melds: obs.melds, flowers: obs.flowers, winningTile: obs.pendingDiscard.tile },
     obs.seatWind ?? obs.seat,
@@ -230,7 +230,7 @@ export function tileKeepValue(tile: Tile, obs: AIObservation, visible: Map<strin
 /** Deterministic tie-break on tile id keeps choices reproducible under a seeded RNG. */
 export function chooseDiscard(obs: AIObservation, rng: () => number): string | null {
   const allowed = new Set(obs.legal.discardableTileIds);
-  const candidates = obs.hand.filter((t) => allowed.has(t.id) && ((obs.rules.kimMode !== 'natural' && obs.rules.kimDiscardAllowed) || !isKim(t)));
+  const candidates = obs.hand.filter((t) => allowed.has(t.id) && (obs.rules.kimDiscardAllowed || !isKim(t)));
   if (candidates.length === 0) return null;
   const visible = visibleKindCounts(obs);
   const noise = obs.difficulty === 'easy' ? 25 : obs.difficulty === 'normal' ? 4 : 0;
@@ -286,7 +286,7 @@ export function decideClaim(obs: AIObservation, rng: () => number): ClaimDeclara
     const result = evaluateDiscardHu(obs);
     if (result?.isValidHu) return { seat: obs.seat, action: 'hu' };
   }
-  if (pending.isPromotedKong) return pass;
+  if (pending.isPromotedKong || isKim(pending.tile)) return pass;
 
   const tile = pending.tile;
   const chance = CLAIM_CHANCE[obs.difficulty];
@@ -331,7 +331,7 @@ export function explainDiscardChoice(obs: AIObservation, tileId: string): string
   if (!tile || !obs.legal.discardableTileIds.includes(tileId)) return null;
   const visible = visibleKindCounts(obs);
   const allowed = new Set(obs.legal.discardableTileIds);
-  const candidates = obs.hand.filter(t => allowed.has(t.id) && ((obs.rules.kimMode !== 'natural' && obs.rules.kimDiscardAllowed) || !isKim(t)));
+  const candidates = obs.hand.filter(t => allowed.has(t.id) && (obs.rules.kimDiscardAllowed || !isKim(t)));
   if (!candidates.some(t => t.id === tileId)) return null;
   const value = tileKeepValue(tile, obs, visible);
   const lowest = candidates.every(t => value <= tileKeepValue(t, obs, visible));

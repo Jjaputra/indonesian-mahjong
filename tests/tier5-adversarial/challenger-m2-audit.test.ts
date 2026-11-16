@@ -207,17 +207,17 @@ describe('Challenger M2 Audit: 4-Kim Instant Hu Hand Size & Wait Invariants', ()
 });
 
 describe('Challenger M2 Audit: Casual Kim Rules Discardability & Claim Guarding', () => {
-  it('3.1 CASUAL_KIM_RULES defaults kimDiscardAllowed to false per R2 specification', () => {
-    expect(CASUAL_KIM_RULES.kimDiscardAllowed).toBe(false);
+  it('3.1 CASUAL_KIM_RULES allows Kim discards under the house rule', () => {
+    expect(CASUAL_KIM_RULES.kimDiscardAllowed).toBe(true);
     expect(CASUAL_KIM_RULES.kimEnabled).toBe(true);
     expect(CASUAL_KIM_RULES.allowKimInMeldClaim).toBe(true);
   });
 
-  it('3.2 KimValidator rejects Kim discard under default casual and tournament rules', () => {
+  it('3.2 KimValidator allows casual Kim discards and rejects tournament Kim discards', () => {
     const casualVal = new KimValidator(CASUAL_KIM_RULES);
     const kim = keyToTile('KIM');
-    expect(casualVal.canDiscard(kim).valid).toBe(false);
-    expect(() => casualVal.validateDiscard(kim)).toThrow();
+    expect(casualVal.canDiscard(kim).valid).toBe(true);
+    expect(() => casualVal.validateDiscard(kim)).not.toThrow();
 
     const tourneyVal = new KimValidator(TOURNAMENT_KIM_RULES);
     expect(tourneyVal.canDiscard(kim).valid).toBe(false);
@@ -229,8 +229,8 @@ describe('Challenger M2 Audit: Casual Kim Rules Discardability & Claim Guarding'
     expect(() => allowedVal.validateDiscard(kim)).not.toThrow();
   });
 
-  it('3.3 GameEngine getLegalActions excludes Kims from discardableTileIds by default', () => {
-    const engine = new GameEngine(CASUAL_KIM_RULES);
+  it('3.3 GameEngine getLegalActions excludes Kims from discardableTileIds under an explicit discard ban', () => {
+    const engine = new GameEngine({ ...CASUAL_KIM_RULES, kimDiscardAllowed: false });
     const wall = new Wall(createCompleteTileSet(), null);
     engine.startNewGame(true, wall);
 
@@ -252,7 +252,7 @@ describe('Challenger M2 Audit: Casual Kim Rules Discardability & Claim Guarding'
   });
 
   it('3.4 All-Kim hand sets canDiscard = false', () => {
-    const engine = new GameEngine(CASUAL_KIM_RULES);
+    const engine = new GameEngine({ ...CASUAL_KIM_RULES, kimDiscardAllowed: false });
     engine.startNewGame(true, new Wall(createCompleteTileSet(), null));
 
     const activeSeat = engine.getState().currentTurn;

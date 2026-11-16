@@ -570,7 +570,8 @@ describe('Tier 4 · Wall exhaustion draw games', () => {
 describe('Tier 4 · Tournament ↔ Casual transitions', () => {
   it('presets persist, are detected, and keep presentation preferences', () => {
     const storage = new MemoryStorage();
-    expect(detectPreset(loadSettings(storage))).toBe('tournament');
+    expect(loadSettings(storage).kimDiscardAllowed).toBe(true);
+    expect(detectPreset(loadSettings(storage))).toBe('custom');
     applyPreset('tournament', storage);
     const casual = applyPreset('casual', storage);
     expect(detectPreset(casual)).toBe('casual');

@@ -21,9 +21,9 @@ function makeTile(key: string, idx = 1): Tile {
 describe('KimValidator & Configurable Kim Rules (src/kim/kim-validator.ts)', () => {
   // Domain 1: Default Rules & Presets
   describe('1. Default Rules & Presets', () => {
-    it('defaults to Tournament rules (BMC06 authoritative)', () => {
+    it('defaults to house Kim discard permission', () => {
       expect(DEFAULT_KIM_RULES.kimEnabled).toBe(true);
-      expect(DEFAULT_KIM_RULES.kimDiscardAllowed).toBe(false);
+      expect(DEFAULT_KIM_RULES.kimDiscardAllowed).toBe(true);
       expect(DEFAULT_KIM_RULES.allowKimInMeldClaim).toBe(false);
       expect(DEFAULT_KIM_RULES.allowKimInPair).toBe(true);
       expect(DEFAULT_KIM_RULES.allowKimInPung).toBe(true);
@@ -31,8 +31,8 @@ describe('KimValidator & Configurable Kim Rules (src/kim/kim-validator.ts)', () 
       expect(DEFAULT_KIM_RULES.allowKimInTriplet).toBe(true);
     });
 
-    it('casual preset permits meld claims with Kim non-discardable by default', () => {
-      expect(CASUAL_KIM_RULES.kimDiscardAllowed).toBe(false);
+    it('casual preset permits meld claims and Kim discards', () => {
+      expect(CASUAL_KIM_RULES.kimDiscardAllowed).toBe(true);
       expect(CASUAL_KIM_RULES.allowKimInMeldClaim).toBe(true);
       expect(CASUAL_KIM_RULES.kimEnabled).toBe(true);
     });
@@ -80,9 +80,9 @@ describe('KimValidator & Configurable Kim Rules (src/kim/kim-validator.ts)', () 
       expect(() => validator.validateDiscard(kim)).toThrowError(/Discarding Kim is prohibited/i);
     });
 
-    it('prohibits discarding Kim under casual rules by default, allows with explicit override', () => {
+    it('allows discarding Kim under casual rules and explicit permission', () => {
       const kim = makeTile('KIM');
-      expect(casualValidator.canDiscard(kim).valid).toBe(false);
+      expect(casualValidator.canDiscard(kim).valid).toBe(true);
       const allowDiscardValidator = new KimValidator({ ...CASUAL_KIM_RULES, kimDiscardAllowed: true });
       expect(allowDiscardValidator.canDiscard(kim).valid).toBe(true);
       expect(() => allowDiscardValidator.validateDiscard(kim)).not.toThrow();

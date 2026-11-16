@@ -38,7 +38,7 @@ const WATCH_OPTIONS: readonly Option<boolean>[] = [
 export function RoomConfigFields({ config, onChange }: { config: RoomConfig; onChange: (patch: Partial<RoomConfig>) => void }) {
   return (
     <>
-      <MenuChoice label="Mode Kim" value={config.kimMode} options={KIM_OPTIONS} onChange={kimMode => onChange({ kimMode })} />
+      <MenuChoice label="Mode Kim" value={config.kimMode} options={KIM_OPTIONS} onChange={kimMode => onChange({ kimMode, minHuTay: kimMode === 'off' ? 3 : 5 })} />
       <MenuChoice label="Min Tay" value={config.minHuTay} options={MIN_TAY_OPTIONS} onChange={minHuTay => onChange({ minHuTay })} />
       <MenuChoice label="Waktu giliran" value={config.turnSeconds} options={TURN_OPTIONS} onChange={turnSeconds => onChange({ turnSeconds })} />
       <MenuChoice label="Batas waktu 90 menit" value={config.timeLimitMinutes} options={LIMIT_OPTIONS} onChange={timeLimitMinutes => onChange({ timeLimitMinutes })} />
