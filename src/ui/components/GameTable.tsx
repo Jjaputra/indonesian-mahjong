@@ -161,7 +161,7 @@ export function CenterArea({ controller, progress, names = PLAYER_NAME }: { cont
       {pending && (
         <div key={pending.tile.id} className="pending-discard" data-pending-discard="" data-from={source(pending.discarder)} data-seat={pending.discarder} aria-label={`${names[pending.discarder]} ke area buangan tengah`}>
           <span>
-            {pending.isPromotedKong ? 'Kakan oleh' : 'Buangan'} {names[pending.discarder]}:
+            {pending.isPromotedKong ? 'Kong oleh' : 'Buangan'} {names[pending.discarder]}:
           </span>
           <TileView tile={pending.tile} size="lg" highlight />
         </div>
@@ -366,13 +366,13 @@ export function ActionHud({
         <>
           {actions.ankongOptions.length > 0 ? (
             actions.ankongOptions.map((g, i) => (
-              <HudButton key={`a${i}`} coached={coached('ankong')} label={`Ankong ${tileText(g[0]!)}`} enabled onClick={() => controller.humanAnkong(i)} />
+              <HudButton key={`a${i}`} coached={coached('ankong')} label={`Kong ${tileText(g[0]!)}`} enabled onClick={() => controller.humanAnkong(i)} />
             ))
           ) : (
             null
           )}
           {actions.kakanOptions.map((o, i) => (
-            <HudButton key={`k${i}`} coached={coached('kakan')} label={`Kakan ${tileText(o.tile)}`} enabled onClick={() => controller.humanKakan(i)} />
+            <HudButton key={`k${i}`} coached={coached('kakan')} label={`Kong ${tileText(o.tile)}`} enabled onClick={() => controller.humanKakan(i)} />
           ))}
         </>
       )}

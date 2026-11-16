@@ -7,7 +7,7 @@ import { fakeNetwork, fakeTimers, roomInfo } from './fake-transport';
 
 function setup(token?: string) {
   const net = fakeNetwork(), clock = fakeTimers(), storage = new MemoryStorage();
-  const table = new RemoteTable({ server: 'https://mp.example', code: 'ABC234', name: 'Jason', token, storage,
+  const table = new RemoteTable({ server: 'https://mp.example', code: 'ABC234', name: 'A Liong', token, storage,
     socketFactory: net.factory, timers: clock.timers, now: () => 10_000 + clock.now, pingMs: 25_000 });
   return { net, clock, storage, table };
 }
@@ -20,10 +20,10 @@ describe('hello / welcome', () => {
     table.connect();
     expect(net.last.url).toBe('wss://mp.example/rooms/ABC234/ws');
     net.last.open();
-    expect(net.last.sent[0]).toEqual({ type: 'hello', name: 'Jason' });
+    expect(net.last.sent[0]).toEqual({ type: 'hello', name: 'A Liong' });
     net.last.receive(welcome());
     expect(table.getState()).toMatchObject({ status: 'open', joined: true, seat: 'dong' });
-    expect(loadRoom('ABC234', storage)).toEqual({ code: 'ABC234', token: 'tok-1', name: 'Jason' });
+    expect(loadRoom('ABC234', storage)).toEqual({ code: 'ABC234', token: 'tok-1', name: 'A Liong' });
     expect(loadLastRoom(storage)?.code).toBe('ABC234');
   });
 
@@ -38,7 +38,7 @@ describe('hello / welcome', () => {
     clock.advance(BACKOFF_MS[0]);
     expect(net.sockets).toHaveLength(2);
     net.last.open();
-    expect(net.last.sent[0]).toMatchObject({ type: 'hello', token: 'tok-9', name: 'Jason' });
+    expect(net.last.sent[0]).toMatchObject({ type: 'hello', token: 'tok-9', name: 'A Liong' });
   });
 
   it('backs off while the server stays down, and resets after a welcome', () => {

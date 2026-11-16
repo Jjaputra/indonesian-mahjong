@@ -85,9 +85,9 @@ function DotsFace({ value }: { value: number }) {
 const STICK_LAYOUT: Record<number, { h: number; sticks: readonly (readonly [number, number, Ink, number?])[] }> = {
   2: { h: 30, sticks: [[30, 22, 'green'], [30, 58, 'green']] },
   3: { h: 30, sticks: [[30, 22, 'green'], [19, 58, 'green'], [41, 58, 'green']] },
-  4: { h: 30, sticks: [[19, 22, 'green'], [41, 22, 'blue'], [19, 58, 'blue'], [41, 58, 'green']] },
-  5: { h: 28, sticks: [[15, 21, 'green'], [45, 21, 'blue'], [30, 40, 'red'], [15, 59, 'blue'], [45, 59, 'green']] },
-  6: { h: 30, sticks: [[15, 22, 'green'], [30, 22, 'green'], [45, 22, 'green'], [15, 58, 'blue'], [30, 58, 'blue'], [45, 58, 'blue']] },
+  4: { h: 30, sticks: [[19, 22, 'green'], [41, 22, 'green'], [19, 58, 'green'], [41, 58, 'green']] },
+  5: { h: 28, sticks: [[15, 21, 'green'], [45, 21, 'green'], [30, 40, 'red'], [15, 59, 'green'], [45, 59, 'green']] },
+  6: { h: 30, sticks: [[15, 22, 'green'], [30, 22, 'green'], [45, 22, 'green'], [15, 58, 'green'], [30, 58, 'green'], [45, 58, 'green']] },
   7: {
     h: 22,
     sticks: [[30, 15, 'red'], [15, 40, 'green'], [30, 40, 'green'], [45, 40, 'green'], [15, 65, 'green'], [30, 65, 'green'], [45, 65, 'green']],
@@ -102,7 +102,7 @@ const STICK_LAYOUT: Record<number, { h: number; sticks: readonly (readonly [numb
   },
   9: {
     h: 21,
-    sticks: [[15, 16, 'green'], [30, 16, 'red'], [45, 16, 'blue'], [15, 40, 'green'], [30, 40, 'red'], [45, 40, 'blue'], [15, 64, 'green'], [30, 64, 'red'], [45, 64, 'blue']],
+    sticks: [[15, 16, 'green'], [30, 16, 'red'], [45, 16, 'green'], [15, 40, 'green'], [30, 40, 'red'], [45, 40, 'green'], [15, 64, 'green'], [30, 64, 'red'], [45, 64, 'green']],
   },
 };
 

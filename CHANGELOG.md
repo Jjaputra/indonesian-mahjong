@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-16
+### Changed
+- A Kong claimed from a discard now opens the hand: a self-draw scores Ce Mo instead of Ce Mo Pu Ciu Jen, and a discard win no longer scores Mun. It still counts for Sam/Si Am Kang. A Kong you draw yourself keeps the hand concealed. (Players, 2026-11-16; the Mun part waits for the group's confirmation.)
+- Every Kong button and message says just "Kong"; the Riichi term "Kakan" and the word "Ankong" are gone.
+- Sok tiles use only green and red, so they no longer look like Tong.
+- Pung, Kong, Jia and flower tiles beside each player are bigger and upright; the side seats show one set per row.
+- The online name field suggests "A Liong".
+
 ## [0.7.0] - 2026-11-16
 ### Added
 - **Main bareng teman** (online multiplayer). Create a private room, invite friends with a 6-character code or a link, and share it to WhatsApp. Empty seats can be filled with bots.

@@ -1957,6 +1957,17 @@ select {
 .table-felt :is(.seat-left, .seat-right) .rack { justify-content: center; }
 .table-felt :is(.seat-left, .seat-right) .bonus-rack { justify-content: center; max-width: 80px; }
 .table-felt :is(.seat-left, .seat-right) .bonus-rack .tile-row { justify-content: center; }
+/* Exposed sets and bunga / musim read at about pool-tile size, and a claimed tile stays upright. */
+.table-felt :is(.seat-top, .seat-left, .seat-right) .seat-sets .tile { --w: 30px; --h: 40px; }
+.table-felt :is(.seat-left, .seat-right) .seat-sets .melds { align-items: center; gap: 2px; }
+.table-felt :is(.seat-left, .seat-right) .seat-sets .meld { max-width: none; flex-wrap: nowrap; justify-content: center; }
+.table-felt :is(.seat-left, .seat-right) .bonus-rack { max-width: none; }
+.table-felt :is(.seat-left, .seat-right) .bonus-rack .tile-row { flex-wrap: wrap; max-width: 96px; }
+.table-felt .meld .tile.is-claimed:not(.tile-back) {
+  margin: 0;
+  transform: none;
+  box-shadow: 0 1px 0 var(--tile-side), 0 3px 0 var(--tile-back), 0 4px 4px rgba(0, 0, 0, 0.3);
+}
 
 /* Face-up tiles keep their thickness: ivory face over a navy back layer. */
 .table-felt .tile:not(.tile-back) {
@@ -2453,7 +2464,7 @@ select {
   /* Narrow side columns: smaller sets, and the slab tucked against the rim. */
   .table-felt .seat-left { margin-left: 8px; }
   .table-felt .seat-right { margin-right: 8px; }
-  .table-felt :is(.seat-left, .seat-right) .seat-sets .tile { --w: 18px; --h: 24px; }
+  .table-felt :is(.seat-top, .seat-left, .seat-right) .seat-sets .tile { --w: 24px; --h: 32px; }
 }
 
 /* Tablets between the phone step and the wide table. */
@@ -2463,7 +2474,7 @@ select {
   /* Fourteen tiles plus the drawn gap fit the row. */
   .table-felt .hand-row > .tile { --w: min(52px, calc((100vw - 70px) / 16.8)); --h: calc(var(--w) * 1.36); }
   /* Small side sets keep the pool wide; the top wind label moves right so the SISA tab never covers it. */
-  .table-felt :is(.seat-left, .seat-right) .seat-sets .tile { --w: 18px; --h: 24px; }
+  .table-felt :is(.seat-top, .seat-left, .seat-right) .seat-sets .tile { --w: 22px; --h: 30px; }
   .felt-top { left: auto; right: 6px; transform: none; }
 }
 /* Tablets and phones: a flatter, stacked table that scrolls vertically only. */
@@ -2529,7 +2540,7 @@ select {
   }
 }
 @media (max-width: 560px) {
-  .table-felt { grid-template-columns: 46px minmax(0, 1fr) 46px; padding: 6px 4px; }
+  .table-felt { grid-template-columns: 60px minmax(0, 1fr) 60px; padding: 6px 4px; }
   .table-felt .seat-head { font-size: 10px; }
   .table-felt .badge { font-size: 8px; padding: 0 3px; }
   .table-felt .seat-panel .tile-back { --w: 12px; --h: 19px; }
@@ -2537,8 +2548,10 @@ select {
   .table-felt .seat-top .concealed { gap: 0; }
   .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 20px; --h: 10px; }
   .table-felt .seat-panel .tile-sm { --w: 14px; --h: 20px; }
-  .table-felt .seat-panel .meld { flex-wrap: wrap; max-width: 44px; justify-content: center; align-items: flex-end; row-gap: 5px; }
-  .table-felt .seat-top .meld { flex-wrap: nowrap; max-width: none; }
+  .table-felt .seat-panel .meld { flex-wrap: nowrap; justify-content: center; align-items: flex-end; }
+  .table-felt :is(.seat-top, .seat-left, .seat-right) .seat-sets .tile { --w: 17px; --h: 23px; }
+  /* A Kong stays one row in the narrow side columns, so those tiles are a little smaller. */
+  .table-felt :is(.seat-left, .seat-right) .seat-sets .tile { --w: 13px; --h: 18px; }
   /* On the felt's far-left corner, clear of the top seat's rack. */
   .table-felt > .kim-indicator { grid-area: center; margin: 6px 0 0 2px; font-size: 10px; padding: 1px 8px; }
   .table-felt .center-area::before { inset: -4px -50px; }

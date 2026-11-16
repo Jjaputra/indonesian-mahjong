@@ -23,7 +23,7 @@ function NameField({ value, onChange }: { value: string; onChange: (value: strin
   return (
     <label className="mp-field">
       <span className="menu-option-label">Nama Anda</span>
-      <input type="text" value={value} maxLength={NAME_MAX_LENGTH} autoComplete="nickname" placeholder="Mis. Jason" onChange={e => onChange(e.target.value)} />
+      <input type="text" value={value} maxLength={NAME_MAX_LENGTH} autoComplete="nickname" placeholder="Mis. A Liong" onChange={e => onChange(e.target.value)} />
     </label>
   );
 }

@@ -223,11 +223,9 @@ function detectEvents({ features, mode, context }: ScoringInput): DetectedPatter
   if (context.isDoubleKongReplacement) out.push(award(38, mode, 'Hu setelah dua Kong berturut-turut'));
 
   const concealed = features.openSetDescriptions ? features.openSetDescriptions.length === 0 : features.claimedMeldCount === 0;
-  const closedReason = features.triplets.some((t) => t.setType === 'kong' && t.concealed)
-    ? ' (Kong dari buangan di atas tris tertutup tetap tertutup)' : '';
   if (context.isSelfDraw && !concealed) out.push(award(42, mode, `Ce mo dengan tangan terbuka: ${features.openSetDescriptions?.join(', ') ?? 'set terbuka'}`));
-  if (!context.isSelfDraw && concealed) out.push(award(43, mode, `Tangan tertutup, Hu dari buangan lawan${closedReason}`));
-  if (context.isSelfDraw && concealed) out.push(award(44, mode, `Ce mo dengan tangan tertutup penuh${closedReason}`));
+  if (!context.isSelfDraw && concealed) out.push(award(43, mode, 'Tangan tertutup, Hu dari buangan lawan'));
+  if (context.isSelfDraw && concealed) out.push(award(44, mode, 'Ce mo dengan tangan tertutup penuh'));
   return out.filter((p): p is DetectedPattern => p !== null);
 }
 
