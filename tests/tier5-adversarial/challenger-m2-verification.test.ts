@@ -46,9 +46,9 @@ describe('Challenger 2 Empirical Verification: Rules Invariants & Property Fuzzi
       expect(TOURNAMENT_KIM_RULES.allowKimInTriplet).toBe(true);
     });
 
-    it('verifies Casual preset invariants: kimDiscardAllowed === false by default per R2', () => {
+    it('verifies Casual preset permits Kim discards by default', () => {
       expect(CASUAL_KIM_RULES.kimEnabled).toBe(true);
-      expect(CASUAL_KIM_RULES.kimDiscardAllowed).toBe(false); // R2: non-discardable by default
+      expect(CASUAL_KIM_RULES.kimDiscardAllowed).toBe(true); // House rule: discardable by default
       expect(CASUAL_KIM_RULES.allowKimInMeldClaim).toBe(true);
       expect(CASUAL_KIM_RULES.allowKimInPair).toBe(true);
       expect(CASUAL_KIM_RULES.allowKimInPung).toBe(true);
@@ -56,9 +56,9 @@ describe('Challenger 2 Empirical Verification: Rules Invariants & Property Fuzzi
       expect(CASUAL_KIM_RULES.allowKimInTriplet).toBe(true);
     });
 
-    it('verifies DEFAULT_KIM_RULES points to TOURNAMENT_KIM_RULES', () => {
-      expect(DEFAULT_KIM_RULES).toEqual(TOURNAMENT_KIM_RULES);
-      expect(DEFAULT_KIM_RULES.kimDiscardAllowed).toBe(false);
+    it('verifies default Kim rules retain tournament meld restrictions with house discard permission', () => {
+      expect(DEFAULT_KIM_RULES).toEqual({ ...TOURNAMENT_KIM_RULES, kimDiscardAllowed: true });
+      expect(DEFAULT_KIM_RULES.kimDiscardAllowed).toBe(true);
       expect(DEFAULT_KIM_RULES.allowKimInMeldClaim).toBe(false);
     });
 
@@ -75,7 +75,7 @@ describe('Challenger 2 Empirical Verification: Rules Invariants & Property Fuzzi
     it('verifies resolveKimRules fills defaults correctly from undefined and partial rules', () => {
       const fromEmpty = resolveKimRules({});
       expect(fromEmpty.kimEnabled).toBe(true);
-      expect(fromEmpty.kimDiscardAllowed).toBe(false);
+      expect(fromEmpty.kimDiscardAllowed).toBe(true);
       expect(fromEmpty.allowKimInMeldClaim).toBe(false);
 
       const withDiscardAllowed = resolveKimRules({ kimDiscardAllowed: true });
@@ -83,7 +83,7 @@ describe('Challenger 2 Empirical Verification: Rules Invariants & Property Fuzzi
       expect(withDiscardAllowed.allowKimInMeldClaim).toBe(false);
 
       const withCasual = resolveKimRules(CASUAL_KIM_RULES);
-      expect(withCasual.kimDiscardAllowed).toBe(false);
+      expect(withCasual.kimDiscardAllowed).toBe(true);
       expect(withCasual.allowKimInMeldClaim).toBe(true);
     });
   });
@@ -209,12 +209,12 @@ describe('Challenger 2 Empirical Verification: Rules Invariants & Property Fuzzi
       }
     });
 
-    it('KimValidator: casual rules default holding 14 Kims returns discardableTileIds = []', () => {
+    it('KimValidator: casual rules default holding 14 Kims returns all tile IDs', () => {
       const v = new KimValidator(CASUAL_KIM_RULES);
       const all14Kims = Array.from({ length: 14 }, (_, i) => makeTile('KIM', (i % 4) + 1));
       const ids = v.getDiscardableTileIds(all14Kims);
-      expect(ids).toEqual([]);
-      expect(ids.length).toBe(0);
+      expect(ids).toEqual(all14Kims.map(t => t.id));
+      expect(ids.length).toBe(14);
     });
 
     it('KimValidator: casual rules with kimDiscardAllowed: true returns all 14 IDs', () => {
@@ -226,7 +226,7 @@ describe('Challenger 2 Empirical Verification: Rules Invariants & Property Fuzzi
     });
 
     it('GameEngine: player holding 14 non-discardable Kims has canDiscard: false and empty discardableTileIds', () => {
-      const engine = new GameEngine();
+      const engine = new GameEngine({ kimDiscardAllowed: false });
       engine.startNewGame(false);
 
       const east = engine.getState().players.dong;
@@ -247,7 +247,7 @@ describe('Challenger 2 Empirical Verification: Rules Invariants & Property Fuzzi
     });
 
     it('GameEngine: player with 4 melds (12 tiles) + 2 Kims has canDiscard: false and empty discardableTileIds', () => {
-      const engine = new GameEngine();
+      const engine = new GameEngine({ kimDiscardAllowed: false });
       engine.startNewGame(false);
 
       const east = engine.getState().players.dong;
@@ -268,7 +268,7 @@ describe('Challenger 2 Empirical Verification: Rules Invariants & Property Fuzzi
     });
 
     it('GameEngine: player with 13 non-discardable Kims + 1 natural tile has canDiscard: true and exactly 1 discardable ID', () => {
-      const engine = new GameEngine();
+      const engine = new GameEngine({ kimDiscardAllowed: false });
       engine.startNewGame(false);
 
       const east = engine.getState().players.dong;
@@ -341,11 +341,11 @@ describe('Challenger 2 Empirical Verification: Rules Invariants & Property Fuzzi
           expect(tourIds).toContain(n.id);
         }
 
-        // 2. Default Casual check: zero Kims are discardable
+        // 2. Default Casual check: all tiles are discardable
         const casualIds = casualValidator.getDiscardableTileIds(hand);
-        expect(casualIds.length).toBe(selectedNaturals.length);
+        expect(casualIds.length).toBe(hand.length);
         for (const k of selectedKims) {
-          expect(casualIds).not.toContain(k.id);
+          expect(casualIds).toContain(k.id);
         }
 
         // 3. Casual with kimDiscardAllowed: true: all tiles are discardable

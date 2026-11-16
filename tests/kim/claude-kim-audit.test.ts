@@ -109,10 +109,10 @@ describe('Audit K1: Tournament vs Casual rule presets', () => {
     expect(TOURNAMENT_KIM_RULES.allowKimInMeldClaim).toBe(false);
   });
 
-  it('Tournament preset agrees with the core engine DEFAULT_RULES', () => {
-    expect(TOURNAMENT_KIM_RULES.kimDiscardAllowed).toBe(DEFAULT_RULES.kimDiscardAllowed);
+  it('Core defaults differ from tournament only in Kim discard permission', () => {
+    expect(TOURNAMENT_KIM_RULES.kimDiscardAllowed).toBe(false);
     expect(TOURNAMENT_KIM_RULES.allowKimInMeldClaim).toBe(DEFAULT_RULES.allowKimInMeldClaim);
-    expect(resolveKimRules(DEFAULT_RULES)).toEqual(TOURNAMENT_KIM_RULES);
+    expect(resolveKimRules(DEFAULT_RULES)).toEqual({ ...TOURNAMENT_KIM_RULES, kimDiscardAllowed: true });
   });
 
   it('resolveKimRules fills per-meld toggles from defaults when given a core GameRules', () => {
@@ -126,9 +126,9 @@ describe('Audit K1: Tournament vs Casual rule presets', () => {
     expect(validateKimMeldLegality([{ type: 'pung', tiles: parseTileHand('5T 5T KIM'), claimedFrom: 'dong' }], CASUAL_KIM_RULES).isLewFit).toBe(false);
   });
 
-  it('KIM-BUG-01: Casual preset must keep Kim NON-discardable by default (ORIGINAL_REQUEST R2)', () => {
-    // R2: "default casual: enabled, non-discardable, usable as joker"
-    expect(CASUAL_KIM_RULES.kimDiscardAllowed).toBe(false);
+  it('Casual preset allows Kim discards under the house rule', () => {
+    // House rule, players 2026-11-16.
+    expect(CASUAL_KIM_RULES.kimDiscardAllowed).toBe(true);
   });
 
   it('KimValidator: Tournament rejects Kim discard and Kim in Jia/Pung claims, allows natural claims', () => {

@@ -69,7 +69,7 @@ export interface PlayerStateView {
 /** Tournament defaults: Kim stays in hand, Kim claims are Lew Fit, Hu needs 5 Tay. */
 export const DEFAULT_AI_RULES: GameRules = {
   kimEnabled: true,
-  kimDiscardAllowed: false,
+  kimDiscardAllowed: true,
   allowKimInMeldClaim: false,
   minHuTay: 5,
 };

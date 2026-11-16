@@ -350,8 +350,8 @@ export function App() {
           onExit={() => { setInviteCode(null); setResumeOnline(false); setView('menu'); }} />
       ) : view === 'menu' ? (
         <MainMenu onOnline={mpServer ? () => setView('online') : undefined}
-          resumeRoomCode={mpServer ? loadLastRoom()?.code : null} onResumeRoom={() => { setResumeOnline(true); setView('online'); }} kimMode={settings.kimMode ?? (settings.kimEnabled ? 'natural' : 'off')} onKimModeChange={kimMode => {
-          const stored = persistSettings(settings, { kimEnabled: kimMode !== 'off', kimMode });
+          resumeRoomCode={mpServer ? loadLastRoom()?.code : null} onResumeRoom={() => { setResumeOnline(true); setView('online'); }} kimMode={settings.kimMode ?? (settings.kimEnabled ? 'natural' : 'off')} onKimModeChange={(kimMode, minHuTay) => {
+          const stored = persistSettings(settings, { kimEnabled: kimMode !== 'off', kimMode, minHuTay });
           setSettings(stored);
           controller.setSettings(stored);
         }} difficulty={settings.aiDifficulty} onDifficultyChange={diff => {

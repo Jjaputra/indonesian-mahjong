@@ -348,6 +348,7 @@ export function chooseClaim(
 ): AIDecision {
   // Discards and flowers are visible context. Claim priority does not depend on the pool,
   // but the observation is part of the legal public view and must stay readable.
+  if (isKim(discardedTile)) return pass();
   void publicDiscards.length;
   void publicInfo?.opponentFlowers?.length;
   void publicInfo?.opponentMelds?.length;

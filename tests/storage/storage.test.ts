@@ -96,8 +96,8 @@ describe('Storage: settings presets', () => {
     expect(CASUAL_SETTINGS.minHuTay).toBe(5);
   });
 
-  it('defaults are the Tournament preset and presets are frozen', () => {
-    expect(DEFAULT_SETTINGS).toEqual(TOURNAMENT_SETTINGS);
+  it('defaults allow Kim discards while the Tournament preset bans them and presets are frozen', () => {
+    expect(DEFAULT_SETTINGS).toEqual({ ...TOURNAMENT_SETTINGS, kimDiscardAllowed: true });
     expect(Object.isFrozen(TOURNAMENT_SETTINGS)).toBe(true);
     expect(Object.isFrozen(CASUAL_SETTINGS)).toBe(true);
   });
@@ -229,7 +229,7 @@ describe('Storage: settings persistence', () => {
     expect(toGameRules(s)).toEqual({
       kimEnabled: true,
       kimMode: 'natural',
-      kimDiscardAllowed: false,
+      kimDiscardAllowed: true,
       allowKimInMeldClaim: true,
       minHuTay: 7,
     });

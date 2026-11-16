@@ -440,6 +440,7 @@ describe('Audit 4: claim arbitration priority (Hu > Pung/Kong > Jia)', () => {
   it('Kim cannot be discarded and cannot be used in a meld claim under tournament defaults', () => {
     const engine = engineAt('dong', new Wall(filler(30, 'w'), null));
     (engine.getState().players.dong as any).hand.push(t('KIM'));
+    engine.getState().rules.kimDiscardAllowed = false;
     expect(() => engine.discard('dong', 'kim-0-1')).toThrow();
     openClaimWindow(engine, 'dong', t('5T', 4));
     expect(() =>

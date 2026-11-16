@@ -8,7 +8,7 @@ export interface KimRules {
   readonly kimMode?: import('../core/types').KimMode;
   /** Master toggle: enable Kim joker tiles in the game (default: true) */
   readonly kimEnabled: boolean;
-  /** Allow discarding Kim tiles (default: false per tournament BMC06) */
+  /** Allow discarding Kim tiles (default: true; tournament BMC06: false) */
   readonly kimDiscardAllowed: boolean;
   /** Allow using Kim from hand to call Jia or Pung on discards (default: false, triggers Lew Fit) */
   readonly allowKimInMeldClaim: boolean;
@@ -34,7 +34,7 @@ export const TOURNAMENT_KIM_RULES: Readonly<KimRules> = {
 
 export const CASUAL_KIM_RULES: Readonly<KimRules> = {
   kimEnabled: true,
-  kimDiscardAllowed: false, // Default casual: enabled, non-discardable, usable as joker (R2)
+  kimDiscardAllowed: true, // House rule, players 2026-11-16
   allowKimInMeldClaim: true, // Meld claims permitted in casual
   allowKimInPair: true,
   allowKimInPung: true,
@@ -52,13 +52,13 @@ export const STRICT_NO_KIM_RULES: Readonly<KimRules> = {
   allowKimInTriplet: false,
 };
 
-export const DEFAULT_KIM_RULES: Readonly<KimRules> = TOURNAMENT_KIM_RULES;
+export const DEFAULT_KIM_RULES: Readonly<KimRules> = { ...TOURNAMENT_KIM_RULES, kimDiscardAllowed: true };
 
 export function resolveKimRules(rules?: Partial<KimRules> | GameRules): KimRules {
   return {
     ...(rules?.kimMode ? { kimMode: rules.kimMode } : {}),
     kimEnabled: rules?.kimEnabled ?? DEFAULT_KIM_RULES.kimEnabled,
-    kimDiscardAllowed: rules?.kimMode === 'natural' ? false : rules?.kimDiscardAllowed ?? DEFAULT_KIM_RULES.kimDiscardAllowed,
+    kimDiscardAllowed: rules?.kimDiscardAllowed ?? DEFAULT_KIM_RULES.kimDiscardAllowed,
     allowKimInMeldClaim: rules?.kimMode === 'natural' ? false : rules?.allowKimInMeldClaim ?? DEFAULT_KIM_RULES.allowKimInMeldClaim,
     allowKimInPair: (rules as any)?.allowKimInPair ?? DEFAULT_KIM_RULES.allowKimInPair,
     allowKimInPung: (rules as any)?.allowKimInPung ?? DEFAULT_KIM_RULES.allowKimInPung,

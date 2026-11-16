@@ -91,7 +91,7 @@ describe('Round 2 · practice defaults never overwrite an explicit choice', () =
     const store = new MemoryStorage();
     store.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ bonusTileRule: 'own_seat_only', soundEnabled: false, scoringBasis: 'hand_kim_usage' }));
     expect(loadSettings(store)).toMatchObject({ bonusTileRule: 'rulebook_per_tile', soundEnabled: false });
-    expect(stored(store)).toEqual({ bonusTileRule: 'rulebook_per_tile', soundEnabled: false, scoringBasis: 'hand_kim_usage' });
+    expect(stored(store)).toMatchObject({ houseRulesVersion: 1, kimDiscardAllowed: true, bonusTileRule: 'rulebook_per_tile', soundEnabled: false, scoringBasis: 'hand_kim_usage' });
     expect(withPracticeScoringDefaults({ ...HOUSE_SETTINGS, bonusTileRule: 'own_seat_only' }, store).bonusTileRule).toBe('rulebook_per_tile');
   });
 

@@ -288,10 +288,10 @@ describe('5 Tay Hu gate', () => {
     }
   });
 
-  it('declares Shi Kim when the fourth Kim arrives', () => {
+  it('passes when the fourth Kim is discarded', () => {
     const hand = parseTileHand('KIM KIM KIM WD WN WX WB DZ DF DP 1T 9T 1B');
     const kim = keyToTile('KIM', 4);
-    expect(ai.evaluateClaim(player(hand), kim, 'bei', [], 'nan', 'easy', rules()).action).toBe('hu');
+    expect(ai.evaluateClaim(player(hand), kim, 'bei', [], 'nan', 'easy', rules()).action).toBe('pass');
   });
 });
 

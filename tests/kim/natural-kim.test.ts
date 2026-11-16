@@ -162,7 +162,7 @@ describe('Natural Kim', () => {
     const instant = new ScoringEngine().evaluateHand(tiles, [], [], { ...context, isInstantHu: true }, rules);
     expect(instant.patterns.find(p => p.id === 9)?.tay).toBe(10);
   });
-  it('never allows human or bots to discard natural Kim, or claim with it', () => {
+  it('allows natural Kim discards but still bans Kim from hand in claims', () => {
 
     for (let seed = 0; seed < 20; seed++) {
 
@@ -184,9 +184,9 @@ describe('Natural Kim', () => {
 
       for (const tile of state.players.dong.hand.filter(isKim)) {
 
-        expect(legal.discardableTileIds).not.toContain(tile.id);
+        expect(legal.discardableTileIds).toContain(tile.id);
 
-        expect(() => engine.discard('dong', tile.id)).toThrow();
+        expect(new KimValidator(state.rules).canDiscard(tile).valid).toBe(true);
 
         expect(new KimValidator(state.rules).canClaimDeclaration({ seat: 'dong', action: 'pung', meldTiles: [tile] }, { id: 'd', type: 'ban', value: 1 }).valid).toBe(false);
 

@@ -136,6 +136,10 @@ export class KimValidator {
   ): ValidationResult {
     const r = rules ? resolveKimRules(rules) : this.rules;
 
+    if (isKim(discardTile) && declaration.action !== 'pass') {
+      return { valid: false, reason: 'A discarded Kim cannot be claimed' };
+    }
+
     if (declaration.action === 'pass' || declaration.action === 'hu') {
       return { valid: true };
     }

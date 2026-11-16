@@ -250,6 +250,7 @@ export const PRACTICE_SCORING_DEFAULTS: Readonly<Pick<GameSettings, 'scoringBasi
 /** Tournament Kim and overlap rules with the user's house scoring choices. */
 export const HOUSE_SETTINGS: Readonly<GameSettings> = Object.freeze({
   ...TOURNAMENT_SETTINGS,
+  kimDiscardAllowed: true,
   ...PRACTICE_SCORING_DEFAULTS,
 });
 
@@ -260,7 +261,7 @@ export const SETTINGS_PRESETS: Readonly<Record<SettingsPresetName, Readonly<Game
     house: HOUSE_SETTINGS,
   });
 
-export const DEFAULT_SETTINGS: Readonly<GameSettings> = TOURNAMENT_SETTINGS;
+export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({ ...TOURNAMENT_SETTINGS, kimDiscardAllowed: true });
 
 // ============================================================================
 // Storage backend resolution
@@ -371,7 +372,7 @@ function isFiniteNumber(value: unknown): value is number {
 
 /**
  * Normalize arbitrary (possibly corrupted / partial / legacy) data into a valid
- * `GameSettings`. Invalid fields fall back to `base` (default: Tournament).
+ * `GameSettings`. Invalid fields fall back to `base` (default: house rules).
  */
 export function sanitizeSettings(
   raw: unknown,
@@ -379,7 +380,7 @@ export function sanitizeSettings(
 ): GameSettings {
   const src = isRecord(raw) ? raw : {};
 
-  let minHuTay = base.minHuTay;
+  let minHuTay = src.kimMode === 'off' || src.kimEnabled === false ? 3 : base.minHuTay;
   if (isFiniteNumber(src.minHuTay)) {
     minHuTay = Math.min(
       MIN_HU_TAY_UPPER_BOUND,
@@ -458,16 +459,24 @@ export function detectPreset(settings: GameSettings): SettingsPresetName | 'cust
 export function loadSettings(storage?: StorageLike): GameSettings {
   const raw = safeRead(getStorage(storage), SETTINGS_STORAGE_KEY);
   if (raw === undefined) return { ...DEFAULT_SETTINGS };
-  const settings = sanitizeSettings(raw);
-  if (isRecord(raw) && raw.bonusTileRule === 'own_seat_only') {
-    safeWrite(getStorage(storage), SETTINGS_STORAGE_KEY, { ...raw, bonusTileRule: 'rulebook_per_tile' });
+  // Old natural-Kim saves encoded a forced ban, rather than an explicit choice.
+  const legacy = isRecord(raw) && raw.houseRulesVersion !== 1;
+  const migrated = isRecord(raw) ? { ...raw,
+    ...(legacy && raw.kimMode !== 'dedicated' && raw.kimEnabled !== false && raw.kimMode !== 'off' ? { kimDiscardAllowed: true } : {}),
+    ...(legacy && (raw.kimEnabled === false || raw.kimMode === 'off') && raw.minHuTay === 5 ? { minHuTay: 3 } : {}),
+    ...(raw.bonusTileRule === 'own_seat_only' ? { bonusTileRule: 'rulebook_per_tile' } : {}),
+    houseRulesVersion: 1,
+  } : raw;
+  const settings = sanitizeSettings(migrated);
+  if (legacy || (isRecord(raw) && raw.bonusTileRule === 'own_seat_only')) {
+    safeWrite(getStorage(storage), SETTINGS_STORAGE_KEY, migrated);
   }
   return settings;
 }
 
 /** Persist settings (sanitized first). Returns false if the write failed. */
 export function saveSettings(settings: Partial<GameSettings>, storage?: StorageLike): boolean {
-  return safeWrite(getStorage(storage), SETTINGS_STORAGE_KEY, sanitizeSettings(settings));
+  return safeWrite(getStorage(storage), SETTINGS_STORAGE_KEY, { ...sanitizeSettings(settings), houseRulesVersion: 1 });
 }
 
 /** Scoring choices that are only written once someone has actually chosen them. */
@@ -493,7 +502,7 @@ export function updateSettings(patch: Partial<GameSettings>, storage?: StorageLi
   for (const key of SCORING_CHOICE_KEYS) {
     if (!hasValidChoice(stored, key) && !hasValidChoice(patch as Record<string, unknown>, key)) delete written[key];
   }
-  safeWrite(store, SETTINGS_STORAGE_KEY, written);
+  safeWrite(store, SETTINGS_STORAGE_KEY, { ...written, houseRulesVersion: 1 });
   return merged;
 }
 
@@ -535,7 +544,7 @@ export function applyPreset(
         };
       })()
     : preset;
-  safeWrite(store, SETTINGS_STORAGE_KEY, next);
+  safeWrite(store, SETTINGS_STORAGE_KEY, { ...next, houseRulesVersion: 1 });
   return next;
 }
 

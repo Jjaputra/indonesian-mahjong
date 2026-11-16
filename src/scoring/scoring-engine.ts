@@ -24,7 +24,7 @@ import type {
 
 export const DEFAULT_SCORING_RULES: GameRules = {
   kimEnabled: true,
-  kimDiscardAllowed: false,
+  kimDiscardAllowed: true,
   allowKimInMeldClaim: false,
   minHuTay: 5,
 };

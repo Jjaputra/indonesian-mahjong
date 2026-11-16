@@ -20,7 +20,7 @@ export function toFullRules(settings: GameSettings): FullRules {
     allowKimInPung: settings.allowKimInPung,
     allowKimInJia: settings.allowKimInJia,
     allowKimInTriplet: settings.allowKimInTriplet,
-    ...(settings.kimMode === 'natural' ? { kimDiscardAllowed: false, allowKimInMeldClaim: false } : {}),
+    ...(settings.kimMode === 'natural' ? { allowKimInMeldClaim: false } : {}),
   };
 }
 
