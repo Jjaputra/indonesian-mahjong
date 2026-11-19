@@ -17,7 +17,8 @@ const hiddenTile = (seat: Seat, i: number): Tile => ({ id: `hidden-${seat}-${i}`
 export function seatName(table: RemoteTable, seat: Seat): string {
   const s = table.getState();
   const info = s.room?.seats.find(r => r.seat === seat);
-  if (info?.bot) return `Bot ${SEAT_SHORT[seat]}`;
+  // Chairs aren't winds (the dealer rotates), so bots get a stable number instead of a wind name.
+  if (info?.bot) return `Bot ${SEAT_ORDER.indexOf(seat) + 1}`;
   return info?.name ?? `Kursi ${SEAT_SHORT[seat]}`;
 }
 

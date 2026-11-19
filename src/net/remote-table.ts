@@ -14,6 +14,8 @@ export interface LogLine { id: number; text: string; seat?: Seat }
 
 export interface RemoteState {
   status: ConnectionStatus;
+  latencyMs?: number | null;
+  pongLate?: boolean;
   room: RoomInfo | null;
   /** This device's seat, or null when standing / spectating. Always as the server last said. */
   seat: Seat | null;
@@ -54,6 +56,7 @@ export class RemoteTable {
   private readonly actionListeners = new Set<(action: ActionInput) => void>();
   private readonly conn: Connection;
   private token: string | undefined;
+  private assignedName: string;
   private endedKey: number | null = null;
   private pendingConfig: RoomConfig | undefined;
   private logSeq = 0;
@@ -61,13 +64,15 @@ export class RemoteTable {
 
   constructor(private readonly options: RemoteTableOptions) {
     this.code = options.code;
+    this.assignedName = options.name;
     this.token = options.token;
     this.pendingConfig = options.initialConfig;
     this.conn = new Connection({
       url: roomSocketUrl(options.server, options.code),
-      hello: () => ({ token: this.token, name: this.options.name }),
+      hello: () => ({ token: this.token, name: this.assignedName }),
       onMessage: m => this.receive(m),
       onStatus: status => this.patch({ status }),
+      onQuality: (latencyMs, pongLate) => this.patch({ latencyMs, pongLate }),
       socketFactory: options.socketFactory,
       now: options.now,
       timers: options.timers,
@@ -92,7 +97,7 @@ export class RemoteTable {
   onVisible(): void { this.conn.resync(); }
   resync(): void { this.conn.resync(); }
 
-  get playerName(): string { return this.options.name; }
+  get playerName(): string { return this.assignedName; }
   now(): number { return (this.options.now ?? Date.now)(); }
 
   /** Server clock minus local clock, in ms. */
@@ -106,6 +111,7 @@ export class RemoteTable {
 
   get isHost(): boolean { return this.state.host; }
 
+  rename(name: string): void { this.conn.send({ type: 'rename', name }); }
   sit(seat: Seat): void { this.conn.send({ type: 'sit', seat }); }
   stand(): void { this.conn.send({ type: 'stand' }); }
   setConfig(config: RoomConfig): void { this.conn.send({ type: 'config', config }); }
@@ -128,7 +134,8 @@ export class RemoteTable {
     switch (message.type) {
       case 'welcome':
         this.token = message.token;
-        saveRoom({ code: this.code, token: message.token, name: this.options.name }, this.options.storage);
+        this.assignedName = message.name ?? this.assignedName;
+        saveRoom({ code: this.code, token: message.token, name: this.assignedName }, this.options.storage);
         this.patch({ seat: message.seat, host: message.host, room: message.room, joined: true, ended: null });
         if (this.pendingConfig && message.room.phase === 'lobby') {
           const config = this.pendingConfig;
@@ -137,6 +144,10 @@ export class RemoteTable {
         }
         break;
       case 'room':
+        if (message.name) {
+          this.assignedName = message.name;
+          if (this.token) saveRoom({ code: this.code, token: this.token, name: message.name }, this.options.storage);
+        }
         if (message.room.phase === 'seating' || message.room.phase === 'lobby') {
           this.endedKey = null;
           this.patch({ room: message.room, seat: message.seat, host: message.host, view: null, handEndedAt: null, log: [] });

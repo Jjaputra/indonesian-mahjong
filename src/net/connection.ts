@@ -28,6 +28,13 @@ export interface ConnectionOptions {
   now?: () => number;
   timers?: Timers;
   pingMs?: number;
+  onQuality?: (latencyMs: number | null, pongLate: boolean) => void;
+}
+
+export function connectionIndicator(status: ConnectionStatus, latencyMs: number | null, pongLate: boolean): { tone: 'online' | 'slow' | 'offline'; text: string } {
+  if (status !== 'open') return { tone: 'offline', text: 'Terputus · menyambung ulang...' };
+  const slow = pongLate || (latencyMs !== null && latencyMs > 400);
+  return { tone: slow ? 'slow' : 'online', text: `${slow ? 'Lemot' : 'Online'}${pongLate || latencyMs === null ? '' : ` · ${Math.round(latencyMs)} ms`}` };
 }
 
 export const BACKOFF_MS = [500, 1000, 2000, 4000, 8000, 15000] as const;
@@ -46,6 +53,8 @@ export class Connection {
   private attempt = 0;
   private retryTimer: unknown = null;
   private pingTimer: unknown = null;
+  private lateTimer: unknown = null;
+  private latencyMs: number | null = null;
   private pingSentAt: number | null = null;
   private readonly now: () => number;
   private readonly timers: Timers;
@@ -61,6 +70,9 @@ export class Connection {
   connect(): void {
     if (this.status === 'stopped') return;
     this.cancelRetry();
+    this.stopPing();
+    this.latencyMs = null;
+    this.options.onQuality?.(null, false);
     this.dropSocket();
     this.setStatus(this.attempt === 0 && this.status === 'idle' ? 'connecting' : 'reconnecting');
     const factory = this.options.socketFactory ?? (url => new WebSocket(url) as unknown as SocketLike);
@@ -115,7 +127,12 @@ export class Connection {
       // One ping right away: its round trip refines the welcome's rough offset.
       this.ping();
     } else if (message.type === 'pong') {
-      if (this.pingSentAt !== null) this.offset = clockOffset(message.serverNow, this.now(), this.now() - this.pingSentAt);
+      if (this.pingSentAt !== null) {
+        this.latencyMs = Math.max(0, this.now() - this.pingSentAt);
+        this.offset = clockOffset(message.serverNow, this.now(), this.latencyMs);
+        this.options.onQuality?.(this.latencyMs, false);
+      }
+      this.clearLateTimer();
       this.pingSentAt = null;
     } else if (message.type === 'kicked') {
       this.options.onMessage(message);
@@ -146,11 +163,23 @@ export class Connection {
   }
 
   private ping(): void {
-    this.pingSentAt = this.now();
+    // Keep the oldest outstanding ping so a missing pong never looks healthy.
+    if (this.pingSentAt === null) {
+      this.pingSentAt = this.now();
+      this.lateTimer = this.timers.set(() => {
+        this.lateTimer = null;
+        this.options.onQuality?.(this.latencyMs, true);
+      }, 1000);
+    }
     this.send({ type: 'ping' });
   }
 
+  private clearLateTimer(): void {
+    if (this.lateTimer !== null) { this.timers.clear(this.lateTimer); this.lateTimer = null; }
+  }
+
   private stopPing(): void {
+    this.clearLateTimer();
     if (this.pingTimer !== null) { this.timers.clear(this.pingTimer); this.pingTimer = null; }
     this.pingSentAt = null;
   }

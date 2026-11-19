@@ -1,6 +1,6 @@
 // Per-room player token, last room and nickname in localStorage, plus the invite-link helpers.
 import { getStorage, type StorageLike } from '../storage';
-import { NAME_MAX_LENGTH, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, isRoomCode } from './protocol';
+import { NAME_MAX_LENGTH, normalizeName, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, isRoomCode } from './protocol';
 
 export interface StoredRoom { code: string; token: string; name: string }
 
@@ -18,7 +18,7 @@ function readRooms(storage?: StorageLike): Record<string, StoredRoom> {
 export function saveRoom(room: StoredRoom, storage?: StorageLike): void {
   try {
     const s = getStorage(storage);
-    s.setItem(ROOMS_KEY, JSON.stringify({ ...readRooms(s), [room.code]: room }));
+    s.setItem(ROOMS_KEY, JSON.stringify({ ...readRooms(s), [room.code]: { ...room, name: cleanName(room.name) } }));
     s.setItem(LAST_KEY, room.code);
   } catch { /* storage full or blocked: the seat just won't be remembered */ }
 }
@@ -51,10 +51,10 @@ export function loadPlayerName(storage?: StorageLike): string {
 }
 
 export function savePlayerName(name: string, storage?: StorageLike): void {
-  try { getStorage(storage).setItem(NAME_KEY, name); } catch { /* keep the live value */ }
+  try { getStorage(storage).setItem(NAME_KEY, cleanName(name)); } catch { /* keep the live value */ }
 }
 
-export const cleanName = (name: string): string => name.trim().replace(/\s+/g, ' ').slice(0, NAME_MAX_LENGTH);
+export const cleanName = (name: string): string => normalizeName(name).slice(0, NAME_MAX_LENGTH).trimEnd();
 
 /** Uppercase and drop characters outside the room-code alphabet (no 0/O/1/I/L), at most 6. */
 export function normalizeRoomCode(input: string): string {

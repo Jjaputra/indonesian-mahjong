@@ -2,9 +2,20 @@ import { SEAT_ORDER } from '../src/core/tiles';
 import type { Seat } from '../src/core/types';
 import { TableSession, type SerializedSession, type HandSeed } from '../src/session';
 import { DEFAULT_SETTINGS } from '../src/storage';
-import { DEFAULT_ROOM_CONFIG, MAX_SPECTATORS, NAME_MAX_LENGTH, type SeatDice, type RoomConfig, type RoomInfo, type ServerMessage, type ErrorCode, type ClientMessage } from '../src/net/protocol';
+import { DEFAULT_ROOM_CONFIG, MAX_SPECTATORS, NAME_MAX_LENGTH, normalizeName, type SeatDice, type RoomConfig, type RoomInfo, type ServerMessage, type ErrorCode, type ClientMessage } from '../src/net/protocol';
 
 const RATE_BURST = 10;
+
+function uniqueName(name: string, people: RoomData['people'], ownToken: string): string {
+  const base = normalizeName(name).slice(0, NAME_MAX_LENGTH).trimEnd();
+  const used = new Set(Object.entries(people).filter(([token]) => token !== ownToken).map(([, p]) => normalizeName(p.name).toLowerCase()));
+  let candidate = base;
+  for (let n = 2; used.has(candidate.toLowerCase()); n++) {
+    const suffix = ` ${n}`;
+    candidate = base.slice(0, NAME_MAX_LENGTH - suffix.length).trimEnd() + suffix;
+  }
+  return candidate;
+}
 
 export interface Socket {
   id: string;
@@ -98,7 +109,7 @@ export class Room {
   private sendState(socket: Socket, lobby: boolean): void {
     if (!socket.token) return;
     const seat = this.data!.people[socket.token]?.seat ?? null;
-    if (lobby) this.safeSend(socket, { type: 'room', room: this.info(), seat, host: socket.token === this.data!.host });
+    if (lobby) this.safeSend(socket, { type: 'room', room: this.info(), seat, host: socket.token === this.data!.host, name: this.data!.people[socket.token]!.name });
     if (this.session) {
       const view = this.session.viewFor(seat);
       if (this.data!.config.turnSeconds === null) {
@@ -167,7 +178,7 @@ export class Room {
       if (m.type === 'ping') { if (socket.token) { socket.lastActivity = now; this.io.attach(socket); } this.safeSend(socket, { type: 'pong', serverNow: now }); return; }
       if (m.type === 'hello') {
         if (socket.token || typeof m.name !== 'string' || (m.token !== undefined && (typeof m.token !== 'string' || m.token.length > 128))) { this.error(socket, 'bad_message', 'Nama atau token tidak valid.'); return; }
-        const name = m.name.trim().slice(0, NAME_MAX_LENGTH);
+        const name = normalizeName(m.name).slice(0, NAME_MAX_LENGTH).trimEnd();
         if (!name) { this.error(socket, 'bad_message', 'Nama wajib diisi.'); return; }
         const token = m.token && Object.hasOwn(d.people, m.token) ? m.token : this.io.token();
         if (!d.people[token]) {
@@ -175,9 +186,9 @@ export class Room {
           const spectators = this.info().spectators;
           const empty = !this.session && !d.seatDice ? SEAT_ORDER.find(seat => !Object.values(d.people).some(p => p.seat === seat)) ?? null : null;
           if (!first && !empty && (!d.config.allowSpectators || spectators >= MAX_SPECTATORS)) { this.error(socket, 'room_full', 'Penonton sudah penuh atau tidak diizinkan.'); return; }
-          d.people[token] = { name, seat: first ? 'dong' : empty };
+          d.people[token] = { name: uniqueName(name, d.people, token), seat: first ? 'dong' : empty };
           if (first) d.host = token;
-        } else d.people[token]!.name = name;
+        } // A known token keeps its assigned name on reconnect.
         for (const old of this.sockets.values()) if (old.token === token && old.id !== socket.id) {
           this.safeSend(old, { type: 'kicked', reason: 'replaced' });
           this.sockets.delete(old.id); try { this.io.close(old); } catch { /* already closed */ }
@@ -189,15 +200,20 @@ export class Room {
           if (d.takeovers?.includes(seat)) {
             d.takeovers = d.takeovers.filter(s => s !== seat);
             this.session?.setControl(seat, 'human');
-            this.event(`${name} kembali`, seat);
+            this.event(`${d.people[token]!.name} kembali`, seat);
           }
         }
         d.lastActivity = now; await this.save();
-        this.safeSend(socket, { type: 'welcome', token, seat, host: token === d.host, serverNow: now, room: this.info() }); this.broadcast(true); return;
+        this.safeSend(socket, { type: 'welcome', token, seat, host: token === d.host, serverNow: now, room: this.info(), name: d.people[token]!.name }); this.broadcast(true); return;
       }
       const person = socket.token ? d.people[socket.token] : undefined;
       if (!person) { this.error(socket, 'bad_message', 'Kirim hello terlebih dahulu.'); return; }
       socket.lastActivity = now; this.io.attach(socket);
+      if (m.type === 'rename') {
+        if (typeof m.name !== 'string' || !normalizeName(m.name)) { this.error(socket, 'bad_message', 'Nama wajib diisi.'); return; }
+        person.name = uniqueName(m.name, d.people, socket.token!);
+        d.lastActivity = now; await this.save(); this.broadcast(true); return;
+      }
       if (m.type === 'resync') { this.sendState(socket, true); return; }
       if (m.type === 'rematch') {
         if (socket.token !== d.host) { this.error(socket, 'not_host', 'Hanya host boleh memulai lagi.'); return; }

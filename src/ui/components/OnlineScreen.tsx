@@ -5,7 +5,7 @@ import { forgetRoom, inviteLink, loadLastRoom, loadRoom } from '../../net/room-s
 import { OnlineMenu } from './OnlineMenu';
 import { RemoteTableView } from './RemoteTableView';
 import '../online.css';
-import { RoomLobby } from './RoomLobby';
+import { ConnectionIndicator, RoomLobby } from './RoomLobby';
 import { startTurnAlerts } from '../turn-alert';
 
 export interface OnlineScreenProps {
@@ -25,7 +25,7 @@ interface Join { code: string; name: string; token?: string; config?: RoomConfig
 
 const emptyStore = () => () => {};
 
-function SeatRolls({ table }: { table: RemoteTable }) {
+export function SeatRolls({ table }: { table: RemoteTable }) {
   const state = table.getState();
   const dice = state.room!.seatDice!;
   const [, tick] = useState(0);
@@ -33,14 +33,14 @@ function SeatRolls({ table }: { table: RemoteTable }) {
   const done = dice.settledAt !== null;
   const seconds = Math.max(0, Math.ceil((dice.deadline - table.serverNow()) / 1000));
   const canRoll = state.seat && !dice.dice[state.seat] && !done;
-  return <main className="main-menu"><section className="menu-card mp-card online-seating"><h2>Kocok posisi duduk</h2>
+  return <main className="main-menu"><section className="menu-card mp-card online-seating"><ConnectionIndicator {...state} /><h2>Kocok posisi duduk</h2>
     <p>{done ? 'Posisi ditentukan. Permainan segera dimulai...' : `Total tertinggi menjadi Dong; kalau seri, kocok ulang. Sisa ${seconds} detik`}</p>
     <ul>{(done ? dice.groups.flat() : state.room!.seats.map(s => s.seat)).map((seat, i) => {
       const person = state.room!.seats.find(s => s.seat === seat);
       const roll = dice.dice[seat];
-      return <li key={seat}><strong>{person?.name ?? 'Bot'}</strong><span>{roll ? roll.map(n => '⚀⚁⚂⚃⚄⚅'[n - 1]).join(' ') : 'Menunggu...'}</span><b>{roll ? roll.reduce((a, b) => a + b, 0) : '-'}</b>{done && <em>{['Dong', 'Nan', 'Xi', 'Bei'][i]}</em>}</li>;
+      return <li key={seat} className={seat === state.seat ? 'is-self' : undefined}><strong>{person?.name ?? 'Bot'}{seat === state.seat && ' (Anda)'}</strong><span>{roll ? roll.map(n => '⚀⚁⚂⚃⚄⚅'[n - 1]).join(' ') : 'Menunggu...'}</span><b>{roll ? roll.reduce((a, b) => a + b, 0) : '-'}</b>{done && <em>{['Dong', 'Nan', 'Xi', 'Bei'][i]}</em>}</li>;
     })}</ul>
-    {canRoll && <button type="button" className="btn btn-primary" onClick={() => table.rollSeats()}>Kocok</button>}
+    {canRoll && <button type="button" className="btn btn-gold online-roll" onClick={() => table.rollSeats()}>🎲 Kocok dadu</button>}
   </section></main>;
 }
 
@@ -80,13 +80,11 @@ function RoomScreen({ table, optionsOpen, onOptionsOpenChange, onLeave, toast }:
       </main>
     );
   }
-  const offline = state.status !== 'open';
   return (
     <>
-      {offline && <div className="mp-banner" role="status">Menyambung ulang…</div>}
       {state.room.phase === 'seating' && state.room.seatDice ? <SeatRolls table={table} /> : state.view && state.room.phase !== 'lobby'
         ? <RemoteTableView table={table} state={state} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} onLeave={onLeave} />
-        : <RoomLobby room={state.room} seat={state.seat} isHost={table.isHost} onSit={seat => table.sit(seat)} onStand={() => table.stand()} onStart={() => table.start()} onConfig={config => table.setConfig(config)} onLeave={onLeave} onToast={toast} />}
+        : <RoomLobby connection={state} room={state.room} seat={state.seat} isHost={table.isHost} onSit={seat => table.sit(seat)} onStand={() => table.stand()} onStart={() => table.start()} onConfig={config => table.setConfig(config)} onLeave={onLeave} onToast={toast} />}
     </>
   );
 }

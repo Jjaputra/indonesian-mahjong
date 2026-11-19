@@ -57,3 +57,19 @@ describe('room store', () => {
     expect(cleanName('x'.repeat(40)).length).toBe(20);
   });
 });
+
+
+it('normalizes Unicode names before client storage and submission', () => {
+  expect(cleanName(' \u200bCafe\u0301\u00a0\u2009Liong\u2060 ')).toBe('Caf\u00e9 Liong');
+  expect(cleanName('\u200b\u00a0')).toBe('');
+});
+
+
+it('stores canonical names even when storage helpers receive raw input', () => {
+  const storage = new MemoryStorage();
+  const name = ' \u200bCafe\u0301\u00a0\u2009Liong\u2060 ';
+  savePlayerName(name, storage);
+  expect(loadPlayerName(storage)).toBe('Caf\u00e9 Liong');
+  saveRoom({ code: 'ABC234', token: 'token', name }, storage);
+  expect(loadRoom('ABC234', storage)?.name).toBe('Caf\u00e9 Liong');
+});

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-19
+### Changed
+- Online: the hand result looks like the single-player one. It has a big HU banner, a chip for how the hand was won, a Tay table without 0-Tay rows plus a total, a coloured koin table and a ready strip with a countdown bar.
+- Online: the "Kocok dadu" button is large and gold, and your own row is highlighted.
+- Online: bots are named Bot 1–4, because chairs don't match winds once the dealer rotates.
+### Added
+- Online: a connection indicator shows Online with the ping in ms, Lemot when slow, or Terputus while reconnecting.
+### Fixed
+- Online: two players can't have the same name; the second "A Liong" becomes "A Liong 2". Lookalike names with extra spaces or invisible characters count as the same name.
+- Online: the hand result shows each player's real seat wind after the dealer rotates.
+
 ## [0.9.0] - 2026-11-19
 ### Added
 - Install the game as an app: Settings shows "Pasang sebagai aplikasi" (Android) or the Add to Home Screen steps (iPhone). The app opens full screen.

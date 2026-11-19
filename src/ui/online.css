@@ -2,6 +2,53 @@
 .online-warning strong { font-size: clamp(1.2rem, 3vw, 2rem); }
 .online-warning b { font-size: 3rem; }
 .online-ready ul, .online-seating ul { list-style: none; padding: 0; }
-.online-ready li { padding: .25rem 0; }
 .online-seating li { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; padding: .8rem 0; border-bottom: 1px solid #ffffff30; }
 .online-seating li span { font-size: 2rem; }
+
+.online-seating li.is-self { background: #edc76a24; border: 1px solid #eac266; border-radius: .65rem; padding: .8rem; }
+.online-seating .online-roll { display: flex; justify-content: center; align-items: center; width: min(100%, 20rem); min-height: 3.5rem; margin: 1.5rem auto .25rem; font-size: 1.2rem; font-weight: 800; color: #30200c; background: #f5ce72; border: 2px solid #ffe8ad; box-shadow: 0 4px 16px #0005; animation: online-roll-pulse 2s ease-in-out infinite; }
+@keyframes online-roll-pulse { 50% { box-shadow: 0 0 0 6px #f5ce7230, 0 4px 16px #0005; } }
+@media (prefers-reduced-motion: reduce) { .online-seating .online-roll { animation: none; } }
+.online-connection { display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; font-size: .75rem; line-height: 1.4; color: #daffe2; }
+.online-connection-dot { flex: 0 0 .45rem; height: .45rem; border-radius: 50%; background: #60d786; }
+.online-connection.is-slow { color: #ffe3a0; }
+.online-connection.is-slow .online-connection-dot { background: #f5c957; }
+.online-connection.is-offline { color: #ffc3bb; }
+.online-connection.is-offline .online-connection-dot { background: #ff786c; }
+/* Reserve a status strip above the seats, below the phone countdown bar. */
+.app.is-table .table-felt.is-online.is-online.is-online { padding-top: 40px; }
+.online-table-connection { position: absolute; top: 8px; right: max(.5rem, env(safe-area-inset-right)); max-width: calc(100% - 16px); padding: .2rem .4rem; border-radius: .4rem; background: #102820e8; pointer-events: none; }
+@media (min-width: 901px) and (min-height: 501px) {
+  .online-table-connection { right: calc(var(--hud-rail) + 20px); }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .app.is-table.is-table .table-felt.is-online .table-hud { top: 40px; }
+}
+
+/* Hand result */
+.mp-result { display: grid; gap: 10px; min-width: 0; }
+.mp-result .hu-banner { margin-bottom: 0; font-size: 44px; max-width: 100%; }
+.mp-result .hu-banner small { text-align: center; padding: 0 4px; max-width: 100%; overflow-wrap: anywhere; }
+.mp-win-chip { margin: 0; text-align: center; }
+.mp-result-hand { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px; margin: 0; }
+.mp-result .mp-breakdown, .mp-result .mp-deltas { display: table; width: 100%; gap: 0; border-collapse: collapse; margin: 0; }
+.mp-breakdown td, .mp-deltas td { padding: 5px 4px; border-bottom: 1px solid var(--line); }
+.mp-breakdown .num, .mp-deltas .num { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mp-breakdown .total-row td { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 800; }
+.mp-deltas .wind { width: 4.5em; font-size: .85em; opacity: .7; }
+.mp-deltas .is-up { color: var(--ok); }
+.mp-deltas .is-down { color: var(--bad); }
+.mp-deltas .is-winner td { background: #edc76a30; font-weight: 700; }
+.mp-ready-strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+@media (max-width: 560px) { .mp-ready-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.mp-ready-strip li { display: grid; gap: 1px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 10px; font-size: .85rem; min-width: 0; }
+.mp-ready-strip li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.mp-ready-strip li b { font-size: .75rem; font-weight: 600; opacity: .75; }
+.mp-ready-strip li.is-ready b { color: var(--ok); opacity: 1; }
+.mp-ready-strip li.is-offline { opacity: .55; }
+.mp-ready-strip li.is-self { border-color: #eac266; background: #edc76a30; box-shadow: 0 0 0 1px #eac266; }
+.mp-next { margin: 6px 0 4px; font-size: .85rem; text-align: center; }
+.mp-next-bar { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.mp-next-bar i { display: block; height: 100%; background: var(--ok); transform-origin: left; transition: transform .25s linear; }
+.mp-result-note { margin: 0; text-align: center; }
+@media (max-height: 420px) { .mp-result .hu-banner { font-size: 30px; } }

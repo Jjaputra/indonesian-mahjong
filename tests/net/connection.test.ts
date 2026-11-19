@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BACKOFF_MS, backoffDelay, clockOffset } from '../../src/net/connection';
+import { connectionIndicator, BACKOFF_MS, backoffDelay, clockOffset } from '../../src/net/connection';
 import { MemoryStorage } from '../../src/storage';
 import { RemoteTable } from '../../src/net/remote-table';
 import { loadLastRoom, loadRoom } from '../../src/net/room-store';
@@ -180,5 +180,43 @@ describe('errors and kicks', () => {
     net.last.drop();
     table.onVisible();
     expect(net.sockets).toHaveLength(2);
+  });
+});
+
+
+describe('own connection quality', () => {
+  it('maps latency, late pong and socket status to Indonesian labels', () => {
+    expect(connectionIndicator('open', null, false)).toEqual({ tone: 'online', text: 'Online' });
+    expect(connectionIndicator('open', 400, false).tone).toBe('online');
+    expect(connectionIndicator('open', 401, false)).toEqual({ tone: 'slow', text: 'Lemot · 401 ms' });
+    expect(connectionIndicator('open', 25, true)).toEqual({ tone: 'slow', text: 'Lemot' });
+    expect(connectionIndicator('open', null, true)).toEqual({ tone: 'slow', text: 'Lemot' });
+    for (const status of ['idle', 'connecting', 'reconnecting', 'stopped'] as const)
+      expect(connectionIndicator(status, 20, false)).toEqual({ tone: 'offline', text: 'Terputus · menyambung ulang...' });
+  });
+
+  it('measures RTT, marks a late pong and recovers without adding ping traffic', () => {
+    const { table, net, clock } = setup(); table.connect(); net.last.open(); net.last.receive(welcome());
+    clock.advance(50); net.last.receive({ type: 'pong', serverNow: 50000 });
+    expect(table.getState()).toMatchObject({ latencyMs: 50, pongLate: false });
+    clock.advance(24950); expect(net.last.ofType('ping')).toHaveLength(2);
+    clock.advance(1000); expect(table.getState().pongLate).toBe(true);
+    expect(net.last.ofType('ping')).toHaveLength(2);
+    net.last.receive({ type: 'pong', serverNow: 76000 });
+    expect(table.getState()).toMatchObject({ latencyMs: 1000, pongLate: false });
+    net.last.drop(); clock.advance(500); net.last.open(); net.last.receive(welcome());
+    expect(table.getState()).toMatchObject({ latencyMs: null, pongLate: false });
+    clock.advance(10); net.last.receive({ type: 'pong', serverNow: 77000 });
+    expect(table.getState()).toMatchObject({ latencyMs: 10, pongLate: false });
+  });
+
+  it('uses and persists the server assigned name on welcome and rename', () => {
+    const { table, net, storage, clock } = setup(); table.connect(); net.last.open();
+    net.last.receive({ ...welcome(), name: 'A Liong 2' });
+    expect(table.playerName).toBe('A Liong 2'); expect(loadRoom('ABC234', storage)?.name).toBe('A Liong 2');
+    net.last.receive({ type: 'room', room: roomInfo(), seat: 'dong', host: true, name: 'A Liong 3' });
+    expect(table.playerName).toBe('A Liong 3'); expect(loadRoom('ABC234', storage)?.name).toBe('A Liong 3');
+    net.last.drop(); clock.advance(500); net.last.open();
+    expect(net.last.sent[0]).toMatchObject({ name: 'A Liong 3', token: 'tok-1' });
   });
 });
