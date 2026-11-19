@@ -1,13 +1,15 @@
 import { TableMotion } from './TableMotion';
 import { Hand, Trophy, Undo2, Flower2, ArrowDownToLine, MoveDownRight, Crown } from 'lucide-react';
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { sortTiles } from '../../core/tiles';
 import type { Seat, Tile } from '../../core/types';
 import { isKim } from '../../kim/wildcard-solver';
+import { loadAutoArrange, saveAutoArrange } from '../../storage';
 import type { GameController, HumanActions } from '../game-controller';
 import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, WIND_GLYPH, tileText } from '../labels';
 import { practiceCoachLine, type CoachEmphasis } from '../practice-coach';
 import { handReadingLine } from '../hand-reading';
+import { applyHandOrder, isNewHand, mergeHandOrder, moveInOrder } from '../hand-order';
 import { isFirstGoAround, isInitialDealtHand, seatWindOf, toFullRules, toScoringOverlap } from '../win-context';
 import { MeldView, TileBack, TileRow, TileView } from './TileView';
 
@@ -195,9 +197,98 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
   const p = s.players[seat];
   const drawnId = controller.humanDrawnTileId;
   const drawn = p.hand.find((t) => t.id === drawnId);
-  const rest = sortTiles(p.hand.filter((t) => t.id !== drawnId));
+  const restTiles = p.hand.filter((t) => t.id !== drawnId);
+  const sortedRest = sortTiles(restTiles);
   const discardable = new Set(actions.discardableTileIds);
   const active = s.currentTurn === seat && s.phase === 'ACTION_DECISION';
+
+  // "Susun otomatis": on = sorted; off = the player's own order (display only, by tile id).
+  const [auto, setAuto] = useState(() => loadAutoArrange());
+  const [, redraw] = useState(0);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const orderRef = useRef<string[]>([]);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ id: string; x: number; y: number; grab: number; pointer: number; moving: boolean } | null>(null);
+  const clickBlocked = useRef(false);
+  const stopDrag = useRef<(() => void) | null>(null);
+  const handSeen = useRef({ key: -1, trail: 0 });
+  // Tile ids repeat from hand to hand, so a new hand (next match hand, or the pool emptying) restarts sorted.
+  const handKey = controller.match?.hands.length ?? 0;
+  const trailLen = controller.discardTrail.length;
+  if (isNewHand(handSeen.current, { key: handKey, trail: trailLen })) orderRef.current = [];
+  handSeen.current = { key: handKey, trail: trailLen };
+  orderRef.current = auto ? sortedRest.map((t) => t.id) : mergeHandOrder(orderRef.current, restTiles);
+  const rest = auto ? sortedRest : applyHandOrder(orderRef.current, restTiles);
+  const canArrange = !facedown && !auto;
+
+  const toggleAuto = () => {
+    const next = !auto;
+    setAuto(next);
+    saveAutoArrange(next);
+  };
+
+  /** The dragged tile follows the pointer on top of its (live reordered) slot. */
+  const placeDragged = () => {
+    const d = dragRef.current;
+    const el = d && rowRef.current?.querySelector<HTMLElement>(`[data-tile-id="${d.id}"]`);
+    if (!d || !el) return;
+    el.style.transform = '';
+    const left = el.getBoundingClientRect().left;
+    el.style.transform = `translate(${d.x - d.grab - left}px, -14px)`;
+  };
+  useLayoutEffect(placeDragged);
+  useEffect(() => () => stopDrag.current?.(), []);
+
+  const startDrag = (id: string) => (e: PointerEvent<HTMLButtonElement>) => {
+    if (!canArrange || e.button !== 0 || dragRef.current) return;
+    const grab = e.clientX - e.currentTarget.getBoundingClientRect().left;
+    const d0 = { id, x: e.clientX, y: e.clientY, grab, pointer: e.pointerId, moving: false };
+    dragRef.current = d0;
+    const start = { x: e.clientX, y: e.clientY };
+    const row = rowRef.current;
+    try { row?.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
+    const move = (ev: globalThis.PointerEvent) => {
+      const d = dragRef.current;
+      if (!d || ev.pointerId !== d.pointer) return;
+      d.x = ev.clientX;
+      if (!d.moving) {
+        if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 6) return;
+        d.moving = true;
+        setDragId(id);
+      }
+      const others = [...(rowRef.current?.querySelectorAll<HTMLElement>('.tile:not(.is-drawn)') ?? [])].filter((el) => el.dataset.tileId !== id);
+      const slot = others.filter((el) => { const r = el.getBoundingClientRect(); return r.left + r.width / 2 < ev.clientX; }).length;
+      const order = orderRef.current;
+      if (order.indexOf(id) !== slot) {
+        orderRef.current = moveInOrder(order, id, slot);
+        redraw((n) => n + 1);
+      }
+      placeDragged();
+    };
+    const end = (ev?: globalThis.PointerEvent) => {
+      if (ev && dragRef.current && ev.pointerId !== dragRef.current.pointer) return;
+      const moved = dragRef.current?.moving;
+      const el = rowRef.current?.querySelector<HTMLElement>(`[data-tile-id="${id}"]`);
+      if (el) el.style.transform = '';
+      dragRef.current = null;
+      stopDrag.current = null;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      row?.removeEventListener('lostpointercapture', end);
+      try { row?.releasePointerCapture(ev?.pointerId ?? d0.pointer); } catch { /* already released */ }
+      if (moved) {
+        clickBlocked.current = true;
+        setTimeout(() => { clickBlocked.current = false; }, 60);
+        setDragId(null);
+      }
+    };
+    stopDrag.current = end;
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    row?.addEventListener('lostpointercapture', end);
+  };
 
   const tileButton = (t: Tile, isDrawn: boolean) => {
     const canPick = actions.canDiscard && discardable.has(t.id);
@@ -209,12 +300,14 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
         drawn={isDrawn}
         selected={selectedId === t.id}
         disabled={actions.canDiscard && !canPick}
+        dragging={dragId === t.id}
+        onPointerDown={isDrawn ? undefined : startDrag(t.id)}
         onClick={() => {
-          if (!canPick) return;
+          if (clickBlocked.current || !canPick) return;
           if (selectedId === t.id) controller.humanDiscard(t.id);
           else onSelect(t.id);
         }}
-        onDoubleClick={() => canPick && controller.humanDiscard(t.id)}
+        onDoubleClick={() => !clickBlocked.current && canPick && controller.humanDiscard(t.id)}
       />
     );
   };
@@ -227,9 +320,14 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
         <div className="seat-head">
           <strong>{names[seat]}</strong>
           <WindBadges seat={seat} controller={controller} />
+          {!facedown && (
+            <button type="button" className={`arrange-toggle${auto ? ' is-on' : ''}`} aria-pressed={auto} onClick={toggleAuto} title="Susun tile otomatis; matikan untuk geser tile sendiri">
+              Susun otomatis: {auto ? 'ON' : 'OFF'}
+            </button>
+          )}
         </div>
       } />
-      <div data-hand-anchor={seat} className="hand-row" role="group" aria-label="Tile di tangan">
+      <div ref={rowRef} data-hand-anchor={seat} className={`hand-row${canArrange ? ' is-manual' : ''}`} role="group" aria-label="Tile di tangan">
         {facedown ? p.hand.map((t) => <TileBack key={t.id} size="lg" />) : rest.map((t) => tileButton(t, false))}
         {!facedown && drawn && <span className="drawn-gap" />}
         {!facedown && drawn && tileButton(drawn, true)}

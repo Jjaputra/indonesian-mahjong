@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { Room, validConfig, type RoomData, type Socket, type RoomIO } from '../../server/room';
 import { DEFAULT_ROOM_CONFIG, type ClientMessage, type ServerMessage } from '../../src/net/protocol';
+import type { HandSeed } from '../../src/session';
 import { SEAT_ORDER } from '../../src/core/tiles';
 
 function harness() {
   let now = 1000, counter = 0, alarm: number | null = null, blob: RoomData | null = null, writes = 0, alarmWrites = 0, seeds = 0;
   const frames = new Map<string, ServerMessage[]>(), closed: string[] = [];
-  const io: RoomIO = { seed: () => 1000 + seeds++, log: () => {}, now: () => now, token: () => `token-${++counter}`,
+  const seedQueue: HandSeed[] = [];
+  const io: RoomIO = { seed: () => seedQueue.shift() ?? 1000 + seeds++, log: () => {}, now: () => now, token: () => `token-${++counter}`,
     put: async d => { blob = structuredClone(d); writes++; }, deleteAll: async () => { blob = null; },
     setAlarm: async at => { alarm = at; alarmWrites++; },
     send: (s, m) => { frames.get(s.id)!.push(structuredClone(m)); }, close: s => { closed.push(s.id); }, attach: () => {},
@@ -15,7 +17,7 @@ function harness() {
   const connect = () => { const s: Socket = { id: `socket-${++counter}` }; frames.set(s.id, []); room.connect(s); return s; };
   const send = async (s: Socket, m: ClientMessage) => { now += 101; await room.message(s, JSON.stringify(m)); };
   const join = async (name = 'Nama', token?: string) => { const s = connect(); await send(s, { type: 'hello', name, token }); return s; };
-  return { get room() { return room; }, get blob() { return blob!; }, frames, closed, connect, send, join,
+  return { seedQueue, get room() { return room; }, get blob() { return blob!; }, frames, closed, connect, send, join,
     get writes() { return writes; }, get alarmWrites() { return alarmWrites; }, get alarm() { return alarm; },
     get now() { return now; }, set now(n: number) { now = n; },
     rebuild: () => { room = new Room(io, blob, [...room.sockets.values()]); },
@@ -26,7 +28,13 @@ function harness() {
 const errors = (h: ReturnType<typeof harness>, s: Socket) => h.frames.get(s.id)!.filter(m => m.type === 'error');
 async function botRoom() {
   const h = harness(); await h.create(); const host = await h.join();
-  await h.send(host, { type: 'stand' }); await h.send(host, { type: 'start' }); return { h, host };
+  await h.send(host, { type: 'stand' }); await h.send(host, { type: 'start' }); await finishSeating(h); return { h, host };
+}
+
+async function finishSeating(h: ReturnType<typeof harness>) {
+  if (!h.room.data?.seatDice) return;
+  h.room.data.seatDice = { groups: SEAT_ORDER.map(s => [s]), dice: { dong: [6,6,6], nan: [5,5,5], xi: [4,4,4], bei: [3,3,3] }, deadline: h.now + 15000, botAt: {}, settledAt: h.now };
+  h.now += 3000; await h.room.alarm();
 }
 
 describe('room', () => {
@@ -52,10 +60,58 @@ describe('room', () => {
     const h = harness(); await h.create(); const host = await h.join(); const peer = await h.join();
     await h.send(peer, { type: 'config', config: DEFAULT_ROOM_CONFIG }); expect(errors(h, peer).at(-1)).toMatchObject({ code: 'not_host' });
     await h.send(host, { type: 'config', config: { ...DEFAULT_ROOM_CONFIG, allowSpectators: false, fillWithBots: false } });
-    await h.send(host, { type: 'start' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'room_full' });
+    await h.send(host, { type: 'start' }); await finishSeating(h); expect(errors(h, host).at(-1)).toMatchObject({ code: 'room_full' });
     await h.join(); await h.join(); const extra = await h.join(); expect(errors(h, extra).at(-1)).toMatchObject({ code: 'room_full' });
-    await h.send(host, { type: 'start' }); expect(h.room.session).not.toBeNull();
+    await h.send(host, { type: 'start' }); await finishSeating(h); expect(h.room.session).not.toBeNull();
     await h.send(host, { type: 'stand' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'wrong_phase' });
+  });
+  it('seat rolls use server dice, sort descending, persist, and reassign socket seats', async () => {
+    const h = harness(); await h.create(); const host = await h.join(); const peer = await h.join();
+    h.seedQueue.push(...[0, 5, 3, 1].map(n => Array(148).fill(n)));
+    await h.send(host, { type: 'start' }); expect(h.room.info().phase).toBe('seating');
+    await h.send(host, { type: 'rollSeats' }); await h.send(peer, { type: 'rollSeats' });
+    const before = structuredClone(h.blob.seatDice); h.rebuild(); expect(h.room.info().seatDice).toEqual(before);
+    while (!h.blob.seatDice!.settledAt) await h.tick();
+    expect(h.blob.seatDice!.groups).toEqual([['nan'], ['xi'], ['bei'], ['dong']]);
+    expect(h.blob.seatDice!.dice.nan).toEqual([6,6,6]);
+    const at = h.now; await h.tick(); expect(h.now - at).toBe(3000);
+    expect(h.room.info().phase).toBe('playing'); expect(host.seat).toBe('bei'); expect(peer.seat).toBe('dong');
+    expect(h.room.session!.viewFor(null).dealer).toBe('dong');
+  });
+  it('tied seats reroll only within their rank and humans auto-roll after 15 seconds', async () => {
+    const h = harness(); await h.create(); const host = await h.join();
+    h.seedQueue.push(...[5, 5, 2, 0, 1, 4].map(n => Array(148).fill(n)));
+    await h.send(host, { type: 'start' }); const start = h.now;
+    while (h.now < start + 15000) await h.tick();
+    expect(h.blob.seatDice!.groups).toEqual([['nan', 'xi'], ['bei'], ['dong']]);
+    expect(h.blob.seatDice!.dice).toEqual({ bei: [3,3,3], dong: [1,1,1] });
+    h.rebuild(); await h.tick(); await h.tick();
+    expect(h.blob.seatDice!.groups).toEqual([['xi'], ['nan'], ['bei'], ['dong']]);
+    expect(h.blob.seatDice!.dice.dong).toEqual([1,1,1]);
+    expect(h.blob.seatDice!.settledAt).not.toBeNull();
+    // Bot rolls happen first: nan=18, xi=18, bei=9; human dong=3.
+  });
+  it('host alone may swap an offline human; reconnect restores control and emits events', async () => {
+    const h = harness(); await h.create(); const host = await h.join(); const peer = await h.join();
+    await h.send(host, { type: 'start' }); await finishSeating(h);
+    await h.send(peer, { type: 'replaceBot', seat: 'dong' }); expect(errors(h, peer).at(-1)).toMatchObject({ code: 'not_host' });
+    await h.send(host, { type: 'replaceBot', seat: 'nan' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'illegal_action' });
+    await h.room.disconnect(peer); expect(h.room.session!.serialize().options.seats.nan).toBe('human');
+    await h.send(host, { type: 'replaceBot', seat: 'nan' }); expect(h.room.session!.serialize().options.seats.nan).toBe('bot');
+    h.rebuild(); await h.join('Peer', peer.token); expect(h.room.session!.serialize().options.seats.nan).toBe('human');
+    const events = h.frames.get(host.id)!.filter(m => m.type === 'event');
+    expect(events.map(e => e.text)).toEqual(['Nama digantikan bot', 'Peer kembali']);
+  });
+  it('bot schedule stays deterministic with turn and claim delays in range', async () => {
+    const { h } = await botRoom();
+    for (let i = 0; i < 80 && h.blob.handEndedAt === null; i++) {
+      const snapshot = h.room.session!.serialize();
+      const delay = h.blob.schedule!.botAt! - h.now;
+      if (snapshot.state.phase === 'CLAIM_WINDOW') { expect(delay).toBeGreaterThanOrEqual(1000); expect(delay).toBeLessThanOrEqual(2000); }
+      else if (snapshot.state.phase === 'TURN_DRAW') expect(delay).toBe(1);
+      else { expect(delay).toBeGreaterThanOrEqual(1500); expect(delay).toBeLessThanOrEqual(3000); }
+      const before = h.blob.schedule; h.rebuild(); expect(h.room.data!.schedule).toEqual(before); await h.tick();
+    }
   });
   it('limits spectators and caps names', async () => {
     const h = harness(); await h.create(); for (let i = 0; i < 12; i++) await h.join('x'.repeat(40));
@@ -87,7 +143,7 @@ describe('room', () => {
   it('a stale alarm after a fast human action does nothing; unlimited turns never timeout', async () => {
     const h = harness(); await h.create(); const host = await h.join();
     await h.send(host, { type: 'config', config: { ...DEFAULT_ROOM_CONFIG, turnSeconds: null } });
-    await h.send(host, { type: 'start' }); const s = h.room.session!;
+    await h.send(host, { type: 'start' }); await finishSeating(h); const s = h.room.session!;
     const tileId = s.viewFor('dong').legal!.discardableTileIds[0]!;
     await h.send(host, { type: 'act', action: { type: 'discard', tileId, version: s.version } });
     const before = s.serialize(); await h.room.alarm(); expect(s.serialize()).toEqual(before);
@@ -95,7 +151,7 @@ describe('room', () => {
   });
   it('checks finite deadline and version again after a fast human discard', async () => {
     const h = harness(); await h.create(); const host = await h.join();
-    await h.send(host, { type: 'start' });
+    await h.send(host, { type: 'start' }); await finishSeating(h);
     const oldAlarm = h.alarm!;
     const s = h.room.session!;
     await h.send(host, { type: 'act', action: { type: 'discard', tileId: s.viewFor('dong').legal!.discardableTileIds[0]!, version: s.version } });
@@ -113,23 +169,32 @@ describe('room', () => {
     await expect(r.message(socket, JSON.stringify({ type: 'hello', name: 'Jason' }))).resolves.toBeUndefined();
     expect(checks).toBeGreaterThan(0);
   });
-  it('host continuation, 30-second fallback, and disconnected-host fallback', async () => {
-    const { h, host } = await botRoom(); const human = await h.join();
-    // Start a fixture with a seated human after finishing an all-bot hand.
+  it('all connected seated humans must ready; offline players count as ready', async () => {
+    const { h, host } = await botRoom(); const a = await h.join(); const b = await h.join();
     while (h.blob.handEndedAt === null) await h.tick();
-    h.room.data!.people[human.token!]!.seat = 'nan';
-    const action = () => ({ type: 'act', action: { type: 'nextHand', version: h.room.session!.version } }) as const;
-    await h.send(human, action()); expect(errors(h, human).at(-1)).toMatchObject({ code: 'not_host' });
-    h.now += 30000; await h.send(human, action()); expect(h.blob.handEndedAt).toBeNull();
+    h.room.data!.people[a.token!]!.seat = 'nan'; h.room.data!.people[b.token!]!.seat = 'xi';
+    await h.send(host, { type: 'ready' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'not_seated' });
+    await h.send(a, { type: 'ready' }); expect(h.blob.handEndedAt).not.toBeNull();
+    expect(h.room.info().seats.find(s => s.seat === 'nan')!.ready).toBe(true);
+    await h.send(b, { type: 'ready' }); expect(h.blob.handEndedAt).toBeNull();
     while (h.blob.handEndedAt === null) await h.tick();
-    await h.room.disconnect(host); await h.send(human, action()); expect(h.blob.handEndedAt).toBeNull();
+    await h.send(a, { type: 'ready' }); await h.room.disconnect(b); expect(h.blob.handEndedAt).toBeNull();
+  }, 120000);
+  it('120-second continuation survives storage reload and needs no client', async () => {
+    const { h } = await botRoom();
+    while (h.blob.handEndedAt === null) await h.tick();
+    const human = await h.join(); h.room.data!.people[human.token!]!.seat = 'nan';
+    await h.send(human, { type: 'resync' });
+    // Persist the fixture's connected human before rebuilding.
+    await h.join('Human', human.token);
+    const end = h.blob.handEndedAt!;
+    h.rebuild(); expect(h.alarm).toBe(end + 120000);
+    await h.tick(); expect(h.blob.handEndedAt).toBeNull();
   }, 120000);
   it('plays a complete four-bot match using only paced alarms and measures writes', async () => {
-    const { h, host } = await botRoom(); let steps = 0; const startWrites = h.writes, startAlarms = h.alarmWrites;
+    const { h } = await botRoom(); let steps = 0; const startWrites = h.writes, startAlarms = h.alarmWrites;
     while (!h.room.session!.viewFor(null).matchOver && steps++ < 15000) {
-      if (h.blob.handEndedAt !== null) {
-        await h.send(host, { type: 'act', action: { type: 'nextHand', version: h.room.session!.version } });
-      } else await h.tick();
+      await h.tick();
     }
     expect(h.room.session!.viewFor(null).match.hands).toHaveLength(16);
     console.log(`Room budget: ${h.writes - startWrites} blob writes + ${h.alarmWrites - startAlarms} alarm writes / 16 hands = ${((h.writes + h.alarmWrites - startWrites - startAlarms) / 16).toFixed(1)} writes/hand`);

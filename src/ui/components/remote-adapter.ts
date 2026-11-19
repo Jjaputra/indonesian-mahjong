@@ -58,6 +58,7 @@ export class RemoteController {
     if (this.spectator && seat === this.humanSeat) return null; // that label is the spectator's own
     if (this.table.getState().room?.seats.find(r => r.seat === seat)?.bot) return null;
     const p = this.view.players[seat];
+    if (this.table.getState().room?.seats.find(r => r.seat === seat)?.takeover) return 'Bot';
     return !p.connected ? 'Offline' : p.afk ? 'AFK' : null;
   }
 

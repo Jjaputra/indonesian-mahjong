@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-19
+### Added
+- "Susun otomatis" toggle by your hand. Turn it off to arrange tiles yourself by dragging; a new tile goes to the right end, and every new hand starts sorted.
+- Online: a "Waktu hampir habis!" countdown shows in the last 5 seconds of your turn or claim.
+- Online: after a hand, every player presses "Lanjut"; the next hand starts when everyone is ready or after 120 seconds. Offline players and bots count as ready.
+- Online: at the start of a match every player rolls three dice for their seat. Highest total sits at Dong (first dealer), then Nan, Xi, Bei; ties roll again.
+- Online: the host can let a bot play for an offline player ("Ganti bot"). The player gets the seat back when they return.
+### Changed
+- Bots take 1.5–3 seconds to discard and 1–2 seconds to claim, online and in single player.
+- Phones in landscape get a compact table layout; the hand no longer covers the board.
+
 ## [0.7.2] - 2026-11-16
 ### Changed
 - House rule (players, 2026-11-16): Kim may be discarded, but nobody can claim a discarded Kim. That means no Jia, Pung, Kong or Hu on it. The Turnamen preset keeps the PDF ban.

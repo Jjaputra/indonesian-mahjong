@@ -23,7 +23,7 @@ export interface RemoteState {
   log: LogLine[];
   /** Last non-fatal server error, shown as a toast. `id` changes per error so repeats re-trigger. */
   error: { id: number; code: ErrorCode; message: string } | null;
-  /** When (local clock) the current hand finished, for the non-host Lanjut grace. Null while a hand is on. */
+  /** When (local clock) the current hand finished, for local hand-result presentation. Null while a hand is on. */
   handEndedAt: number | null;
   /** The server ended this session; no reconnect follows. */
   ended: 'replaced' | 'room_closed' | 'room_not_found' | null;
@@ -104,6 +104,9 @@ export class RemoteTable {
   sit(seat: Seat): void { this.conn.send({ type: 'sit', seat }); }
   stand(): void { this.conn.send({ type: 'stand' }); }
   setConfig(config: RoomConfig): void { this.conn.send({ type: 'config', config }); }
+  ready(): void { this.conn.send({ type: 'ready' }); }
+  rollSeats(): void { this.conn.send({ type: 'rollSeats' }); }
+  replaceBot(seat: Seat): void { this.conn.send({ type: 'replaceBot', seat }); }
   start(): void { this.conn.send({ type: 'start' }); }
 
   /** Send a game action stamped with the version of the view the player is looking at. */

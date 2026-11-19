@@ -3130,3 +3130,152 @@ select {
 .badge-presence { background: var(--bad-soft); color: var(--bad); border-color: #d3a59f; }
 /* Spectators: the bottom hand is all tile backs, standing like the opponents' racks. */
 .table-felt .hand-row > .tile.tile-back { border: 0; background: linear-gradient(var(--tile-back) 0 78%, var(--tile-side) 78%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 0 var(--tile-back-edge), 0 4px 6px rgba(0, 0, 0, 0.35); }
+
+/* ---------- Hand: auto-arrange toggle and manual drag ---------- */
+.arrange-toggle {
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid rgba(255, 213, 107, 0.55);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #f3e9c6;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.arrange-toggle.is-on { background: rgba(255, 213, 107, 0.2); border-color: #ffd56b; }
+.hand-row.is-manual > .tile.is-clickable { touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+.hand-row > .tile.is-dragging,
+.table-felt .hand-row > .tile.is-dragging { transition: none; z-index: 6; cursor: grabbing; filter: brightness(1.05); box-shadow: 0 -9px 0 0 var(--tile-back), 0 -10px 0 0 var(--tile-back-edge), 0 16px 22px rgba(0, 0, 0, 0.55); }
+
+/* ---------- Phone landscape (short screens): one-viewport table, no overlap ---------- */
+@media (orientation: landscape) and (max-height: 500px) {
+  .app.is-table.is-table { display: flex; flex-direction: column; }
+  .app.is-table.is-table .app-header { flex: none; flex-wrap: nowrap; gap: 6px 10px; padding: 2px 10px; }
+  .app.is-table.is-table .brand { flex: 1 1 auto; gap: 6px; }
+  .app.is-table.is-table .brand h1 { font-size: 13px; }
+  .app.is-table.is-table .brand-tile { width: 18px; height: 24px; font-size: 12px; }
+  .app.is-table.is-table .release-version { display: none; }
+  .app.is-table.is-table .header-actions { gap: 2px; flex-wrap: nowrap; }
+  .app.is-table.is-table .header-actions :is(.btn, .icon-btn) { min-height: 26px; height: 26px; padding-top: 0; padding-bottom: 0; font-size: 12px; }
+  .app.is-table.is-table .header-actions .icon-btn { width: 28px; padding: 0; }
+
+  .app.is-table.is-table.is-table .table-felt {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    margin: 0;
+    padding: 2px 6px 3px;
+    gap: 2px 4px;
+    border-radius: 0;
+    overflow: hidden;
+    grid-template-columns: 76px minmax(0, 1fr) 76px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'top top top' 'left center right' 'bottom bottom bottom';
+  }
+  .app.is-table.is-table .table-felt::before { display: none; }
+  .app.is-table.is-table .table-felt > .seat-top { grid-area: top; }
+  .app.is-table.is-table .table-felt > .seat-left { grid-area: left; }
+  .app.is-table.is-table .table-felt > .seat-right { grid-area: right; }
+  .app.is-table.is-table .table-felt > .center-area { grid-area: center; min-height: 0; }
+  .app.is-table.is-table .table-felt .human-area { grid-area: bottom; }
+  .app.is-table.is-table .table-felt > .table-hud { grid-area: auto; }
+
+  /* Opponents: one line on top, thin columns at the sides. */
+  .app.is-table.is-table .table-felt .seat-top { flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 6px; padding: 0 86px 0 156px; }
+  .app.is-table.is-table .table-felt .seat-top .seat-head { flex: none; flex-wrap: nowrap; font-size: 10px; }
+  .app.is-table.is-table .table-felt .seat-top .concealed { gap: 0; }
+  .app.is-table.is-table .table-felt .seat-panel .tile-back { --w: 11px; --h: 15px; }
+  .app.is-table.is-table .table-felt :is(.seat-left, .seat-right) { padding: 0; gap: 1px; min-height: 0; overflow: hidden; }
+  .app.is-table.is-table .table-felt :is(.seat-left, .seat-right) .seat-head { flex-direction: column; font-size: 9px; gap: 1px; }
+  .app.is-table.is-table .table-felt :is(.seat-left, .seat-right) .badges { justify-content: center; gap: 1px; }
+  .app.is-table.is-table .table-felt .badge { font-size: 7px; padding: 0 3px; line-height: 1.3; }
+  .app.is-table.is-table .table-felt :is(.seat-left, .seat-right) .concealed { gap: 1px; transform: none; }
+  .app.is-table.is-table .table-felt :is(.seat-left, .seat-right) .concealed .tile-back { --w: 24px; --h: 9px; }
+  .app.is-table.is-table .table-felt .concealed .count { font-size: 9px; margin: 0; }
+  .app.is-table.is-table .table-felt .seat-panel .tile-sm,
+  .app.is-table.is-table .table-felt :is(.seat-top, .seat-left, .seat-right) .seat-sets .tile { --w: 12px; --h: 16px; }
+  .app.is-table.is-table .table-felt .seat-panel .meld-label,
+  .app.is-table.is-table .table-felt .seat-panel .rack small { display: none; }
+  .app.is-table.is-table .table-felt .seat-panel .meld { padding-bottom: 0; }
+
+  /* Board: fills the middle row instead of keeping a portrait shape. */
+  .app.is-table.is-table .table-felt .center-area::before { inset: -2px -4px; box-shadow: 0 0 0 3px var(--rim-wood), 0 0 0 4px var(--rim-dark); }
+  .app.is-table.is-table .table-felt .center-area { flex-direction: column; }
+  .app.is-table.is-table .board-plane { flex: 1 1 0; width: 100%; min-height: 0; aspect-ratio: auto; padding: 16px 14px 12px; transform: none; }
+  .app.is-table.is-table .pool-frame { padding: 2px 3px; }
+  .app.is-table.is-table .table-felt .discard-pool,
+  .app.is-table.is-table.options-hidden .table-felt .discard-pool { --pool-cols: 20; --pool-gap: 1px; row-gap: 3px; }
+  .app.is-table.is-table .table-felt .tile-sm { --w: 20px; --h: 27px; }
+  .app.is-table.is-table .table-felt .wall-counter { left: 4px; font-size: 9px; padding: 0 6px; top: -2px; }
+  .app.is-table.is-table .felt-wind { font-size: 9px; line-height: 12px; }
+  .app.is-table.is-table .felt-wind small { font-size: 7px; }
+  .app.is-table.is-table .felt-top { left: auto; right: 6px; transform: none; }
+  .app.is-table.is-table .table-felt .center-area > .pending-discard { padding: 2px 6px 4px; font-size: 9px; }
+  .app.is-table.is-table .table-felt .center-area > .pending-discard .tile { --w: 26px; --h: 35px; }
+  .app.is-table.is-table.is-table .table-felt > .kim-indicator { display: block; }
+  .app.is-table.is-table .table-felt > .kim-indicator { grid-area: top; align-self: center; justify-self: start; margin: 0 0 0 2px; font-size: 9px; padding: 0 8px; border-width: 1px; z-index: 4; }
+  .app.is-table.is-table .hu-burst { font-size: 34px; padding: 2px 18px 4px; }
+
+  /* OPTION control: a small tab in the felt's top-right corner; its panel opens as an overlay. */
+  .app.is-table.is-table .table-hud { position: absolute; z-index: 40; top: 2px; right: 6px; width: auto; max-width: 320px; padding: 0; overflow: visible; }
+  .app.is-table.is-table .table-hud .play-progress > .table-info { display: none; }
+  .app.is-table.is-table.is-table .table-hud { padding: 0; }
+  .app.is-table.is-table.is-table .table-hud .options-tab { flex: none; flex-direction: row; }
+  .app.is-table.is-table.is-table .options-tab-label { writing-mode: horizontal-tb; transform: none; }
+  .app.is-table.is-table.is-table .options-tab-mark,
+  .app.is-table.is-table.is-table .options-close-mark { display: inline-block; transform: rotate(-90deg); }
+  .app.is-table.is-table .table-hud .options-tab { min-height: 20px; padding: 1px 10px; font-size: 10px; gap: 6px; border-radius: 6px; }
+  .app.is-table.is-table .table-hud .options-panel.is-open { max-height: calc(100dvh - 60px); overflow-y: auto; background: #fbf5e6; border-radius: 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6); }
+
+  /* Player: info + hint on one line, hand in one row, action buttons beside the hand. */
+  .app.is-table.is-table .table-felt .human-area {
+    position: static;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'sets coach hud' 'hand hand hud';
+    align-items: center;
+    gap: 0 6px;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .app.is-table.is-table .human-area .seat-sets { grid-area: sets; flex-direction: row; align-items: center; flex-wrap: nowrap; gap: 6px; min-width: 0; padding: 0; order: 0; }
+  .app.is-table.is-table .human-area .seat-head { font-size: 11px; padding: 0; gap: 4px; flex-wrap: nowrap; white-space: nowrap; }
+  .app.is-table.is-table .human-area .arrange-toggle { margin-left: 2px; font-size: 9px; padding: 0 7px; }
+  .app.is-table.is-table .human-area .melds { padding: 0; order: 0; }
+  .app.is-table.is-table .human-area .seat-sets .tile { --w: 18px; --h: 24px; }
+  .app.is-table.is-table .human-area .meld { padding-bottom: 0; }
+  .app.is-table.is-table .human-area .meld-label { display: none; }
+  .app.is-table.is-table .human-area .rack small { display: none; }
+  .app.is-table.is-table .human-area .coach-slot { grid-area: coach; min-width: 0; }
+  .app.is-table.is-table .human-area .practice-coach { margin: 0; padding: 2px 8px; border-radius: 6px; font-size: 10px; line-height: 1.2; max-height: 26px; overflow: hidden; }
+  .app.is-table.is-table .human-area .hand-reading { display: none; }
+  .app.is-table.is-table .human-area .action-hud { grid-area: hud; position: static; flex-direction: column; flex-wrap: nowrap; align-self: end; justify-self: end; gap: 4px; margin: 0; max-width: 150px; }
+  .app.is-table.is-table .human-area .hud-btn { min-height: 32px; padding: 2px 12px; font-size: 15px; border-width: 2px; box-shadow: 0 2px 0 var(--call-ink); }
+  .app.is-table.is-table .human-area .hud-btn.has-preview { padding: 0 6px; gap: 6px; }
+  .app.is-table.is-table .human-area .hud-preview .tile { --w: 14px; --h: 19px; }
+  .app.is-table.is-table .human-area .action-hud { position: relative; inset: auto; transform: none; }
+  .app.is-table.is-table .human-area .claim-banner { position: absolute; right: 0; bottom: calc(100% + 3px); width: max-content; max-width: 150px; flex-basis: auto; padding: 2px 8px; font-size: 9px; line-height: 1.2; border-radius: 8px; gap: 4px; z-index: 9; }
+  .app.is-table.is-table .human-area .claim-banner .tile { --w: 16px; --h: 22px; }
+  .app.is-table.is-table .table-felt:has(.claim-banner) .center-area { padding-bottom: 0; }
+  .app.is-table.is-table .table-felt .human-area .hand-row {
+    grid-area: hand;
+    order: 0;
+    justify-content: flex-start;
+    overflow: visible;
+    gap: 1px;
+    padding: 12px 2px 3px;
+  }
+  .app.is-table.is-table .table-felt .hand-row > .tile {
+    --w: min(46px, calc((100vw - 190px) / 14.9));
+    --h: calc(var(--w) * 1.36);
+    margin-top: 5px;
+    box-shadow: 0 -5px 0 0 var(--tile-back), 0 -6px 0 0 var(--tile-back-edge), 0 2px 0 #cdbf9c, 0 4px 6px rgba(0, 0, 0, 0.4);
+  }
+  .app.is-table.is-table .table-felt .hand-row > .tile.is-selected { transform: translateY(-9px); }
+  .app.is-table.is-table .table-felt .drawn-gap { width: 8px; }
+  .app.is-table.is-table .table-felt .result-reopen { grid-row: auto; grid-column: auto; position: absolute; right: 8px; bottom: 6px; margin: 0; padding: 4px 12px; font-size: 12px; z-index: 20; }
+}

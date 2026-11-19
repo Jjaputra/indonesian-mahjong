@@ -1,3 +1,4 @@
+import type { PointerEvent } from 'react';
 import { SEAT_ORDER } from '../../core/tiles';
 import type { Meld, Seat, Tile } from '../../core/types';
 import { MELD_LABEL, getTileFace, tileAccessibleLabel } from '../labels';
@@ -17,9 +18,12 @@ interface TileViewProps {
   claimed?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
+  /** Hand dragging (clickable tiles only) */
+  onPointerDown?: (e: PointerEvent<HTMLButtonElement>) => void;
+  dragging?: boolean;
 }
 
-export function TileView({ tile, size = 'md', selected, highlight, disabled, drawn, claimed, onClick, onDoubleClick }: TileViewProps) {
+export function TileView({ tile, size = 'md', selected, highlight, disabled, drawn, claimed, onClick, onDoubleClick, onPointerDown, dragging }: TileViewProps) {
   const face = getTileFace(tile.isKim && tile.type !== 'kim' ? { ...tile, isKim: false } : tile);
   const label = tileAccessibleLabel(face) + (tile.isKim && tile.type !== 'kim' ? ' — Kim' : '');
   const cls = [
@@ -30,6 +34,7 @@ export function TileView({ tile, size = 'md', selected, highlight, disabled, dra
     highlight ? 'is-highlight' : '',
     disabled ? 'is-disabled' : '',
     drawn ? 'is-drawn' : '',
+    dragging ? 'is-dragging' : '',
     claimed ? 'is-claimed' : '',
     tile.isKim && tile.type !== 'kim' ? 'is-kim' : '',
     onClick ? 'is-clickable' : '',
@@ -59,6 +64,7 @@ export function TileView({ tile, size = 'md', selected, highlight, disabled, dra
       aria-pressed={selected}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onPointerDown={onPointerDown}
     >
       {content}
     </button>

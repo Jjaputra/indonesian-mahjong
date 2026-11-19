@@ -31,6 +31,19 @@ export function practiceDelay(pace: PracticePace): number {
   return pace === 'learn' ? 1800 : ANIMATION_DELAY_MS[pace];
 }
 
+const between = (lo: number, hi: number, rng: () => number) => Math.round(lo + (hi - lo) * rng());
+/**
+ * Bot step delay at a human pace: a discard turn 1.5–3 s; a claim round (two steps: collect, resolve)
+ * 0.6–1 s each. Slow stretches it; fast / off keep their flat delay. `rng` is injectable for tests.
+ */
+export function botStepDelay(pace: PracticePace, phase: string, rng: () => number = Math.random): number {
+  if (pace === 'fast' || pace === 'off') return practiceDelay(pace);
+  const scale = pace === 'slow' ? 1.4 : 1;
+  if (phase === 'TURN_DRAW' || phase === 'ACTION_DECISION') return between(1500, 3000, rng) * scale;
+  if (phase === 'CLAIM_WINDOW') return between(600, 1000, rng) * scale;
+  return practiceDelay(pace);
+}
+
 export interface AutomationTarget {
   outcome: unknown;
   isWaitingForHuman(): boolean;

@@ -1,0 +1,7 @@
+.online-warning { position: absolute; z-index: 40; top: 34%; left: 50%; transform: translateX(-50%); display: grid; justify-items: center; padding: 1rem 2rem; border: 2px solid #ffd87c; border-radius: 1rem; background: #761c17e8; color: #fff4ce; box-shadow: 0 8px 32px #0007; pointer-events: none; text-align: center; }
+.online-warning strong { font-size: clamp(1.2rem, 3vw, 2rem); }
+.online-warning b { font-size: 3rem; }
+.online-ready ul, .online-seating ul { list-style: none; padding: 0; }
+.online-ready li { padding: .25rem 0; }
+.online-seating li { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; padding: .8rem 0; border-bottom: 1px solid #ffffff30; }
+.online-seating li span { font-size: 2rem; }
