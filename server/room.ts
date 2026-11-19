@@ -199,6 +199,15 @@ export class Room {
       if (!person) { this.error(socket, 'bad_message', 'Kirim hello terlebih dahulu.'); return; }
       socket.lastActivity = now; this.io.attach(socket);
       if (m.type === 'resync') { this.sendState(socket, true); return; }
+      if (m.type === 'rematch') {
+        if (socket.token !== d.host) { this.error(socket, 'not_host', 'Hanya host boleh memulai lagi.'); return; }
+        if (!this.session?.viewFor(null).matchOver) { this.error(socket, 'wrong_phase', 'Pertandingan belum selesai.'); return; }
+        this.session = null; d.session = null; d.handEndedAt = null;
+        d.ready = []; d.takeovers = []; d.schedule = null;
+        d.seatDice = { groups: [[...SEAT_ORDER]], dice: {}, deadline: now + 15000, botAt: {}, settledAt: null };
+        this.scheduleSeatBots();
+        d.lastActivity = now; await this.save(); this.broadcast(true); return;
+      }
       if (m.type === 'rollSeats') {
         if (!person.seat) { this.error(socket, 'not_seated', 'Duduk dahulu untuk bermain.'); return; }
         if (!d.seatDice || this.session || d.seatDice.settledAt !== null || d.seatDice.dice[person.seat]) { this.error(socket, 'wrong_phase', 'Tidak bisa kocok sekarang.'); return; }

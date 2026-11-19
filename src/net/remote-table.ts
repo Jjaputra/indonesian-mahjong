@@ -51,6 +51,7 @@ export class RemoteTable {
   readonly code: string;
   private state: RemoteState = { status: 'idle', room: null, seat: null, host: false, handEndedAt: null, view: null, log: [], error: null, ended: null, joined: false };
   private readonly listeners = new Set<() => void>();
+  private readonly actionListeners = new Set<(action: ActionInput) => void>();
   private readonly conn: Connection;
   private token: string | undefined;
   private endedKey: number | null = null;
@@ -79,6 +80,10 @@ export class RemoteTable {
     return () => { this.listeners.delete(listener); };
   };
   getState = (): RemoteState => this.state;
+  subscribeActions(listener: (action: ActionInput) => void): () => void {
+    this.actionListeners.add(listener);
+    return () => { this.actionListeners.delete(listener); };
+  }
 
   connect(): void { this.conn.connect(); }
   /** Leave the screen but keep the seat: the stored token survives. */
@@ -108,12 +113,15 @@ export class RemoteTable {
   rollSeats(): void { this.conn.send({ type: 'rollSeats' }); }
   replaceBot(seat: Seat): void { this.conn.send({ type: 'replaceBot', seat }); }
   start(): void { this.conn.send({ type: 'start' }); }
+  rematch(): void { this.conn.send({ type: 'rematch' }); }
 
   /** Send a game action stamped with the version of the view the player is looking at. */
   act(action: ActionInput): boolean {
     const view = this.state.view;
     if (!view) return false;
-    return this.conn.send({ type: 'act', action: { ...action, version: view.version } as SessionAction });
+    const sent = this.conn.send({ type: 'act', action: { ...action, version: view.version } as SessionAction });
+    if (sent) for (const listener of this.actionListeners) listener(action);
+    return sent;
   }
 
   private receive(message: ServerMessage): void {
@@ -129,14 +137,21 @@ export class RemoteTable {
         }
         break;
       case 'room':
-        this.patch({ room: message.room, seat: message.seat, host: message.host });
+        if (message.room.phase === 'seating' || message.room.phase === 'lobby') {
+          this.endedKey = null;
+          this.patch({ room: message.room, seat: message.seat, host: message.host, view: null, handEndedAt: null, log: [] });
+        } else this.patch({ room: message.room, seat: message.seat, host: message.host });
         break;
       case 'view': {
+        const matchChanged = this.state.view !== null && this.state.view.match.startedAt !== message.view.match.startedAt;
         const finished = message.view.phase === 'DRAW_SERI' || message.view.phase === 'RESOLVED_HU';
         // Stamp the end of a hand once; later views of the same finished hand keep the first time.
         const key = finished ? message.view.match.hands.length : null;
-        if (key !== this.endedKey) { this.endedKey = key; this.patch({ view: message.view, handEndedAt: key === null ? null : this.now() }); }
-        else this.patch({ view: message.view });
+        const next: Partial<RemoteState> = { view: message.view };
+        // A reconnect may miss the rematch's seating/lobby messages entirely.
+        if (matchChanged) next.log = [];
+        if (key !== this.endedKey || matchChanged) { this.endedKey = key; next.handEndedAt = key === null ? null : this.now(); }
+        this.patch(next);
         break;
       }
       case 'event':

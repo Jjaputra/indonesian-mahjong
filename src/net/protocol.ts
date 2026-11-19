@@ -74,6 +74,7 @@ export type ClientMessage =
   | { type: 'stand' }
   | { type: 'config'; config: RoomConfig }
   | { type: 'start' }
+  | { type: 'rematch' }
   | { type: 'rollSeats' }
   | { type: 'ready' }
   | { type: 'replaceBot'; seat: Seat }

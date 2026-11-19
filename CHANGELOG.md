@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-19
+### Added
+- Install the game as an app: Settings shows "Pasang sebagai aplikasi" (Android) or the Add to Home Screen steps (iPhone). The app opens full screen.
+- The screen stays on while you play ("Layar tetap menyala saat main", on by default).
+- Online: when it becomes your turn and the tab is in the background, the tab title blinks "Giliran Anda!", a sound plays and Android phones vibrate.
+- Online: "Main lagi" lets the host start a new match with the same people in the same room, starting with the seat dice.
+### Changed
+- Phones: your hand fills the screen width with bigger tiles, side players' sets and flowers stay on the table, and long names are shortened with "…".
+- iPad: the top player and the Kim label sit inside the table and the discard area uses the space.
+- Wide landscape phones show the green table panel.
+
 ## [0.8.0] - 2026-11-19
 ### Added
 - "Susun otomatis" toggle by your hand. Turn it off to arrange tiles yourself by dragging; a new tile goes to the right end, and every new hand starts sorted.

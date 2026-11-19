@@ -326,7 +326,7 @@ export class TableSession {
   viewFor(seat: Seat | null) {
     const s = this.state;
     return copy({
-      version: this.version, phase: s.phase, currentTurn: s.currentTurn, dealer: s.dealerSeat, roundWind: s.roundWind,
+      version: this.version, turnCount: s.turnCount, phase: s.phase, currentTurn: s.currentTurn, dealer: s.dealerSeat, roundWind: s.roundWind,
       kimFace: s.kimFace ? { type: s.kimFace.type, value: s.kimFace.value } : null, indicator: s.kimIndicator,
       wallCount: s.wall.remainingCount, pendingDiscard: s.discardPending,
       hand: seat ? s.players[seat].hand : [], drawnTileId: seat && s.selfDrawSeat === seat ? s.players[seat].hand.at(-1)?.id ?? null : null,

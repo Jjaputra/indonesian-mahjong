@@ -28,6 +28,7 @@ import { MatchResultNote, MatchStandingsModal } from './ui/components/MatchBoard
 import { migrateMatchLengthPreference, loadDealerWinRule, loadDeadWall, saveDeadWall, loadMatchTimeLimit, saveMatchTimeLimit, watchMatchClock, type MatchTimeLimit, type DeadWallOption } from './ui/match';
 import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsForPace, botStepDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
 import { DIFFICULTY_LABEL, tileText } from './ui/labels';
+import { useScreenWakeLock } from './ui/wake-lock';
 import { releaseVersion } from './ui/release';
 import { tayKoinText } from './ui/components/points';
 import { getStorage, type StorageLike } from './storage';
@@ -312,6 +313,9 @@ export function App() {
       if (params.get('sandbox') === 'kong') setSandbox({ initial: DEMO_KONG_HAND });
     });
   }, []);
+
+  // Screen stays on at any table (practice or online) while the tab is visible.
+  useScreenWakeLock(settings.keepScreenOn && (view === 'table' || (view === 'online' && onlineTable)));
 
   const pos = seatPositions(controller.humanSeat);
   return (

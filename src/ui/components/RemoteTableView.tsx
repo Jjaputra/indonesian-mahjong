@@ -58,6 +58,9 @@ function HandResult({ table, state, onClose, onLeave }: { table: RemoteTable; st
   return (
     <Modal title={title} onClose={onClose} footer={
       <>
+        {view.matchOver && (state.host
+          ? <button type="button" className="btn btn-primary" onClick={() => table.rematch()}>Main lagi</button>
+          : <span className="muted" role="status">Menunggu host memulai lagi</span>)}
         {view.matchOver && <button type="button" className="btn" onClick={onLeave}>Keluar room</button>}
         {canContinue && <button type="button" className="btn btn-primary" disabled={ready} onClick={() => table.ready()}>{ready ? 'Siap' : 'Lanjut'}</button>}
         {!view.matchOver && !canContinue && state.seat !== null && <span className="muted" role="status">Menunggu pemain…</span>}

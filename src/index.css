@@ -2524,7 +2524,7 @@ select {
   .table-felt :is(.seat-left, .seat-right) { grid-template-columns: auto; grid-template-areas: 'head' 'hand' 'sets'; }
   .table-hud .activity-history .game-log { max-height: 140px; }
 }
-@media (max-width: 900px) {
+@media (max-width: 900px), (orientation: landscape) and (max-height: 500px) {
   /* Felt behind the first two rows only, drawn as a panel rather than a tilted plane. */
   .table-felt > .seat-top,
   .table-felt > .center-area { z-index: 1; }
@@ -3278,4 +3278,87 @@ select {
   .app.is-table.is-table .table-felt .hand-row > .tile.is-selected { transform: translateY(-9px); }
   .app.is-table.is-table .table-felt .drawn-gap { width: 8px; }
   .app.is-table.is-table .table-felt .result-reopen { grid-row: auto; grid-column: auto; position: absolute; right: 8px; bottom: 6px; margin: 0; padding: 4px 12px; font-size: 12px; z-index: 20; }
+}
+
+/* ==========================================================================
+   v0.8.1 responsive polish: one felt panel behind top seat and board, sets that stay on it,
+   a full-width hand on phones. Short landscape phones keep their own block above.
+   ========================================================================== */
+
+/* Names stay on one line (the badges wrap below them); long nicknames get an ellipsis. */
+.table-felt .seat-head strong {
+  min-width: 0;
+  max-width: min(20ch, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.table-felt :is(.seat-left, .seat-right) .badges { justify-content: center; }
+
+@media (max-width: 900px) and (min-height: 501px) {
+  :root { --rim-w: 7px; --felt-pad: 11px; --set-w: clamp(20px, 3.2vw, 26px); --side-col: calc(var(--set-w) * 3 + 14px); }
+  .app.is-table .table-felt {
+    padding: 11px var(--felt-pad) 8px;
+    grid-template-columns: var(--side-col) minmax(0, 1fr) var(--side-col);
+    gap: 6px;
+  }
+  /* The felt is one panel behind the top and middle rows, edge to edge of the table's padding. */
+  .app.is-table .table-felt::before {
+    display: block;
+    position: absolute;
+    grid-area: 1 / 1 / 3 / -1;
+    inset: 0;
+    border: 0;
+    border-radius: 16px;
+    transform: none;
+    background: linear-gradient(var(--felt-deep), var(--felt-green));
+    box-shadow: 0 0 0 var(--rim-w) var(--rim-wood), 0 0 0 calc(var(--rim-w) + 1px) var(--rim-dark);
+  }
+  .app.is-table .table-felt .center-area::before { display: none; }
+  .app.is-table .table-felt .seat-top { max-width: 100%; padding-top: 4px; }
+  .app.is-table .table-felt .seat-top .seat-sets,
+  .app.is-table .table-felt .seat-top .seat-sets .melds { flex-wrap: wrap; }
+  .app.is-table .table-felt :is(.seat-left, .seat-right) { padding: 0 2px; width: 100%; min-width: 0; }
+  /* Sets and bunga: one size on all three opposing seats, never below the top seat's. */
+  .app.is-table .table-felt :is(.seat-top, .seat-left, .seat-right) .seat-sets .tile { --w: var(--set-w); --h: calc(var(--set-w) * 1.35); }
+  .app.is-table .table-felt :is(.seat-left, .seat-right) .seat-sets { max-width: 100%; }
+  /* A Kong is a 2x2 block so a side column only needs three tiles. */
+  .app.is-table .table-felt :is(.seat-left, .seat-right) .seat-sets :is(.meld-kong, .meld-ankong) { flex-wrap: wrap; justify-content: center; width: calc(var(--set-w) * 2 + 1px); }
+  .app.is-table .table-felt :is(.seat-left, .seat-right) .seat-sets .bonus-rack { display: block; max-width: 100%; }
+  .app.is-table .table-felt :is(.seat-left, .seat-right) .bonus-rack .tile-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px; max-width: 100%; }
+  .app.is-table .table-felt .board-plane { flex: 1 0 auto; }
+  /* The hand uses the whole row, edge to edge. */
+  .app.is-table .table-felt .human-area { margin-inline: calc(var(--felt-pad) * -1); }
+  .app.is-table .table-felt .human-area .hand-row { gap: 0; padding: 14px 2px 6px; }
+  /* Tiles are sized from the row itself: slots (14, or 15 after a Kong) share what the drawn gap leaves. */
+  .app.is-table .table-felt .human-area .hand-row { container-type: inline-size; width: 100%; --hand-slots: 14; --hand-fixed: 5px; }
+  .app.is-table .table-felt .human-area .hand-row:has(> .tile:nth-child(16)) { --hand-slots: 15; }
+  .app.is-table .table-felt .hand-row > .tile { --w: min(54px, calc((100cqw - var(--hand-fixed)) / var(--hand-slots))); --h: calc(var(--w) * 1.38); }
+  .app.is-table .table-felt .drawn-gap { width: 4px; }
+  /* Side columns are fixed: the name box takes the column's width (zero for sizing) so it can ellipsize. */
+  .app.is-table .table-felt :is(.seat-left, .seat-right) { grid-template-columns: minmax(0, 1fr); }
+  .app.is-table .table-felt :is(.seat-left, .seat-right) .seat-head { width: 0; min-width: 100%; }
+}
+@media (min-width: 561px) and (max-width: 900px) and (min-height: 501px) {
+  .app.is-table .table-felt .discard-pool,
+  .app.options-hidden .table-felt .discard-pool { --pool-cols: 11; }
+  .app.is-table .table-felt .human-area .hand-row { gap: 1px; }
+  .app.is-table .table-felt .drawn-gap { width: 10px; }
+  .app.is-table .table-felt .human-area .hand-row { --hand-fixed: calc(10px + var(--hand-slots) * 1px + 1px); }
+}
+@media (max-width: 560px) and (min-height: 501px) {
+  :root { --rim-w: 4px; --felt-pad: 6px; --set-w: clamp(14px, 4.4vw, 18px); }
+  .app.is-table .table-felt { gap: 6px 4px; }
+  .app.is-table .table-felt .seat-top { padding-top: 2px; }
+  .app.is-table .table-felt .seat-head { font-size: 10px; }
+  .app.is-table .table-felt .seat-panel .meld { padding-bottom: 8px; }
+}
+/* Wide but portrait (iPad Pro): the side seats sit mid-height, not at the bottom of a tall felt. */
+@media (min-width: 901px) and (orientation: portrait) {
+  .app:not(.view-flat) .table-felt :is(.seat-left, .seat-right) { align-self: center; margin-bottom: 0; }
+}
+/* Short landscape phones: the same name rule in their fixed 76px side columns. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .app.is-table.is-table .table-felt :is(.seat-left, .seat-right) .seat-head { width: 0; min-width: 100%; }
+  .app.is-table.is-table .table-felt :is(.seat-left, .seat-right) { grid-template-columns: minmax(0, 1fr); }
 }
