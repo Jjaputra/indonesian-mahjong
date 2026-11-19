@@ -34,7 +34,7 @@ export interface ConnectionOptions {
 export function connectionIndicator(status: ConnectionStatus, latencyMs: number | null, pongLate: boolean): { tone: 'online' | 'slow' | 'offline'; text: string } {
   if (status !== 'open') return { tone: 'offline', text: 'Terputus · menyambung ulang...' };
   const slow = pongLate || (latencyMs !== null && latencyMs > 400);
-  return { tone: slow ? 'slow' : 'online', text: `${slow ? 'Lemot' : 'Online'}${pongLate || latencyMs === null ? '' : ` · ${Math.round(latencyMs)} ms`}` };
+  return { tone: slow ? 'slow' : 'online', text: `${slow ? 'Sinyal lemah' : 'Online'}${pongLate || latencyMs === null ? '' : ` · ${Math.round(latencyMs)} ms`}` };
 }
 
 export const BACKOFF_MS = [500, 1000, 2000, 4000, 8000, 15000] as const;

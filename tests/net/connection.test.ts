@@ -188,9 +188,9 @@ describe('own connection quality', () => {
   it('maps latency, late pong and socket status to Indonesian labels', () => {
     expect(connectionIndicator('open', null, false)).toEqual({ tone: 'online', text: 'Online' });
     expect(connectionIndicator('open', 400, false).tone).toBe('online');
-    expect(connectionIndicator('open', 401, false)).toEqual({ tone: 'slow', text: 'Lemot · 401 ms' });
-    expect(connectionIndicator('open', 25, true)).toEqual({ tone: 'slow', text: 'Lemot' });
-    expect(connectionIndicator('open', null, true)).toEqual({ tone: 'slow', text: 'Lemot' });
+    expect(connectionIndicator('open', 401, false)).toEqual({ tone: 'slow', text: 'Sinyal lemah · 401 ms' });
+    expect(connectionIndicator('open', 25, true)).toEqual({ tone: 'slow', text: 'Sinyal lemah' });
+    expect(connectionIndicator('open', null, true)).toEqual({ tone: 'slow', text: 'Sinyal lemah' });
     for (const status of ['idle', 'connecting', 'reconnecting', 'stopped'] as const)
       expect(connectionIndicator(status, 20, false)).toEqual({ tone: 'offline', text: 'Terputus · menyambung ulang...' });
   });
