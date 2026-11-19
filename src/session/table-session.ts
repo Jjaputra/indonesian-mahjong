@@ -304,6 +304,21 @@ export class TableSession {
     finally { Object.assign(this.state.rules, saved); }
   }
 
+  setControl(seat: Seat, control: 'human' | 'bot'): void {
+    if (this.options.seats[seat] === control) return;
+    this.options.seats[seat] = control;
+    this.state.players[seat].isHuman = control === 'human';
+    this.version++;
+  }
+
+  /** Drawing is part of a bot's paced turn; its next discard shares that delay. */
+  botDelay(): number | null {
+    const decision = this.decisions.find(d => this.options.seats[d.seat] === 'bot');
+    if (!decision) return null;
+    const jitter = (this.version * 137) % 1001;
+    return decision.kind === 'claim' ? 1000 + jitter : this.state.phase === 'TURN_DRAW' ? 1 : 1500 + (this.version * 137) % 1501;
+  }
+
   setConnected(seat: Seat, connected: boolean): void {
     if (this.presence[seat].connected !== connected) { this.presence[seat].connected = connected; this.version++; }
   }

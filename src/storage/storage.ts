@@ -335,6 +335,17 @@ function safeWrite(storage: StorageLike, key: string, value: unknown): boolean {
   }
 }
 
+export const AUTO_ARRANGE_STORAGE_KEY = 'itm.auto-arrange.v1';
+
+/** "Susun otomatis": sort the hand for me (default on). Display preference only. */
+export function loadAutoArrange(storage?: StorageLike): boolean {
+  return safeRead(getStorage(storage), AUTO_ARRANGE_STORAGE_KEY) !== false;
+}
+
+export function saveAutoArrange(on: boolean, storage?: StorageLike): boolean {
+  return safeWrite(getStorage(storage), AUTO_ARRANGE_STORAGE_KEY, on);
+}
+
 function safeRemove(storage: StorageLike, key: string): boolean {
   try {
     storage.removeItem(key);

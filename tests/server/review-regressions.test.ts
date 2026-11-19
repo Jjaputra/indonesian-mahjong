@@ -36,6 +36,12 @@ function rigSession(edit: (s: ReturnType<TableSession['serialize']>) => void, se
 }
 const tile = (value: number, id: string): Tile => ({ type: 'tong', value, id });
 
+async function finishSeating(h: ReturnType<typeof harness>) {
+  if (!h.room.data?.seatDice) return;
+  h.room.data.seatDice = { groups: SEAT_ORDER.map(s => [s]), dice: { dong: [6,6,6], nan: [5,5,5], xi: [4,4,4], bei: [3,3,3] }, deadline: h.now + 15000, botAt: {}, settledAt: h.now };
+  h.now += 3000; await h.room.alarm();
+}
+
 describe('server review regressions', () => {
   it('personalizes host/seat and resyncs only the caller without a state write', async () => {
     const h = harness(); await h.create(); const host = await h.join(); const peer = await h.join();
@@ -43,7 +49,7 @@ describe('server review regressions', () => {
     expect(h.frames.get(peer.id)![0]).toMatchObject({ type: 'welcome', host: false, seat: 'nan' });
     await h.send(host, { type: 'stand' });
     expect(h.frames.get(host.id)!.at(-1)).toMatchObject({ type: 'room', seat: null, host: true });
-    await h.send(host, { type: 'start' });
+    await h.send(host, { type: 'start' }); await finishSeating(h);
     const before = h.room.session!.serialize(), writes = h.writes.mock.calls.length, peerFrames = h.frames.get(peer.id)!.length;
     const hostFrames = h.frames.get(host.id)!.length;
     await h.send(peer, { type: 'resync' });
@@ -73,12 +79,12 @@ describe('server review regressions', () => {
     }
   });
   it('room start and subsequent hand use the injected source and eviction keeps the live wall', async () => {
-    const h = harness(); await h.create(); const host = await h.join(); await h.send(host, { type: 'start' });
+    const h = harness(); await h.create(); const host = await h.join(); await h.send(host, { type: 'start' }); await finishSeating(h);
     expect(h.seed).toHaveBeenCalledTimes(1); expect(h.stored.session!.handSeed).toBe(h.seed.mock.results[0]!.value);
     const before = h.room.session!.serialize(); h.rebuild(); expect(h.seed).toHaveBeenCalledTimes(1);
     expect(h.room.session!.serialize()).toEqual(before);
     const ended = h.room.session!.serialize(); ended.state.phase = 'DRAW_SERI'; ended.decisions = [];
-    h.room.session = TableSession.deserialize(ended, h.io.now, h.seed);
+    h.room.session = TableSession.deserialize(ended, h.io.now, h.seed); h.room.data!.handEndedAt = h.now;
     await h.send(host, { type: 'act', action: { type: 'nextHand', version: h.room.session.version } });
     expect(h.seed).toHaveBeenCalledTimes(2); expect(h.stored.session!.handSeed).toBe(h.seed.mock.results[1]!.value);
   });
@@ -97,7 +103,7 @@ describe('server review regressions', () => {
   it.each(['bot', 'human'] as const)('backs off failed %s decisions, including after eviction', async mode => {
     const h = harness(); await h.create(); const host = await h.join();
     if (mode === 'bot') await h.send(host, { type: 'stand' });
-    await h.send(host, { type: 'start' });
+    await h.send(host, { type: 'start' }); await finishSeating(h);
     const stall = () => mode === 'bot'
       ? vi.spyOn(h.room.session!, 'stepBots').mockReturnValue(false)
       : vi.spyOn(h.room.session!, 'timeout').mockReturnValue({ ok: false, code: 'illegal_action', message: 'Gagal.' });
@@ -136,7 +142,7 @@ describe('server review regressions', () => {
   it('keeps unlimited human claim prompts and legal choices, while nulling only deadlines', async () => {
     const h = harness(); await h.create(); const host = await h.join(); const peer = await h.join();
     await h.send(host, { type: 'config', config: { ...DEFAULT_ROOM_CONFIG, turnSeconds: null } });
-    await h.send(host, { type: 'start' });
+    await h.send(host, { type: 'start' }); await finishSeating(h);
     const data = h.room.session!.serialize();
     data.state.players.dong.hand[13] = tile(3, 'discard');
     for (const seat of ['nan', 'xi', 'bei'] as const) data.state.players[seat].hand = Array.from({ length: 13 }, (_, i) => ({ type: 'sok', value: i % 9 + 1, id: `${seat}-${i}` }));

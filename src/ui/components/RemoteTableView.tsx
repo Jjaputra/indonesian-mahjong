@@ -1,3 +1,4 @@
+import '../online.css';
 import { useEffect, useMemo, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import type { RemoteState, RemoteTable } from '../../net/remote-table';
@@ -10,8 +11,8 @@ import { Modal } from './Modal';
 import { MeldView, TileRow } from './TileView';
 import { RemoteController, asGameController, seatName, seatNames, spectatorBottomNames } from './remote-adapter';
 
-/** Seconds the host has to press Lanjut before any seated player may. */
-export const NEXT_HAND_GRACE_MS = 30000;
+/** Maximum score review window, enforced by the room alarm. */
+export const NEXT_HAND_GRACE_MS = 120000;
 
 const WIN_TEXT: Record<string, string> = { tsumo: 'Ce Mo (tarik sendiri)', ron: 'Buangan', chiong_kong: 'Chiong Kong' };
 
@@ -30,30 +31,26 @@ function Countdown({ table, state }: { table: RemoteTable; state: RemoteState })
   const left = Math.max(0, (table.deadlineLocal() ?? 0) - Date.now());
   const ratio = Math.min(1, left / (limit * 1000));
   const who = view.phase === 'CLAIM_WINDOW' ? 'Klaim buangan' : `Giliran ${seatName(table, view.currentTurn)}`;
-  return (
+  const own = view.pendingDecisions.some(d => d.seat === state.seat);
+  const seconds = Math.ceil(left / 1000);
+  return (<>
+    {own && seconds > 0 && seconds <= 5 && <div className="online-warning" role="status"><strong>Waktu hampir habis!</strong><b>{seconds}</b></div>}
     <div className={`mp-countdown${ratio < 0.25 ? ' is-low' : ''}`} role="timer" aria-label={`${who}, sisa ${Math.ceil(left / 1000)} detik`}>
       <span>{who}</span>
       <i style={{ transform: `scaleX(${ratio})` }} />
       <b>{Math.ceil(left / 1000)}</b>
     </div>
-  );
+  </>);
 }
 
 function HandResult({ table, state, onClose, onLeave }: { table: RemoteTable; state: RemoteState; onClose: () => void; onLeave: () => void }) {
   const view = state.view!;
   const last = view.lastHand ?? null;
-  const isHost = table.isHost;
-  // The wait runs from when the hand ended, so closing and reopening this panel never restarts it.
-  const graceLeft = () => Math.max(0, (state.handEndedAt ?? table.now()) + NEXT_HAND_GRACE_MS - table.now());
-  const [graceOver, setGraceOver] = useState(() => graceLeft() === 0);
-  useEffect(() => {
-    const left = graceLeft();
-    setGraceOver(left === 0);
-    if (left === 0) return;
-    const id = setTimeout(() => setGraceOver(true), left);
-    return () => clearTimeout(id);
-  }, [state.handEndedAt]);
-  const canContinue = state.seat !== null && !view.matchOver && (isHost || graceOver);
+  const [, tick] = useState(0);
+  useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
+  const seconds = Math.max(0, Math.ceil(((state.room?.continueAt ?? table.serverNow()) - table.serverNow()) / 1000));
+  const ready = state.room?.seats.find(s => s.seat === state.seat)?.ready;
+  const canContinue = state.seat !== null && !view.matchOver;
   const winner = last?.winner ?? null;
   const record = last?.payments ?? view.lastHandResult;
   const deltas = record?.gameDeltas;
@@ -62,8 +59,8 @@ function HandResult({ table, state, onClose, onLeave }: { table: RemoteTable; st
     <Modal title={title} onClose={onClose} footer={
       <>
         {view.matchOver && <button type="button" className="btn" onClick={onLeave}>Keluar room</button>}
-        {canContinue && <button type="button" className="btn btn-primary" onClick={() => table.act({ type: 'nextHand' })}>Lanjut</button>}
-        {!view.matchOver && !canContinue && state.seat !== null && <span className="muted" role="status">Menunggu host…</span>}
+        {canContinue && <button type="button" className="btn btn-primary" disabled={ready} onClick={() => table.ready()}>{ready ? 'Siap' : 'Lanjut'}</button>}
+        {!view.matchOver && !canContinue && state.seat !== null && <span className="muted" role="status">Menunggu pemain…</span>}
         <button type="button" className="btn" onClick={onClose}>Lihat meja</button>
       </>
     }>
@@ -87,6 +84,7 @@ function HandResult({ table, state, onClose, onLeave }: { table: RemoteTable; st
           {SEAT_ORDER.map((seat: Seat) => <li key={seat}><span>{seatName(table, seat)}</span><b className={deltas[seat] > 0 ? 'is-up' : deltas[seat] < 0 ? 'is-down' : undefined}>{deltas[seat] > 0 ? `+${deltas[seat]}` : deltas[seat]}</b></li>)}
         </ul>
       )}
+      {!view.matchOver && <div className="online-ready" role="status"><p>Hand berikutnya dalam {seconds} detik</p><ul>{state.room?.seats.map(s => <li key={s.seat}>{s.name ?? 'Bot'} {s.ready ? '✓' : '...'}</li>)}</ul></div>}
       {view.matchOver && <p><strong>Pertandingan selesai.</strong></p>}
     </Modal>
   );
@@ -147,6 +145,7 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
               </header>
               <div className="options-panel-body">
                 <MatchScoreboard match={view.match} hand={handNo} prevailingWind={view.roundWind} dealer={view.dealer} human={spectator ? undefined : remote.humanSeat} names={names} />
+                {state.host && state.room?.seats.filter(s => s.name && !s.bot && !s.connected && !s.takeover).map(s => <button key={s.seat} type="button" className="btn" onClick={() => table.replaceBot(s.seat)}>Ganti bot - {s.name}</button>)}
                 <details className="table-tools">
                   <summary>Aktivitas terbaru</summary>
                   <ol className="game-log" aria-label="Log permainan">{state.log.slice(-12).map(l => <li key={l.id}>{l.text}</li>)}</ol>

@@ -26,7 +26,7 @@ import { PlayProgress } from './ui/components/PlayProgress';
 import { DiceRoll, openingRollOf, type OpeningRoll } from './ui/components/DiceRoll';
 import { MatchResultNote, MatchStandingsModal } from './ui/components/MatchBoard';
 import { migrateMatchLengthPreference, loadDealerWinRule, loadDeadWall, saveDeadWall, loadMatchTimeLimit, saveMatchTimeLimit, watchMatchClock, type MatchTimeLimit, type DeadWallOption } from './ui/match';
-import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsForPace, practiceDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
+import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsForPace, botStepDelay, savePracticePace, scheduleAutomation, singleAutomationStep, type PracticePace } from './ui/practice-pace';
 import { DIFFICULTY_LABEL, tileText } from './ui/labels';
 import { releaseVersion } from './ui/release';
 import { tayKoinText } from './ui/components/points';
@@ -41,7 +41,7 @@ export function loadOptionsOpen(storage?: StorageLike): boolean {
     const stored = (storage ?? getStorage()).getItem(OPTIONS_OPEN_KEY);
     if (stored === '0' || stored === 'false') return false;
     if (stored === '1' || stored === 'true') return true;
-    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) return false;
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px), (orientation: landscape) and (max-height: 500px)').matches) return false;
     return true;
   }
   catch { return true; }
@@ -198,7 +198,7 @@ export function App() {
 
   // Each effect owns one timer; dialogs, views, pause, and new games dispose it.
   const automationBlocked = modal !== null || abandonOpen || dice !== null || sandbox !== null;
-  useEffect(() => scheduleAutomation(controller, practiceDelay(pace),
+  useEffect(() => scheduleAutomation(controller, botStepDelay(pace, controller.getState().phase),
     view !== 'table' || !matchStarted || paused || automationBlocked),
     [controller, version, pace, view, matchStarted, paused, automationBlocked]);
 

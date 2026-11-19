@@ -2,7 +2,7 @@ import { SEAT_ORDER } from '../src/core/tiles';
 import type { Seat } from '../src/core/types';
 import { TableSession, type SerializedSession, type HandSeed } from '../src/session';
 import { DEFAULT_SETTINGS } from '../src/storage';
-import { DEFAULT_ROOM_CONFIG, MAX_SPECTATORS, NAME_MAX_LENGTH, type RoomConfig, type RoomInfo, type ServerMessage, type ErrorCode, type ClientMessage } from '../src/net/protocol';
+import { DEFAULT_ROOM_CONFIG, MAX_SPECTATORS, NAME_MAX_LENGTH, type SeatDice, type RoomConfig, type RoomInfo, type ServerMessage, type ErrorCode, type ClientMessage } from '../src/net/protocol';
 
 const RATE_BURST = 10;
 
@@ -24,6 +24,9 @@ export interface RoomData {
   createdAt?: number;
   lastActivity: number;
   handEndedAt: number | null;
+  ready?: string[];
+  takeovers?: Seat[];
+  seatDice?: SeatDice | null;
   schedule: { version: number; deadline: number | null; botAt: number | null } | null;
 }
 export interface RoomIO {
@@ -82,11 +85,13 @@ export class Room {
   private connected(token: string): boolean { return [...this.sockets.values()].some(s => s.token === token); }
   info(): RoomInfo {
     const d = this.data!;
-    return { code: d.code, config: structuredClone(d.config), phase: !this.session ? 'lobby' : this.session.viewFor(null).matchOver ? 'finished' : 'playing',
+    return { code: d.code, config: structuredClone(d.config), seatDice: structuredClone(d.seatDice ?? null), continueAt: d.handEndedAt !== null && !this.session?.viewFor(null).matchOver ? d.handEndedAt + 120000 : null,
+      phase: d.seatDice && !this.session ? 'seating' : !this.session ? 'lobby' : this.session.viewFor(null).matchOver ? 'finished' : 'playing',
       spectators: [...this.sockets.values()].filter(s => s.token && d.people[s.token]?.seat === null).length,
       seats: SEAT_ORDER.map(seat => {
         const entry = Object.entries(d.people).find(([, p]) => p.seat === seat);
         return { seat, name: entry?.[1].name ?? (this.session ? 'Bot' : null), bot: !!this.session && !entry,
+          ready: !entry || !this.connected(entry[0]) || !!d.ready?.includes(entry[0]), takeover: !!d.takeovers?.includes(seat),
           connected: entry ? this.connected(entry[0]) : false, host: !!entry && entry[0] === d.host };
       }) };
   }
@@ -118,15 +123,15 @@ export class Room {
     if (this.session) {
       const view = this.session.viewFor(null);
       if (['RESOLVED_HU', 'DRAW_SERI'].includes(view.phase)) d.handEndedAt ??= this.io.now();
-      else d.handEndedAt = null;
+      else { d.handEndedAt = null; d.ready = []; }
       const snapshot = this.session.serialize();
       const decisions = this.session.pendingDecisions();
       const humans = decisions.filter(p => snapshot.options.seats[p.seat] === 'human');
       const deadline = d.config.turnSeconds === null || !humans.length ? null : Math.min(...humans.map(p => p.deadline));
-      const hasBot = decisions.some(p => snapshot.options.seats[p.seat] === 'bot');
+      const botDelay = this.session.botDelay();
       const old = d.schedule;
-      d.schedule = { version: this.session.version, deadline, botAt: hasBot
-        ? old?.version === this.session.version ? old.botAt : this.io.now() + 600 + ((this.session.version * 137) % 601) : null };
+      d.schedule = { version: this.session.version, deadline, botAt: botDelay !== null
+        ? old?.version === this.session.version ? old.botAt : this.io.now() + botDelay! : null };
       d.session = snapshot;
     }
     await this.io.put(structuredClone(d));
@@ -134,7 +139,11 @@ export class Room {
   }
   private async scheduleAlarm(): Promise<void> {
     const d = this.data!;
-    const candidates = [d.schedule?.deadline, d.schedule?.botAt, this.cleanupAt(), ...[...this.sockets.values()].map(s => (s.lastActivity ?? d.lastActivity) + DAY)].filter((n): n is number => n != null);
+    const dice = d.seatDice;
+    const diceTimes = dice && !this.session ? dice.settledAt !== null ? [dice.settledAt + 3000] : [dice.deadline, ...Object.values(dice.botAt)] : [];
+    const waiting = Object.entries(d.people).some(([token, p]) => p.seat && this.connected(token) && !d.ready?.includes(token));
+    const continueAt = d.handEndedAt !== null && !this.session?.viewFor(null).matchOver ? d.handEndedAt + (waiting ? 120000 : 1) : null;
+    const candidates = [...diceTimes, continueAt, d.schedule?.deadline, d.schedule?.botAt, this.cleanupAt(), ...[...this.sockets.values()].map(s => (s.lastActivity ?? d.lastActivity) + DAY)].filter((n): n is number => n != null);
     const earliest = Math.min(...candidates);
     if (earliest <= this.io.now()) {
       this.io.log(`Room ${d.code}: alarm overdue at version ${this.session?.version ?? 0}; retry in 5000ms`);
@@ -164,7 +173,7 @@ export class Room {
         if (!d.people[token]) {
           const first = d.host === null;
           const spectators = this.info().spectators;
-          const empty = !this.session ? SEAT_ORDER.find(seat => !Object.values(d.people).some(p => p.seat === seat)) ?? null : null;
+          const empty = !this.session && !d.seatDice ? SEAT_ORDER.find(seat => !Object.values(d.people).some(p => p.seat === seat)) ?? null : null;
           if (!first && !empty && (!d.config.allowSpectators || spectators >= MAX_SPECTATORS)) { this.error(socket, 'room_full', 'Penonton sudah penuh atau tidak diizinkan.'); return; }
           d.people[token] = { name, seat: first ? 'dong' : empty };
           if (first) d.host = token;
@@ -175,7 +184,14 @@ export class Room {
         }
         socket.token = token; socket.lastActivity = now; socket.seat = d.people[token]!.seat; this.io.attach(socket);
         const seat = d.people[token]!.seat;
-        if (seat) this.session?.setConnected(seat, true);
+        if (seat) {
+          this.session?.setConnected(seat, true);
+          if (d.takeovers?.includes(seat)) {
+            d.takeovers = d.takeovers.filter(s => s !== seat);
+            this.session?.setControl(seat, 'human');
+            this.event(`${name} kembali`, seat);
+          }
+        }
         d.lastActivity = now; await this.save();
         this.safeSend(socket, { type: 'welcome', token, seat, host: token === d.host, serverNow: now, room: this.info() }); this.broadcast(true); return;
       }
@@ -183,20 +199,35 @@ export class Room {
       if (!person) { this.error(socket, 'bad_message', 'Kirim hello terlebih dahulu.'); return; }
       socket.lastActivity = now; this.io.attach(socket);
       if (m.type === 'resync') { this.sendState(socket, true); return; }
+      if (m.type === 'rollSeats') {
+        if (!person.seat) { this.error(socket, 'not_seated', 'Duduk dahulu untuk bermain.'); return; }
+        if (!d.seatDice || this.session || d.seatDice.settledAt !== null || d.seatDice.dice[person.seat]) { this.error(socket, 'wrong_phase', 'Tidak bisa kocok sekarang.'); return; }
+        this.rollSeat(person.seat); this.resolveSeats();
+        await this.save(); this.broadcast(true); return;
+      }
+      if (m.type === 'replaceBot') {
+        if (socket.token !== d.host) { this.error(socket, 'not_host', 'Hanya host boleh mengganti bot.'); return; }
+        const target = Object.entries(d.people).find(([, p]) => p.seat === m.seat);
+        if (!this.session || !target || this.connected(target[0]) || d.takeovers?.includes(m.seat)) { this.error(socket, 'illegal_action', 'Pemain harus offline.'); return; }
+        (d.takeovers ??= []).push(m.seat); this.session.setControl(m.seat, 'bot');
+        await this.save(); this.event(`${target[1].name} digantikan bot`, m.seat); this.broadcast(true); return;
+      }
+      if (m.type === 'ready' || (m.type === 'act' && m.action?.type === 'nextHand')) {
+        if (!person.seat) { this.error(socket, 'not_seated', 'Duduk dahulu untuk melanjutkan.'); return; }
+        if (!this.session || d.handEndedAt === null || this.session.viewFor(null).matchOver) { this.error(socket, 'wrong_phase', 'Hand belum selesai.'); return; }
+        if (!(d.ready ??= []).includes(socket.token!)) d.ready.push(socket.token!);
+        this.continueIfReady(); await this.save(); this.broadcast(true); return;
+      }
       if (m.type === 'act') {
         if (!this.session) { this.error(socket, 'wrong_phase', 'Permainan belum dimulai.'); return; }
         if (!person.seat && !(socket.token === d.host && m.action?.type === 'nextHand')) { this.error(socket, 'not_seated', 'Duduk dahulu untuk bermain.'); return; }
         if (!m.action || typeof m.action.type !== 'string') { this.error(socket, 'bad_message', 'Aksi tidak valid.'); return; }
-        let seat = person.seat ?? this.session.serialize().options.hostSeat ?? 'dong';
-        if (m.action.type === 'nextHand') {
-          if (socket.token !== d.host && this.connected(d.host!) && (d.handEndedAt === null || now - d.handEndedAt < 30000)) { this.error(socket, 'not_host', 'Tunggu host melanjutkan hand.'); return; }
-          seat = this.session.serialize().options.hostSeat ?? 'dong';
-        }
+        const seat = person.seat!;
         const result = this.session.apply(seat, m.action);
         if (!result.ok) { this.error(socket, result.code === 'stale_version' ? 'stale_version' : 'illegal_action', result.code === 'stale_version' ? 'Versi meja sudah berubah.' : 'Aksi tidak valid untuk keadaan meja ini.'); return; }
         d.lastActivity = now; await this.save(); this.broadcast(true); return;
       }
-      if (this.session) { this.error(socket, 'wrong_phase', 'Pengaturan hanya bisa di lobi.'); return; }
+      if (this.session || d.seatDice) { this.error(socket, 'wrong_phase', 'Pengaturan hanya bisa di lobi.'); return; }
       switch (m.type) {
         case 'sit':
           if (!SEAT_ORDER.includes(m.seat)) { this.error(socket, 'bad_message', 'Posisi tidak valid.'); return; }
@@ -213,12 +244,8 @@ export class Room {
           if (socket.token !== d.host) { this.error(socket, 'not_host', 'Hanya host boleh memulai.'); return; }
           const occupied = Object.values(d.people).filter(p => p.seat !== null);
           if (!d.config.fillWithBots && occupied.length !== 4) { this.error(socket, 'room_full', 'Perlu empat pemain untuk mulai.'); return; }
-          const seats = Object.fromEntries(SEAT_ORDER.map(s => [s, occupied.some(p => p.seat === s) ? 'human' : 'bot'])) as Record<Seat, 'human' | 'bot'>;
-          this.session = new TableSession({ settings: { ...DEFAULT_SETTINGS, kimMode: d.config.kimMode, kimEnabled: d.config.kimMode !== 'off', minHuTay: d.config.minHuTay }, seats,
-            seed: 0, handSeed: this.io.seed, now: this.io.now, botLevel: d.config.botLevel, hostSeat: person.seat ?? 'dong', turnTimeMs: d.config.turnSeconds === null ? 1e12 : d.config.turnSeconds * 1000 });
-          const snapshot = this.session.serialize(); snapshot.match.timeLimitMinutes = d.config.timeLimitMinutes;
-          this.session = TableSession.deserialize(snapshot, this.io.now, this.io.seed);
-          for (const [token, p] of Object.entries(d.people)) if (p.seat) this.session.setConnected(p.seat, this.connected(token));
+          d.seatDice = { groups: [[...SEAT_ORDER]], dice: {}, deadline: now + 15000, botAt: {}, settledAt: null };
+          this.scheduleSeatBots();
           break;
         }
         default: this.error(socket, 'bad_message', 'Pesan tidak dikenal.'); return;
@@ -227,11 +254,74 @@ export class Room {
       d.lastActivity = now; await this.save(); this.broadcast(true);
     });
   }
+  private event(text: string, seat: Seat): void {
+    for (const s of this.sockets.values()) this.safeSend(s, { type: 'event', text, seat });
+  }
+  private continueIfReady(): boolean {
+    const d = this.data!;
+    if (!this.session || d.handEndedAt === null || this.session.viewFor(null).matchOver) return false;
+    const waiting = Object.entries(d.people).some(([token, p]) => p.seat && this.connected(token) && !d.ready?.includes(token));
+    if (waiting && this.io.now() < d.handEndedAt + 120000) return false;
+    return this.session.apply(this.session.serialize().options.hostSeat ?? 'dong', { type: 'nextHand', version: this.session.version }).ok;
+  }
+  private scheduleSeatBots(): void {
+    const d = this.data!, dice = d.seatDice!;
+    dice.botAt = {};
+    for (const group of dice.groups) if (group.length > 1) for (const seat of group) {
+      if (!Object.values(d.people).some(p => p.seat === seat)) dice.botAt[seat] = this.io.now() + 1000 + SEAT_ORDER.indexOf(seat) * 271;
+    }
+  }
+  private rollSeat(seat: Seat): void {
+    const dice = this.data!.seatDice!;
+    const material = this.io.seed();
+    let word = (Array.isArray(material) ? material[0]! : material) >>> 0;
+    dice.dice[seat] = Array.from({ length: 3 }, (_, i) => {
+      // Server entropy only; mix numeric replay seeds as well as production random words.
+      word = (word + 0x6D2B79F5) | 0;
+      let t = Math.imul(word ^ word >>> 15, word | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return 1 + ((Array.isArray(material) ? material[i]! : (t ^ t >>> 14) >>> 0) % 6);
+    });
+    delete dice.botAt[seat];
+  }
+  private resolveSeats(): void {
+    const dice = this.data!.seatDice!;
+    if (dice.groups.flat().some(seat => !dice.dice[seat])) return;
+    const total = (seat: Seat) => dice.dice[seat]!.reduce((a, b) => a + b, 0);
+    dice.groups = dice.groups.flatMap(group => {
+      const sorted = [...group].sort((a, b) => total(b) - total(a));
+      const groups: Seat[][] = [];
+      for (const seat of sorted) {
+        if (groups.length && total(groups.at(-1)![0]!) === total(seat)) groups.at(-1)!.push(seat);
+        else groups.push([seat]);
+      }
+      return groups;
+    });
+    if (dice.groups.every(g => g.length === 1)) { dice.settledAt = this.io.now(); return; }
+    for (const group of dice.groups) if (group.length > 1) for (const seat of group) delete dice.dice[seat];
+    dice.deadline = this.io.now() + 15000;
+    this.scheduleSeatBots();
+  }
+  private startMatch(): void {
+    const d = this.data!;
+    const ranking = d.seatDice!.groups.flat();
+    for (const p of Object.values(d.people)) if (p.seat) p.seat = SEAT_ORDER[ranking.indexOf(p.seat)]!;
+    for (const socket of this.sockets.values()) if (socket.token) { socket.seat = d.people[socket.token]?.seat; this.io.attach(socket); }
+    const occupied = Object.values(d.people).filter(p => p.seat);
+    const seats = Object.fromEntries(SEAT_ORDER.map(s => [s, occupied.some(p => p.seat === s) ? 'human' : 'bot'])) as Record<Seat, 'human' | 'bot'>;
+    this.session = new TableSession({ settings: { ...DEFAULT_SETTINGS, kimMode: d.config.kimMode, kimEnabled: d.config.kimMode !== 'off', minHuTay: d.config.minHuTay }, seats,
+      seed: 0, handSeed: this.io.seed, now: this.io.now, botLevel: d.config.botLevel, hostSeat: d.people[d.host!]?.seat ?? 'dong', turnTimeMs: d.config.turnSeconds === null ? 1e12 : d.config.turnSeconds * 1000 });
+    const snapshot = this.session.serialize(); snapshot.match.timeLimitMinutes = d.config.timeLimitMinutes;
+    this.session = TableSession.deserialize(snapshot, this.io.now, this.io.seed);
+    for (const [token, p] of Object.entries(d.people)) if (p.seat) this.session.setConnected(p.seat, this.connected(token));
+    d.seatDice = null;
+  }
   disconnect(socket: Socket): Promise<void> {
     return this.exclusive(async () => {
       if (!this.sockets.delete(socket.id) || !this.data || !socket.token) return;
       const seat = socket.token ? this.data.people[socket.token]?.seat : null;
       if (seat && !this.connected(socket.token!)) this.session?.setConnected(seat, false);
+      this.continueIfReady();
       this.data.lastActivity = this.io.now(); await this.save(); this.broadcast(true);
     });
   }
@@ -254,8 +344,17 @@ export class Room {
         if (seat) this.session?.setConnected(seat, false);
         if (socket.token) presenceChanged = true;
       }
-      const schedule = d.schedule;
       let changed = false;
+      const dice = d.seatDice;
+      if (dice && !this.session) {
+        if (dice.settledAt !== null && this.io.now() >= dice.settledAt + 3000) { this.startMatch(); changed = true; }
+        else if (dice.settledAt === null) {
+          for (const seat of dice.groups.flat()) if (!dice.dice[seat] && (this.io.now() >= dice.deadline || (dice.botAt[seat] ?? Infinity) <= this.io.now())) { this.rollSeat(seat); changed = true; }
+          if (changed) this.resolveSeats();
+        }
+      }
+      if (this.continueIfReady()) changed = true;
+      const schedule = d.schedule;
       if (this.session && schedule?.version === this.session.version) {
         if (d.config.turnSeconds !== null && schedule.deadline !== null && schedule.deadline <= this.io.now()) {
           const due = this.session.pendingDecisions().find(p => p.deadline === schedule.deadline && this.session!.serialize().options.seats[p.seat] === 'human');

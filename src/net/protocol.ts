@@ -36,7 +36,7 @@ export const DEFAULT_ROOM_CONFIG: RoomConfig = {
   allowSpectators: true,
 };
 
-export type RoomPhase = 'lobby' | 'playing' | 'finished';
+export type RoomPhase = 'lobby' | 'seating' | 'playing' | 'finished';
 
 export interface RoomSeat {
   seat: Seat;
@@ -45,6 +45,16 @@ export interface RoomSeat {
   bot: boolean;
   connected: boolean;
   host: boolean;
+  ready?: boolean;
+  takeover?: boolean;
+}
+
+export interface SeatDice {
+  groups: Seat[][];
+  dice: Partial<Record<Seat, number[]>>;
+  deadline: number;
+  botAt: Partial<Record<Seat, number>>;
+  settledAt: number | null;
 }
 
 export interface RoomInfo {
@@ -53,6 +63,8 @@ export interface RoomInfo {
   seats: RoomSeat[];
   spectators: number;
   phase: RoomPhase;
+  seatDice?: SeatDice | null;
+  continueAt?: number | null;
 }
 
 /** Client → server. */
@@ -62,6 +74,9 @@ export type ClientMessage =
   | { type: 'stand' }
   | { type: 'config'; config: RoomConfig }
   | { type: 'start' }
+  | { type: 'rollSeats' }
+  | { type: 'ready' }
+  | { type: 'replaceBot'; seat: Seat }
   | { type: 'act'; action: SessionAction }
   /** Ask for a fresh `room` + `view` (after a stale-version error or returning to the tab). */
   | { type: 'resync' }
