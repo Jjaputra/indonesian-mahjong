@@ -156,6 +156,7 @@ describe('TableSession', () => {
       const view = s.viewFor(viewer);
       expect(view.phase).toBe('RESOLVED_HU');
       expect(view.lastHand).toMatchObject({ winner: 'dong', winMethod: 'tsumo', discarder: null, hand: data.state.players.dong.hand, melds: data.state.players.dong.melds });
+      expect(view.lastHand!.winningTileId).toBe(data.state.winningTile!.id);
       expect(view.lastHand!.breakdown.length).toBeGreaterThan(0);
       expect(view.lastHand!.payments).toEqual(view.lastHandResult);
       const hidden = new Set(SEAT_ORDER.filter(seat => seat !== viewer && seat !== 'dong').flatMap(seat => data.state.players[seat].hand.map(t => t.id)));
@@ -362,6 +363,10 @@ describe('multiplayer timeouts', () => {
     expect(s.viewFor('dong').drawnTileId).toBe('kong-replacement');
     expect(s.serialize().payments).toHaveLength(1);
     expire(s, 'dong');
+    for (const decision of s.pendingDecisions().filter(d => d.kind === 'claim')) expect(s.apply(decision.seat, { type: 'pass', version: s.version }).ok).toBe(true);
+    const reloaded = TableSession.deserialize(s.serialize(), now);
+    expect(reloaded.viewFor(null).discardTrail).toEqual(s.viewFor(null).discardTrail);
+    expect(reloaded.viewFor(null).discardTrail.at(-1)?.tile.id).toBe('kong-replacement');
     expect(s.viewFor('dong').hand.some(t => t.id === 'kong-replacement')).toBe(false);
   });
 

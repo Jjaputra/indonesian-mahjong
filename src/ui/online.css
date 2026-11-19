@@ -52,3 +52,14 @@
 .mp-next-bar i { display: block; height: 100%; background: var(--ok); transform-origin: left; transition: transform .25s linear; }
 .mp-result-note { margin: 0; text-align: center; }
 @media (max-height: 420px) { .mp-result .hu-banner { font-size: 30px; } }
+
+.mp-reactions { position: fixed; right: 1rem; bottom: 1rem; z-index: 150; }
+.mp-reaction-popover { position: absolute; right: 0; bottom: 3rem; width: min(300px, 85vw); padding: .75rem; background: #183a31; color: white; border: 1px solid #9dba94; border-radius: 12px; box-shadow: 0 4px 20px #0008; }
+.mp-reaction-popover > div { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .75rem; }
+.mp-reaction-popover label { display: flex; gap: .5rem; align-items: center; }
+.mp-reaction-bubble { position: fixed; z-index: 149; padding: .6rem 1rem; border-radius: 16px; background: #fff8df; color: #183a31; box-shadow: 0 3px 12px #0005; pointer-events: none; font-size: 1.4rem; }
+.mp-reaction-bubble small { display: block; font-size: .7rem; }
+.mp-reaction-top { top: 15%; left: 50%; transform: translateX(-50%); }
+.mp-reaction-left { left: 3%; top: 45%; }
+.mp-reaction-right { right: 3%; top: 45%; }
+.mp-reaction-bottom { bottom: 15%; left: 50%; transform: translateX(-50%); }

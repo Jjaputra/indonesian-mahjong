@@ -1,9 +1,8 @@
 import { ArrowRight, Users } from 'lucide-react';
-import { keyToTile } from '../../core/tiles';
 import type { AIDifficulty } from '../../storage';
+import logo from '../../assets/brand/maciokyu-logo.png';
 import { DIFFICULTY_LABEL } from '../labels';
 import { type DeadWallOption, type DealerWinRule, type MatchTimeLimit } from '../match';
-import { TileView } from './TileView';
 
 export interface MainMenuProps {
   difficulty?: AIDifficulty;
@@ -75,9 +74,6 @@ const TIME_OPTIONS: readonly ChoiceOption<MatchTimeLimit>[] = [
   { value: 90, label: '90 menit', note: 'Waktu tetap berjalan saat jeda atau dialog terbuka. Setelah waktu habis, selesaikan game yang sedang berjalan.' },
 ];
 
-/** A few real tiles fanned across the card: winds, dragons and a Kim. */
-const SHOWCASE = ['WD', 'WN', 'WX', 'WB', 'DZ', 'KIM', '8B'].map((key, i) => keyToTile(key, 90 + i));
-
 export function MainMenu({
   difficulty,
   onDifficultyChange,
@@ -105,10 +101,8 @@ export function MainMenu({
   return (
     <main className="main-menu">
       <section className="menu-card" aria-label="Menu utama">
-        <div className="menu-showcase" aria-hidden="true">
-          {SHOWCASE.map((t) => <TileView key={t.id} tile={t} size="md" />)}
-        </div>
-        <p className="menu-eyebrow">Mahjong Tradisional Indonesia</p>
+        <div className="menu-logo"><img src={logo} alt="maciokYU!" width={1277} height={407} /></div>
+        <p className="menu-eyebrow">Mahjong Indonesia · main bareng teman</p>
         <h2>Waktunya bermain.</h2>
         <p className="muted">Anda dan tiga lawan. Satu meja.</p>
         {lastResult !== null && <p className="menu-last">Terakhir: {lastResult}</p>}

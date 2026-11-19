@@ -1,4 +1,4 @@
-# Mahjong Tradisional Indonesia
+# maciokYU! — Mahjong Tradisional Indonesia
 
 A browser game of Indonesian Traditional Mahjong (ITM / YDSP), scored from the Bandung Mahjong Cup Rulebook ver06. You keep the same chair against three bots; your seat wind changes as the dealer rotates. There is no account and no server: settings, sound, and hand history stay in this browser.
 

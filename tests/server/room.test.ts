@@ -3,7 +3,7 @@ import { Room, validConfig, type RoomData, type Socket, type RoomIO } from '../.
 import { DEFAULT_ROOM_CONFIG, type ClientMessage, type ServerMessage } from '../../src/net/protocol';
 import { TableSession } from '../../src/session';
 import type { HandSeed } from '../../src/session';
-import { SEAT_ORDER } from '../../src/core/tiles';
+import { SEAT_ORDER, parseTileHand } from '../../src/core/tiles';
 
 function harness() {
   let now = 1000, counter = 0, alarm: number | null = null, blob: RoomData | null = null, writes = 0, alarmWrites = 0, seeds = 0;
@@ -312,5 +312,88 @@ describe('canonical room names', () => {
     await h.send(player, { type: 'rename', name: '\u200e\u202f\u200f' });
     expect(errors(h, player).at(-1)).toMatchObject({ code: 'bad_message' });
     expect(h.blob.people[player.token!]!.name).toBe('A Liong');
+  });
+});
+
+describe('online tidy ups', () => {
+  it('hands host to longest-seated connected human after 60 seconds, persists, and never restores old rights', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host'); const first = await h.join('First'); const second = await h.join('Second');
+    await h.send(second, { type: 'stand' });
+    await h.room.disconnect(host); const disconnectedAt = h.now;
+    h.now = disconnectedAt + 60000; await h.room.alarm(); expect(h.blob.host).toBe(host.token);
+    h.now++; await h.room.alarm(); expect(h.blob.host).toBe(first.token);
+    expect(h.frames.get(first.id)).toContainEqual({ type: 'event', text: 'First sekarang host', seat: 'nan' });
+    h.rebuild(); const returned = await h.join('Host', host.token);
+    expect(h.frames.get(returned.id)![0]).toMatchObject({ type: 'welcome', host: false });
+    await h.send(returned, { type: 'config', config: DEFAULT_ROOM_CONFIG }); expect(errors(h, returned).at(-1)).toMatchObject({ code: 'not_host' });
+  });
+  it('hands over immediately on leave and excludes spectators even if they joined first', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host'); const watcher = await h.join('Watcher');
+    await h.send(watcher, { type: 'stand' }); const player = await h.join('Player');
+    await h.send(host, { type: 'leave' }); expect(h.blob.host).toBe(player.token);
+    expect(h.blob.people[watcher.token!]!.seat).toBeNull();
+  });
+  it('broadcasts only preset reactions, limits across reconnect, and rejects spectators', async () => {
+    const h = harness(); await h.create(); const host = await h.join(); await h.send(host, { type: 'start' }); await finishSeating(h);
+    const watcher = await h.join('Watcher');
+    await h.send(host, { type: 'reaction', preset: 0 });
+    expect(h.frames.get(watcher.id)!.at(-1)).toMatchObject({ type: 'event', reaction: 0, seat: 'dong' });
+    await h.send(host, { type: 'reaction', preset: 1 }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'rate_limited' });
+    h.rebuild(); const returned = await h.join('Again', host.token);
+    await h.send(returned, { type: 'reaction', preset: 2 }); expect(errors(h, returned).at(-1)).toMatchObject({ code: 'rate_limited' });
+    h.now += 2000; await h.send(returned, { type: 'reaction', preset: 7 }); expect(h.frames.get(watcher.id)!.at(-1)).toMatchObject({ reaction: 7 });
+    await h.room.message(returned, JSON.stringify({ type: 'reaction', preset: 8 })); expect(errors(h, returned).at(-1)).toMatchObject({ code: 'bad_message' });
+    await h.send(watcher, { type: 'reaction', preset: 0 }); expect(errors(h, watcher).at(-1)).toMatchObject({ code: 'not_seated' });
+  });
+});
+
+it('publishes and persists winning tile id and loads older last-hand records without it', async () => {
+  const h = harness(); await h.create(); const host = await h.join(); await h.send(host, { type: 'start' }); await finishSeating(h);
+  const snapshot = h.room.session!.serialize();
+  snapshot.state.phase = 'ACTION_DECISION'; snapshot.state.currentTurn = 'dong'; snapshot.state.selfDrawSeat = 'dong';
+  snapshot.state.rules.kimEnabled = false; snapshot.state.rules.minHuTay = 0; snapshot.options.settings.minHuTay = 0;
+  snapshot.state.players.dong.hand = parseTileHand('1T 1T 1T 2T 3T 4T 5T 6T 7T 8T 8T 8T 9T 9T');
+  const winningId = snapshot.state.players.dong.hand.at(-1)!.id;
+  h.room.session = TableSession.deserialize(snapshot, () => h.now);
+  const patternIds = h.room.session.viewFor('dong').legal!.selfHuScore!.patterns.map(p => p.id);
+  await h.send(host, { type: 'act', action: { type: 'selfHu', version: h.room.session.version } });
+  expect(h.blob.session!.lastHand!.winningTileId).toBe(winningId);
+  expect(h.blob.session!.lastHand!.breakdown.map(p => p.id)).toEqual(patternIds);
+  expect(h.frames.get(host.id)!.at(-1)).toMatchObject({ type: 'view', view: { lastHand: { winningTileId: winningId } } });
+  delete h.blob.session!.lastHand!.winningTileId;
+  expect(TableSession.deserialize(h.blob.session!, () => h.now).viewFor(null).lastHand!.winner).toBe('dong');
+});
+
+describe('pending host transfer regressions', () => {
+  it.each(['leave', 'timeout'] as const)('keeps a %s transfer pending through reload and former-host reconnect until a spectator sits', async kind => {
+    const h = harness(); await h.create(); const host = await h.join('Host'); const watcher = await h.join('Watcher');
+    await h.send(watcher, { type: 'stand' });
+    if (kind === 'leave') await h.send(host, { type: 'leave' });
+    else { await h.room.disconnect(host); h.now += 60001; await h.room.alarm(); }
+    expect(h.blob.hostTransferPending).toBe(true);
+    h.rebuild(); const returned = await h.join('Host', host.token);
+    expect(h.frames.get(returned.id)!.find(m => m.type === 'welcome')).toMatchObject({ host: false });
+    expect(h.blob.hostTransferPending).toBe(true);
+    await h.send(returned, { type: 'config', config: DEFAULT_ROOM_CONFIG });
+    expect(errors(h, returned).at(-1)).toMatchObject({ code: 'not_host' });
+    await h.send(watcher, { type: 'sit', seat: 'nan' });
+    expect(h.blob.host).toBe(watcher.token); expect(h.blob.hostTransferPending).toBe(false);
+    expect(h.frames.get(watcher.id)).toContainEqual({ type: 'event', text: 'Watcher sekarang host', seat: 'nan' });
+    h.rebuild(); expect(h.room.info().seats.find(s => s.seat === 'nan')!.host).toBe(true);
+  });
+  it('transfers a pending host on a new seated human connect', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host');
+    await h.send(host, { type: 'leave' }); h.rebuild();
+    const next = await h.join('Next');
+    expect(h.blob.host).toBe(next.token);
+    expect(h.frames.get(next.id)!.find(m => m.type === 'welcome')).toMatchObject({ host: true });
+  });
+  it('includes a longer-seated reconnecting human before selecting an overdue successor', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host'); const oldest = await h.join('Oldest'); const younger = await h.join('Younger');
+    await h.room.disconnect(oldest); await h.room.disconnect(host); h.now += 60001;
+    const returned = await h.join('Oldest', oldest.token);
+    expect(h.blob.host).toBe(oldest.token);
+    expect(h.frames.get(returned.id)!.find(m => m.type === 'welcome')).toMatchObject({ host: true });
+    expect(h.frames.get(younger.id)).toContainEqual({ type: 'event', text: 'Oldest sekarang host', seat: 'nan' });
   });
 });

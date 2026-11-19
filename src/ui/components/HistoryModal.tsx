@@ -22,6 +22,12 @@ export function HistoryDetail({ record, onDelete }: { record: MatchHistoryRecord
   const concealed = concealedHistoryTiles(record);
   return (
     <div className="history-detail">
+      {record.matchSummary && <>
+        <p>{record.matchSummary.handsPlayed} game · Hu Anda: {record.matchSummary.huCount}</p>
+        <table className="tay-table" aria-label="Hasil pertandingan online"><thead><tr><th>Pemain</th><th>Tay</th><th>Koin</th></tr></thead><tbody>
+          {(['dong', 'nan', 'xi', 'bei'] as const).map(seat => <tr key={seat}><td>{PLAYER_NAME[seat]}{seat === record.matchSummary!.seat ? ' (Anda)' : ''}</td><td>{record.matchSummary!.tayTotal[seat]}</td><td>{record.matchSummary!.koinTotal[seat]}</td></tr>)}
+        </tbody></table>
+      </>}
       {record.winningTile && (
         <p>
           Tile menang: <TileView tile={record.winningTile} size="sm" highlight />
@@ -109,10 +115,11 @@ export function HistoryModal({ history, onDelete, onClear, onClose }: HistoryMod
             <li key={r.id} className={open ? 'is-open' : ''}>
               <button type="button" className="history-row" onClick={() => setOpenId(open ? null : r.id)} aria-expanded={open}>
                 <span className="muted">{formatDate(r.timestamp)}</span>
-                <strong>{r.winner ? `${PLAYER_NAME[r.winner]} Hu` : 'Seri'}</strong>
-                <span>{WIN_METHOD_LABEL[r.winMethod].split(' (')[0]}</span>
+                {r.online && <span className="badge" title={r.roomCode}>Online</span>}
+                <strong>{r.matchSummary ? 'Pertandingan online' : r.winner ? `${PLAYER_NAME[r.winner]} Hu` : 'Seri'}</strong>
+                <span>{r.matchSummary ? `Room ${r.roomCode ?? ''}` : WIN_METHOD_LABEL[r.winMethod].split(' (')[0]}</span>
                 {r.winner && <span className="badge badge-kim">{modeLabel(r.tableColumn ?? (r.isWithKim ? 'K' : 'NK'))}</span>}
-                <span className="num">{r.winner || !kongPaymentsOf(r).length ? tayKoinText(r) : ''}{kongPaymentsOf(r).length > 0 && `${r.winner ? ' · ' : ''}${kongNote(kongPaymentsOf(r))}`}</span>
+                <span className="num">{r.matchSummary ? `${r.matchSummary.handsPlayed} game · ${r.matchSummary.koinTotal[r.matchSummary.seat]} koin · ${r.matchSummary.huCount} Hu` : <>{r.winner || !kongPaymentsOf(r).length ? tayKoinText(r) : ''}{kongPaymentsOf(r).length > 0 && `${r.winner ? ' · ' : ''}${kongNote(kongPaymentsOf(r))}`}</>}</span>
               </button>
               {open && <HistoryDetail record={r} onDelete={onDelete} />}
             </li>

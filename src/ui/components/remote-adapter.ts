@@ -39,10 +39,11 @@ export class RemoteController {
   get match() { return this.table.getState().view?.match ?? null; }
   private get view() { return this.table.getState().view!; }
 
-  /** Discards in the order they first appeared; a reconnect's first view interleaves seats from the dealer. */
+  /** Server chronology survives reloads; the interleaving fallback supports older servers. */
   private syncTrail(): void {
     const view = this.table.getState().view;
     if (!view) return;
+    if (view.discardTrail) { this.trail = view.discardTrail; return; }
     const order = [...SEAT_ORDER.slice(SEAT_ORDER.indexOf(view.dealer)), ...SEAT_ORDER.slice(0, SEAT_ORDER.indexOf(view.dealer))];
     const live = new Set(order.flatMap(seat => view.players[seat].discards.map(t => t.id)));
     this.trail = this.trail.filter(d => live.has(d.tile.id));
@@ -68,6 +69,11 @@ export class RemoteController {
   get remainingDrawable(): number { return this.view.wallCount; }
   get matchOver(): boolean { return this.view.matchOver; }
   get humanDrawnTileId(): string | null { return this.view.drawnTileId; }
+  /** Online has no GameOutcome: the winner of a valid Hu once the hand has ended, else null (playing, Seri, Lew Fit). */
+  get huWinner(): Seat | null {
+    const v = this.table.getState().view, last = v?.lastHand;
+    return v?.phase === 'RESOLVED_HU' && last?.winner && !last.payments.lewFit ? last.winner : null;
+  }
 
   getSettings() { return { kimEnabled: this.table.getState().room?.config.kimMode !== 'off', minHuTay: this.table.getState().room?.config.minHuTay ?? 5 }; }
 

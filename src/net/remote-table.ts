@@ -1,9 +1,9 @@
 // Client-side room state: lobby info, the latest personal SeatView, and the actions that go back to the server.
 import type { Seat } from '../core/types';
 import type { SeatView, SessionAction } from '../session';
-import type { StorageLike } from '../storage';
+import { saveGameRecord, type StorageLike } from '../storage';
 import { Connection, type ConnectionStatus, type SocketLike, type Timers } from './connection';
-import type { ErrorCode, RoomConfig, RoomInfo, ServerMessage } from './protocol';
+import type { ReactionId, ErrorCode, RoomConfig, RoomInfo, ServerMessage } from './protocol';
 import { forgetRoom, roomSocketUrl, saveRoom } from './room-store';
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -23,6 +23,7 @@ export interface RemoteState {
   host: boolean;
   view: SeatView | null;
   log: LogLine[];
+  reactions?: Partial<Record<Seat, { preset: ReactionId; at: number }>>;
   /** Last non-fatal server error, shown as a toast. `id` changes per error so repeats re-trigger. */
   error: { id: number; code: ErrorCode; message: string } | null;
   /** When (local clock) the current hand finished, for local hand-result presentation. Null while a hand is on. */
@@ -111,6 +112,8 @@ export class RemoteTable {
 
   get isHost(): boolean { return this.state.host; }
 
+  leave(): void { this.conn.send({ type: 'leave' }); this.conn.stop(); }
+  react(preset: ReactionId): void { if (this.state.seat) this.conn.send({ type: 'reaction', preset }); }
   rename(name: string): void { this.conn.send({ type: 'rename', name }); }
   sit(seat: Seat): void { this.conn.send({ type: 'sit', seat }); }
   stand(): void { this.conn.send({ type: 'stand' }); }
@@ -162,10 +165,22 @@ export class RemoteTable {
         // A reconnect may miss the rematch's seating/lobby messages entirely.
         if (matchChanged) next.log = [];
         if (key !== this.endedKey || matchChanged) { this.endedKey = key; next.handEndedAt = key === null ? null : this.now(); }
+        const v = message.view, last = v.lastHand;
+        if (v.matchOver && this.state.seat && last) {
+          saveGameRecord({ id: `online-${this.code}-${v.match.startedAt}`, timestamp: v.match.finishedAt ?? this.now(), online: true, roomCode: this.code,
+            winner: last.payments.winner, winningHand: last.hand, winningTile: last.hand.find(t => t.id === last.winningTileId) ?? null,
+            melds: last.melds, scoringBreakdown: last.breakdown.flatMap(b => b.id === undefined ? [] : [{ id: b.id, name: b.pattern, tay: b.tay }]),
+            matchSummary: { seat: this.state.seat, koinTotal: v.match.koinTotal, tayTotal: v.match.tayTotal, handsPlayed: v.match.hands.length, huCount: v.match.huCount[this.state.seat] },
+            totalTay: last.payments.totalTay, roundScore: last.payments.roundScore, kongPayments: last.payments.kongPayments,
+            isWithKim: last.hand.some(t => t.isKim), winMethod: last.winMethod, ...(last.discarder ? { discarder: last.discarder } : {}),
+            durationSeconds: Math.max(0, Math.round(((v.match.finishedAt ?? this.now()) - v.match.startedAt) / 1000)),
+          }, this.options.storage);
+        }
         this.patch(next);
         break;
       }
       case 'event':
+        if (message.reaction !== undefined && message.seat) { this.patch({ reactions: { ...this.state.reactions, [message.seat]: { preset: message.reaction, at: this.now() } } }); break; }
         this.patch({ log: [...this.state.log, { id: ++this.logSeq, text: message.text, seat: message.seat }].slice(-MAX_LOG) });
         break;
       case 'error':

@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-20
+### Changed
+- The game is now **maciokYU!**: a new logo on the menu and header, new app icons, and a black, cream and red theme. The green table and the tiles stay the same.
+- The Hu receipt and the WhatsApp invite use the new name.
+- Wind labels on the table, the active player's name and your lobby seat are easier to read.
+### Added
+- PUNG, KONG, JIA, BUNGA and HU callouts by the seat that makes them, and a short flower burst when someone wins. They show in single player and online, and there is no motion when reduced motion is on.
+- Online: quick reactions (👍 😂 😮 😭 🔥 "Ayo cepet!" "Nice Hu!" "Hoki banget!") shown as a bubble by the sender. Other players' reactions can be muted.
+- Online: the winning tile is marked on the result screen.
+- Online: if the host is offline for 60 seconds or leaves, the host role passes to the longest-seated player.
+- Online matches are saved in Riwayat with an "Online" badge and the match totals.
+### Fixed
+- Online: after a reload, the discards show in the order they were played, including around a Kong.
+
 ## [0.9.2] - 2026-11-19
 ### Changed
 - Online: a slow connection now reads "Sinyal lemah".
