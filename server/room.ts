@@ -2,7 +2,7 @@ import { SEAT_ORDER } from '../src/core/tiles';
 import type { Seat } from '../src/core/types';
 import { TableSession, type SerializedSession, type HandSeed } from '../src/session';
 import { DEFAULT_SETTINGS } from '../src/storage';
-import { DEFAULT_ROOM_CONFIG, MAX_SPECTATORS, NAME_MAX_LENGTH, normalizeName, type SeatDice, type RoomConfig, type RoomInfo, type ServerMessage, type ErrorCode, type ClientMessage } from '../src/net/protocol';
+import { DEFAULT_ROOM_CONFIG, REACTIONS, MAX_SPECTATORS, NAME_MAX_LENGTH, normalizeName, type SeatDice, type RoomConfig, type RoomInfo, type ServerMessage, type ErrorCode, type ClientMessage } from '../src/net/protocol';
 
 const RATE_BURST = 10;
 
@@ -25,12 +25,15 @@ export interface Socket {
   /** Token bucket for the per-socket rate limit; refilled from lastMessage. */
   burst?: number;
   lastActivity?: number;
+  lastReaction?: number;
 }
 export interface RoomData {
   code: string;
   config: RoomConfig;
   host: string | null;
-  people: Record<string, { name: string; seat: Seat | null }>;
+  people: Record<string, { name: string; seat: Seat | null; seatedAt?: number }>;
+  hostOfflineAt?: number | null;
+  hostTransferPending?: boolean;
   session: SerializedSession | null;
   createdAt?: number;
   lastActivity: number;
@@ -69,11 +72,12 @@ export class Room {
   data: RoomData | null;
   session: TableSession | null;
   readonly sockets = new Map<string, Socket>();
+  private reactionTimes = new Map<string, number>();
   private tail: Promise<unknown> = Promise.resolve();
   constructor(private io: RoomIO, data: RoomData | null = null, sockets: Socket[] = []) {
     this.data = data ? structuredClone(data) : null;
     this.session = data?.session ? TableSession.deserialize(data.session, io.now, io.seed) : null;
-    for (const socket of sockets) this.sockets.set(socket.id, socket);
+    for (const socket of sockets) { this.sockets.set(socket.id, socket); if (socket.token && socket.lastReaction != null) this.reactionTimes.set(socket.token, socket.lastReaction); }
   }
   private exclusive<T>(fn: () => Promise<T>): Promise<T> {
     const task = this.tail.then(fn);
@@ -94,6 +98,7 @@ export class Room {
   }
   private error(socket: Socket, code: ErrorCode, message: string): void { this.safeSend(socket, { type: 'error', code, message }); }
   private connected(token: string): boolean { return [...this.sockets.values()].some(s => s.token === token); }
+  private isHost(token: string | undefined): boolean { return !!token && token === this.data!.host && !this.data!.hostTransferPending; }
   info(): RoomInfo {
     const d = this.data!;
     return { code: d.code, config: structuredClone(d.config), seatDice: structuredClone(d.seatDice ?? null), continueAt: d.handEndedAt !== null && !this.session?.viewFor(null).matchOver ? d.handEndedAt + 120000 : null,
@@ -103,13 +108,13 @@ export class Room {
         const entry = Object.entries(d.people).find(([, p]) => p.seat === seat);
         return { seat, name: entry?.[1].name ?? (this.session ? 'Bot' : null), bot: !!this.session && !entry,
           ready: !entry || !this.connected(entry[0]) || !!d.ready?.includes(entry[0]), takeover: !!d.takeovers?.includes(seat),
-          connected: entry ? this.connected(entry[0]) : false, host: !!entry && entry[0] === d.host };
+          connected: entry ? this.connected(entry[0]) : false, host: !!entry && this.isHost(entry[0]) };
       }) };
   }
   private sendState(socket: Socket, lobby: boolean): void {
     if (!socket.token) return;
     const seat = this.data!.people[socket.token]?.seat ?? null;
-    if (lobby) this.safeSend(socket, { type: 'room', room: this.info(), seat, host: socket.token === this.data!.host, name: this.data!.people[socket.token]!.name });
+    if (lobby) this.safeSend(socket, { type: 'room', room: this.info(), seat, host: this.isHost(socket.token), name: this.data!.people[socket.token]!.name });
     if (this.session) {
       const view = this.session.viewFor(seat);
       if (this.data!.config.turnSeconds === null) {
@@ -154,7 +159,8 @@ export class Room {
     const diceTimes = dice && !this.session ? dice.settledAt !== null ? [dice.settledAt + 3000] : [dice.deadline, ...Object.values(dice.botAt)] : [];
     const waiting = Object.entries(d.people).some(([token, p]) => p.seat && this.connected(token) && !d.ready?.includes(token));
     const continueAt = d.handEndedAt !== null && !this.session?.viewFor(null).matchOver ? d.handEndedAt + (waiting ? 120000 : 1) : null;
-    const candidates = [...diceTimes, continueAt, d.schedule?.deadline, d.schedule?.botAt, this.cleanupAt(), ...[...this.sockets.values()].map(s => (s.lastActivity ?? d.lastActivity) + DAY)].filter((n): n is number => n != null);
+    const hostAt = !d.hostTransferPending && d.host && !this.connected(d.host) && d.hostOfflineAt != null ? d.hostOfflineAt + 60001 : null;
+    const candidates = [hostAt !== null && hostAt > this.io.now() ? hostAt : null, ...diceTimes, continueAt, d.schedule?.deadline, d.schedule?.botAt, this.cleanupAt(), ...[...this.sockets.values()].map(s => (s.lastActivity ?? d.lastActivity) + DAY)].filter((n): n is number => n != null);
     const earliest = Math.min(...candidates);
     if (earliest <= this.io.now()) {
       this.io.log(`Room ${d.code}: alarm overdue at version ${this.session?.version ?? 0}; retry in 5000ms`);
@@ -186,14 +192,14 @@ export class Room {
           const spectators = this.info().spectators;
           const empty = !this.session && !d.seatDice ? SEAT_ORDER.find(seat => !Object.values(d.people).some(p => p.seat === seat)) ?? null : null;
           if (!first && !empty && (!d.config.allowSpectators || spectators >= MAX_SPECTATORS)) { this.error(socket, 'room_full', 'Penonton sudah penuh atau tidak diizinkan.'); return; }
-          d.people[token] = { name: uniqueName(name, d.people, token), seat: first ? 'dong' : empty };
+          d.people[token] = { name: uniqueName(name, d.people, token), seat: first ? 'dong' : empty, seatedAt: now };
           if (first) d.host = token;
         } // A known token keeps its assigned name on reconnect.
         for (const old of this.sockets.values()) if (old.token === token && old.id !== socket.id) {
           this.safeSend(old, { type: 'kicked', reason: 'replaced' });
           this.sockets.delete(old.id); try { this.io.close(old); } catch { /* already closed */ }
         }
-        socket.token = token; socket.lastActivity = now; socket.seat = d.people[token]!.seat; this.io.attach(socket);
+        socket.token = token; socket.lastReaction = this.reactionTimes.get(token); socket.lastActivity = now; socket.seat = d.people[token]!.seat; this.io.attach(socket);
         const seat = d.people[token]!.seat;
         if (seat) {
           this.session?.setConnected(seat, true);
@@ -203,25 +209,44 @@ export class Room {
             this.event(`${d.people[token]!.name} kembali`, seat);
           }
         }
+        this.handoverHost();
+        if (token === d.host && !d.hostTransferPending) d.hostOfflineAt = null;
         d.lastActivity = now; await this.save();
-        this.safeSend(socket, { type: 'welcome', token, seat, host: token === d.host, serverNow: now, room: this.info(), name: d.people[token]!.name }); this.broadcast(true); return;
+        this.safeSend(socket, { type: 'welcome', token, seat, host: this.isHost(token), serverNow: now, room: this.info(), name: d.people[token]!.name }); this.broadcast(true); return;
       }
       const person = socket.token ? d.people[socket.token] : undefined;
       if (!person) { this.error(socket, 'bad_message', 'Kirim hello terlebih dahulu.'); return; }
       socket.lastActivity = now; this.io.attach(socket);
+      if (m.type === 'leave') {
+        this.sockets.delete(socket.id);
+        if (person.seat) this.session?.setConnected(person.seat, false);
+        if (socket.token === d.host) { d.hostOfflineAt = now - 60001; this.handoverHost(); }
+        await this.save(); this.broadcast(true); try { this.io.close(socket); } catch { /* closed */ } return;
+      }
+      if (m.type === 'reaction') {
+        if (!person.seat) { this.error(socket, 'not_seated', 'Penonton tidak bisa mengirim reaksi.'); return; }
+        if (!this.session) { this.error(socket, 'wrong_phase', 'Permainan belum dimulai.'); return; }
+        if (!Number.isInteger(m.preset) || m.preset < 0 || m.preset >= REACTIONS.length || Object.keys(m).length !== 2) { this.error(socket, 'bad_message', 'Reaksi tidak valid.'); return; }
+        if (now - (this.reactionTimes.get(socket.token!) ?? -Infinity) < 2000) { this.error(socket, 'rate_limited', 'Tunggu sebelum bereaksi lagi.'); return; }
+        this.reactionTimes.set(socket.token!, now); socket.lastReaction = now; this.io.attach(socket);
+        for (const s of this.sockets.values()) this.safeSend(s, { type: 'event', text: REACTIONS[m.preset], seat: person.seat, reaction: m.preset });
+        return;
+      }
       if (m.type === 'rename') {
         if (typeof m.name !== 'string' || !normalizeName(m.name)) { this.error(socket, 'bad_message', 'Nama wajib diisi.'); return; }
         person.name = uniqueName(m.name, d.people, socket.token!);
+        this.handoverHost();
         d.lastActivity = now; await this.save(); this.broadcast(true); return;
       }
       if (m.type === 'resync') { this.sendState(socket, true); return; }
       if (m.type === 'rematch') {
-        if (socket.token !== d.host) { this.error(socket, 'not_host', 'Hanya host boleh memulai lagi.'); return; }
+        if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Hanya host boleh memulai lagi.'); return; }
         if (!this.session?.viewFor(null).matchOver) { this.error(socket, 'wrong_phase', 'Pertandingan belum selesai.'); return; }
         this.session = null; d.session = null; d.handEndedAt = null;
         d.ready = []; d.takeovers = []; d.schedule = null;
         d.seatDice = { groups: [[...SEAT_ORDER]], dice: {}, deadline: now + 15000, botAt: {}, settledAt: null };
         this.scheduleSeatBots();
+        this.handoverHost();
         d.lastActivity = now; await this.save(); this.broadcast(true); return;
       }
       if (m.type === 'rollSeats') {
@@ -231,7 +256,7 @@ export class Room {
         await this.save(); this.broadcast(true); return;
       }
       if (m.type === 'replaceBot') {
-        if (socket.token !== d.host) { this.error(socket, 'not_host', 'Hanya host boleh mengganti bot.'); return; }
+        if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Hanya host boleh mengganti bot.'); return; }
         const target = Object.entries(d.people).find(([, p]) => p.seat === m.seat);
         if (!this.session || !target || this.connected(target[0]) || d.takeovers?.includes(m.seat)) { this.error(socket, 'illegal_action', 'Pemain harus offline.'); return; }
         (d.takeovers ??= []).push(m.seat); this.session.setControl(m.seat, 'bot');
@@ -245,11 +270,12 @@ export class Room {
       }
       if (m.type === 'act') {
         if (!this.session) { this.error(socket, 'wrong_phase', 'Permainan belum dimulai.'); return; }
-        if (!person.seat && !(socket.token === d.host && m.action?.type === 'nextHand')) { this.error(socket, 'not_seated', 'Duduk dahulu untuk bermain.'); return; }
+        if (!person.seat && !(this.isHost(socket.token) && m.action?.type === 'nextHand')) { this.error(socket, 'not_seated', 'Duduk dahulu untuk bermain.'); return; }
         if (!m.action || typeof m.action.type !== 'string') { this.error(socket, 'bad_message', 'Aksi tidak valid.'); return; }
         const seat = person.seat!;
         const result = this.session.apply(seat, m.action);
         if (!result.ok) { this.error(socket, result.code === 'stale_version' ? 'stale_version' : 'illegal_action', result.code === 'stale_version' ? 'Versi meja sudah berubah.' : 'Aksi tidak valid untuk keadaan meja ini.'); return; }
+        this.handoverHost();
         d.lastActivity = now; await this.save(); this.broadcast(true); return;
       }
       if (this.session || d.seatDice) { this.error(socket, 'wrong_phase', 'Pengaturan hanya bisa di lobi.'); return; }
@@ -257,16 +283,16 @@ export class Room {
         case 'sit':
           if (!SEAT_ORDER.includes(m.seat)) { this.error(socket, 'bad_message', 'Posisi tidak valid.'); return; }
           if (Object.values(d.people).some(p => p !== person && p.seat === m.seat)) { this.error(socket, 'seat_taken', 'Posisi sudah diisi.'); return; }
-          person.seat = m.seat; break;
+          person.seat = m.seat; person.seatedAt = now; break;
         case 'stand':
           if (person.seat && (!d.config.allowSpectators || this.info().spectators >= MAX_SPECTATORS)) { this.error(socket, 'room_full', 'Penonton sudah penuh atau tidak diizinkan.'); return; }
           person.seat = null; break;
         case 'config':
-          if (socket.token !== d.host) { this.error(socket, 'not_host', 'Hanya host boleh mengatur room.'); return; }
+          if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Hanya host boleh mengatur room.'); return; }
           if (!validConfig(m.config)) { this.error(socket, 'bad_message', 'Pengaturan room tidak valid.'); return; }
           d.config = structuredClone(m.config); break;
         case 'start': {
-          if (socket.token !== d.host) { this.error(socket, 'not_host', 'Hanya host boleh memulai.'); return; }
+          if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Hanya host boleh memulai.'); return; }
           const occupied = Object.values(d.people).filter(p => p.seat !== null);
           if (!d.config.fillWithBots && occupied.length !== 4) { this.error(socket, 'room_full', 'Perlu empat pemain untuk mulai.'); return; }
           d.seatDice = { groups: [[...SEAT_ORDER]], dice: {}, deadline: now + 15000, botAt: {}, settledAt: null };
@@ -276,8 +302,24 @@ export class Room {
         default: this.error(socket, 'bad_message', 'Pesan tidak dikenal.'); return;
       }
       socket.seat = person.seat; this.io.attach(socket);
+      this.handoverHost();
       d.lastActivity = now; await this.save(); this.broadcast(true);
     });
+  }
+  private handoverHost(): boolean {
+    const d = this.data!;
+    if (!d.host || (!d.hostTransferPending && (d.hostOfflineAt == null || this.io.now() - d.hostOfflineAt <= 60000))) return false;
+    const candidate = Object.entries(d.people).filter(([token, p]) => token !== d.host && p.seat && this.connected(token))
+      .sort((a, b) => (a[1].seatedAt ?? 0) - (b[1].seatedAt ?? 0))[0];
+    if (!candidate) {
+      const changed = !d.hostTransferPending;
+      d.hostTransferPending = true;
+      return changed;
+    }
+    d.host = candidate[0]; d.hostOfflineAt = null; d.hostTransferPending = false;
+    this.session?.setHost(candidate[1].seat!);
+    this.event(`${candidate[1].name} sekarang host`, candidate[1].seat!);
+    return true;
   }
   private event(text: string, seat: Seat): void {
     for (const s of this.sockets.values()) this.safeSend(s, { type: 'event', text, seat });
@@ -346,6 +388,7 @@ export class Room {
       if (!this.sockets.delete(socket.id) || !this.data || !socket.token) return;
       const seat = socket.token ? this.data.people[socket.token]?.seat : null;
       if (seat && !this.connected(socket.token!)) this.session?.setConnected(seat, false);
+      if (socket.token === this.data.host && !this.connected(socket.token)) this.data.hostOfflineAt ??= this.io.now();
       this.continueIfReady();
       this.data.lastActivity = this.io.now(); await this.save(); this.broadcast(true);
     });
@@ -369,7 +412,7 @@ export class Room {
         if (seat) this.session?.setConnected(seat, false);
         if (socket.token) presenceChanged = true;
       }
-      let changed = false;
+      let changed = this.handoverHost();
       const dice = d.seatDice;
       if (dice && !this.session) {
         if (dice.settledAt !== null && this.io.now() >= dice.settledAt + 3000) { this.startMatch(); changed = true; }

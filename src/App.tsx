@@ -30,6 +30,7 @@ import { loadPracticePace, loadPracticeSettings, motionSpeedForPace, settingsFor
 import { DIFFICULTY_LABEL, tileText } from './ui/labels';
 import { useScreenWakeLock } from './ui/wake-lock';
 import { releaseVersion } from './ui/release';
+import logoSmall from './assets/brand/maciokyu-logo-sm.png';
 import { tayKoinText } from './ui/components/points';
 import { getStorage, type StorageLike } from './storage';
 
@@ -322,9 +323,8 @@ export function App() {
     <div className={appClass(view === 'online' && onlineTable ? 'table' : view === 'online' ? 'menu' : view, optionsOpen)}>
       <header className="app-header" inert={dice !== null || undefined}>
         <div className="brand">
-          <span className="brand-tile">金</span>
           <div>
-            <h1>Mahjong Indonesia</h1>
+            <h1 className="brand-logo"><img src={logoSmall} alt="maciokYU!" width={94} height={30} /></h1>
             <span className="release-version" aria-label={"Versi " + releaseVersion}>{"v" + releaseVersion}</span>
             {devMode && <span className="dev-badge" title="Mode developer aktif — game tidak dicatat ke riwayat">DEV</span>}
           </div>

@@ -8,6 +8,8 @@ import type { SeatView, SessionAction } from '../session';
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE_LENGTH = 6;
 export const MAX_SPECTATORS = 8;
+export const REACTIONS = ['👍', '😂', '😮', '😭', '🔥', 'Ayo cepet!', 'Nice Hu!', 'Hoki banget!'] as const;
+export type ReactionId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export const NAME_MAX_LENGTH = 20;
 
 /** Canonical room names: no invisible format characters or lookalike whitespace. */
@@ -74,6 +76,8 @@ export interface RoomInfo {
 /** Client → server. */
 export type ClientMessage =
   | { type: 'hello'; token?: string; name: string }
+  | { type: 'reaction'; preset: ReactionId }
+  | { type: 'leave' }
   | { type: 'rename'; name: string }
   | { type: 'sit'; seat: Seat }
   | { type: 'stand' }
@@ -99,7 +103,7 @@ export type ServerMessage =
   /** Lobby state, personalized: `seat` and `host` describe the receiving socket. */
   | { type: 'room'; room: RoomInfo; seat: Seat | null; host: boolean; name?: string }
   | { type: 'view'; view: SeatView; serverNow: number }
-  | { type: 'event'; text: string; seat?: Seat }
+  | { type: 'event'; text: string; seat?: Seat; reaction?: ReactionId }
   | { type: 'error'; code: ErrorCode; message: string }
   | { type: 'pong'; serverNow: number }
   /** The server closes this socket next, e.g. the same seat opened on another device. */

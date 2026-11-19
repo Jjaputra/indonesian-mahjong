@@ -94,6 +94,15 @@ export interface ScoringBreakdownItem {
 }
 
 export interface MatchHistoryRecord {
+  online?: boolean;
+  roomCode?: string;
+  matchSummary?: {
+    seat: Seat;
+    koinTotal: Record<Seat, number>;
+    tayTotal: Record<Seat, number>;
+    handsPlayed: number;
+    huCount: number;
+  };
   id: string;
   /** Epoch milliseconds when the game finished */
   timestamp: number;
@@ -709,6 +718,7 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
   const deltas = gameDeltas(score, kongPayments);
   const discarder = (SEATS as readonly unknown[]).includes(raw.discarder) ? raw.discarder as Seat : undefined;
   return {
+    ...(raw.online === true ? { online: true, roomCode: typeof raw.roomCode === 'string' ? raw.roomCode : undefined } : {}),
     id: raw.id,
     timestamp: raw.timestamp,
     winner,
@@ -728,7 +738,20 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
     flowers,
     melds,
     ...sanitizeScoringFields(raw),
+    ...sanitizeMatchSummary(raw),
   };
+}
+
+function sanitizeMatchSummary(raw: Record<string, unknown>): Partial<MatchHistoryRecord> {
+  const summary = raw.matchSummary;
+  if (!isRecord(summary) || !SEATS.includes(summary.seat as Seat)
+    || !isFiniteNumber(summary.handsPlayed) || !Number.isInteger(summary.handsPlayed) || summary.handsPlayed < 0
+    || !isFiniteNumber(summary.huCount) || !Number.isInteger(summary.huCount) || summary.huCount < 0 || summary.huCount > summary.handsPlayed) return {};
+  const koinTotal = summary.koinTotal, tayTotal = summary.tayTotal;
+  if (!isRecord(koinTotal) || !isRecord(tayTotal) || !SEATS.every(seat => isFiniteNumber(koinTotal[seat]) && isFiniteNumber(tayTotal[seat]))) return {};
+  return { matchSummary: { seat: summary.seat as Seat, handsPlayed: summary.handsPlayed, huCount: summary.huCount,
+    koinTotal: Object.fromEntries(SEATS.map(seat => [seat, koinTotal[seat]])) as Record<Seat, number>,
+    tayTotal: Object.fromEntries(SEATS.map(seat => [seat, tayTotal[seat]])) as Record<Seat, number> } };
 }
 
 /** Optional scoring fields of a history row; invalid or missing values are left out, never guessed. */

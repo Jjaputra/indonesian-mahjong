@@ -113,7 +113,7 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
 
   // Leaving keeps the seat (the token stays stored); only the live connection is dropped.
   const leave = useCallback(() => {
-    table?.disconnect();
+    table?.leave();
     setTable(null);
     setLastRoom(loadLastRoom());
     try { window.history.replaceState(null, '', window.location.pathname); } catch { /* sandboxed frame */ }

@@ -11,6 +11,7 @@ import { practiceCoachLine, type CoachEmphasis } from '../practice-coach';
 import { handReadingLine } from '../hand-reading';
 import { applyHandOrder, isNewHand, mergeHandOrder, moveInOrder } from '../hand-order';
 import { isFirstGoAround, isInitialDealtHand, seatWindOf, toFullRules, toScoringOverlap } from '../win-context';
+import { SeatCallouts } from './CallToast';
 import { MeldView, TileBack, TileRow, TileView } from './TileView';
 
 /** Display name per seat; single player uses PLAYER_NAME, online tables pass the room's nicknames. */
@@ -168,6 +169,7 @@ export function CenterArea({ controller, progress, names = PLAYER_NAME }: { cont
           <TileView tile={pending.tile} size="lg" highlight />
         </div>
       )}
+      <SeatCallouts controller={controller} positions={positions} />
       {won && <p className={`hu-burst${won.scoring.isValidHu ? '' : ' is-lew-fit'}`} role="status">{won.scoring.isValidHu ? 'HU' : 'LEW FIT'}<small>{names[won.winner]}</small></p>}
     </section>
     <aside className="table-hud" aria-label="Info meja">

@@ -40,7 +40,9 @@ function finishedGame(): GameController {
 describe('UI render smoke tests', () => {
   it('App first renders the main menu without dealing', () => {
     const html = renderToString(createElement(App));
-    expect(html).toContain('Mahjong Tradisional Indonesia');
+    expect(html).toContain('alt="maciokYU!"');
+    expect(html).toContain('Mahjong Indonesia · main bareng teman');
+    expect(html).not.toContain('Mahjong Tradisional Indonesia');
     expect(html).toContain('Mulai bermain');
     expect(html).toContain('Kim dari tile');
     expect(html).toContain('Tanpa Kim');

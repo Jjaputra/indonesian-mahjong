@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TableSession } from '../../src/session';
-import { DEFAULT_SETTINGS, MemoryStorage } from '../../src/storage';
+import { DEFAULT_SETTINGS, MemoryStorage, loadGameHistory } from '../../src/storage';
 import { DEFAULT_ROOM_CONFIG } from '../../src/net/protocol';
 import { RemoteTable } from '../../src/net/remote-table';
 import { PLAYER_NAME } from '../../src/ui/labels';
@@ -178,4 +178,30 @@ describe('RemoteController (table adapter)', () => {
     const remote = new RemoteController(table);
     expect(remote.getHumanActions()).toMatchObject({ canDraw: false, canDiscard: false, claim: null });
   });
+});
+
+it('saves online final history with room code once across repeated views and excludes spectators', () => {
+  const storage = new MemoryStorage(), net = fakeNetwork();
+  const table = new RemoteTable({ server: 'https://mp.example', code: 'ABC234', name: 'Jason', storage, socketFactory: net.factory });
+  table.connect(); net.last.open(); net.last.receive({ type: 'welcome', token: 't', seat: 'dong', host: true, serverNow: 0, room: roomInfo() });
+  const view = oneHumanSession().viewFor('dong');
+  view.matchOver = true; view.match.finishedAt = 2000;
+  view.match.koinTotal = { dong: 100, nan: -80, xi: -10, bei: -10 };
+  view.match.tayTotal = { dong: 50, nan: 9, xi: 0, bei: 0 }; view.match.huCount.dong = 3;
+  view.match.hands = Array.from({ length: 16 }, (_, i) => ({ hand: i + 1, dealer: 'dong', prevailingWind: 'dong', winner: null, totalTay: 0, roundScore: null, kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 } }));
+  view.lastHand = { winner: null, winMethod: 'draw', discarder: null, hand: [], melds: [], breakdown: [{ id: 37, pattern: 'Original pattern', tay: 2 }], payments: { hand: 16, dealer: 'dong', prevailingWind: 'dong', winner: null, totalTay: 0, roundScore: null, kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 } } };
+  net.last.receive({ type: 'view', view, serverNow: 2000 }); net.last.receive({ type: 'view', view, serverNow: 2000 });
+  expect(loadGameHistory(storage)).toHaveLength(1); expect(loadGameHistory(storage)[0]).toMatchObject({ online: true, roomCode: 'ABC234', matchSummary: { seat: 'dong', handsPlayed: 16, huCount: 3, koinTotal: { dong: 100, nan: -80, xi: -10, bei: -10 }, tayTotal: { dong: 50, nan: 9, xi: 0, bei: 0 } }, scoringBreakdown: [{ id: 37, name: 'Original pattern', tay: 2 }] });
+  net.last.receive({ type: 'room', room: roomInfo(), seat: null, host: false });
+  view.match.startedAt++; net.last.receive({ type: 'view', view, serverNow: 2000 });
+  expect(loadGameHistory(storage)).toHaveLength(1); table.disconnect();
+});
+
+it('uses server chronology after reload even when Kong disrupts seat rotation', () => {
+  const { net, table } = joined(); const view = oneHumanSession().viewFor('dong');
+  const a = { id: 'first', type: 'tong' as const, value: 1 }, b = { id: 'kong-turn', type: 'tong' as const, value: 2 }, c = { id: 'third', type: 'tong' as const, value: 3 };
+  view.players.dong.discards = [a, c]; view.players.nan.discards = [b];
+  view.discardTrail = [{ seat: 'dong', tile: a }, { seat: 'nan', tile: b }, { seat: 'dong', tile: c }];
+  net.last.receive({ type: 'view', view, serverNow: 0 });
+  expect(new RemoteController(table).discardTrail.map(d => d.tile.id)).toEqual(['first', 'kong-turn', 'third']); table.disconnect();
 });

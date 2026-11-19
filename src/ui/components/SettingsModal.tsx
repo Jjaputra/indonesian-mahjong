@@ -104,9 +104,9 @@ export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMod
           <Toggle label="Layar tetap menyala saat main" checked={draft.keepScreenOn} onChange={v => set('keepScreenOn', v)} />
         </section>
         <section className="install-app">
-          <h3>Pasang sebagai aplikasi</h3>
-          {pwa.state === 'installed' && <p className="field-note">Sudah terpasang sebagai aplikasi.</p>}
-          {pwa.state === 'prompt' && <button type="button" className="btn" onClick={pwa.install}>Pasang sebagai aplikasi</button>}
+          <h3>Pasang maciokYU!</h3>
+          {pwa.state === 'installed' && <p className="field-note">maciokYU! sudah terpasang sebagai aplikasi.</p>}
+          {pwa.state === 'prompt' && <button type="button" className="btn" onClick={pwa.install}>Pasang maciokYU! sebagai aplikasi</button>}
           {pwa.state === 'ios' && <p className="field-note">Safari → Bagikan → Tambah ke Layar Utama</p>}
           {pwa.state === 'none' && <p className="field-note">Di Chrome Android: menu ⋮ → Pasang aplikasi. Di iPhone: Safari → Bagikan → Tambah ke Layar Utama.</p>}
         </section>

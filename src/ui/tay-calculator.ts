@@ -267,7 +267,7 @@ export function buildCalculatorReceipt(result: CalculatorResult): string {
 export function buildHuReceipt(outcome: HuOutcome): string {
   const r: ScoringResult = outcome.scoring;
   const lines = [
-    '=== STRUK HU — Mahjong Tradisional Indonesia ===',
+    '=== STRUK HU — maciokYU! ===',
     `Pemenang      : ${PLAYER_NAME[outcome.winner]} — ${SEAT_LABEL[outcome.seatWind ?? outcome.winner]}`,
     `Tile menang   : ${tileText(outcome.winningTile)}`,
     `Cara menang   : ${WIN_METHOD_LABEL[outcome.winMethod]}${outcome.discarder ? ` (dari ${PLAYER_NAME[outcome.discarder]})` : ''}`,
