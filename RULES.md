@@ -242,13 +242,14 @@ API: Hu/Seri outcomes and match/history records expose `kongPayments` (completed
 
 ## Multiplayer turn timer (house rule, players 2026-11-15)
 
-Not implemented yet; this is the rule for the multiplayer build.
+Implemented in the multiplayer build (v0.7.0 onward).
 
 - Each room sets a time per move (default 15 s). The lobby shows it together with the other room rules.
 - **Discard turn times out.** The player's turn is skipped and the tile they just drew from the wall is discarded for them. The choice is never random, and no bot plays for them. They play normally on their next turn, and nobody is kicked or replaced, however many times it happens.
 - **Claim window times out** (Jia, Pung, Kong, Hu). This counts as pass.
 - **Claim prompts stay semi-automatic, as in the single-player game** (players, 2026-11-15). Jia, Pung, Kong and Hu buttons appear only when that player can actually make the claim. The claim timer runs only while those buttons are shown. A player never has to press Skip on a discard they cannot claim.
 - A player who disconnects keeps their seat and timeouts apply as above. Reconnecting resumes play.
+- **Host bot swap** (players, 2026-11-18; confirmed 2026-11-19). The host may let a bot play the seat of an offline player ("Ganti bot"). Bots never take a seat on their own. When that player reconnects, the seat returns to them automatically with no host action, and the bot stops.
 
 Open edge cases. These are proposals until the players confirm them:
 - **Asking the group:** the discard timer runs out right after a Pung or Jia claim, when no tile was just drawn. A claim cannot be undone. The open proposal is to discard the right-most tile of the sorted concealed hand.
