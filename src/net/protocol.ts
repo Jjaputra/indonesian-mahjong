@@ -10,6 +10,10 @@ export const ROOM_CODE_LENGTH = 6;
 export const MAX_SPECTATORS = 8;
 export const NAME_MAX_LENGTH = 20;
 
+/** Canonical room names: no invisible format characters or lookalike whitespace. */
+export const normalizeName = (name: string): string =>
+  name.normalize('NFC').replace(/\p{Cf}/gu, '').replace(/\s+/gu, ' ').trim().normalize('NFC');
+
 export const isRoomCode = (code: string): boolean =>
   code.length === ROOM_CODE_LENGTH && [...code].every(ch => ROOM_CODE_ALPHABET.includes(ch));
 
@@ -70,6 +74,7 @@ export interface RoomInfo {
 /** Client → server. */
 export type ClientMessage =
   | { type: 'hello'; token?: string; name: string }
+  | { type: 'rename'; name: string }
   | { type: 'sit'; seat: Seat }
   | { type: 'stand' }
   | { type: 'config'; config: RoomConfig }
@@ -90,9 +95,9 @@ export type ErrorCode =
 /** Server → client. */
 export type ServerMessage =
   /** Sent once per hello. Keep `token` to rejoin; `serverNow` lets the client correct its clock for deadlines. */
-  | { type: 'welcome'; token: string; seat: Seat | null; host: boolean; serverNow: number; room: RoomInfo }
+  | { type: 'welcome'; token: string; seat: Seat | null; host: boolean; serverNow: number; room: RoomInfo; name?: string }
   /** Lobby state, personalized: `seat` and `host` describe the receiving socket. */
-  | { type: 'room'; room: RoomInfo; seat: Seat | null; host: boolean }
+  | { type: 'room'; room: RoomInfo; seat: Seat | null; host: boolean; name?: string }
   | { type: 'view'; view: SeatView; serverNow: number }
   | { type: 'event'; text: string; seat?: Seat }
   | { type: 'error'; code: ErrorCode; message: string }

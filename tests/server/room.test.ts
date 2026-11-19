@@ -137,7 +137,7 @@ describe('room', () => {
     await h.send(host, { type: 'replaceBot', seat: 'nan' }); expect(h.room.session!.serialize().options.seats.nan).toBe('bot');
     h.rebuild(); await h.join('Peer', peer.token); expect(h.room.session!.serialize().options.seats.nan).toBe('human');
     const events = h.frames.get(host.id)!.filter(m => m.type === 'event');
-    expect(events.map(e => e.text)).toEqual(['Nama digantikan bot', 'Peer kembali']);
+    expect(events.map(e => e.text)).toEqual(['Nama 2 digantikan bot', 'Nama 2 kembali']);
   });
   it('bot schedule stays deterministic with turn and claim delays in range', async () => {
     const { h } = await botRoom();
@@ -258,5 +258,59 @@ describe('room', () => {
     const { h, host } = await botRoom(); await h.room.disconnect(host);
     expect(h.alarm!).toBeLessThan(h.now + 86400000);
     h.now = h.blob.lastActivity + 86400000; await h.room.alarm(); expect(h.room.data).toBeNull();
+  });
+});
+
+
+describe('unique room names', () => {
+  it('suffixes duplicates ignoring case and surrounding spaces, including spectators', async () => {
+    const h = harness(); await h.create();
+    for (const name of ['A Liong', ' a liong ', 'A Liong', 'A Liong', 'A Liong']) await h.join(name);
+    expect(Object.values(h.blob.people).map(p => p.name)).toEqual(['A Liong', 'a liong 2', 'A Liong 3', 'A Liong 4', 'A Liong 5']);
+  });
+  it('truncates long bases, avoids suffix collisions and preserves names on reconnect', async () => {
+    const h = harness(); await h.create();
+    await h.join('ABCDEFGHIJKLMNOPQRST'); await h.join('ABCDEFGHIJKLMNOPQR 2');
+    const s = await h.join('ABCDEFGHIJKLMNOPQRST');
+    expect(h.blob.people[s.token!]!.name).toBe('ABCDEFGHIJKLMNOPQR 3');
+    await h.room.disconnect(s); h.rebuild();
+    const rejoined = await h.join('old client name', s.token);
+    expect(h.blob.people[s.token!]!.name).toBe('ABCDEFGHIJKLMNOPQR 3');
+    expect(h.frames.get(rejoined.id)![0]).toMatchObject({ type: 'welcome', name: 'ABCDEFGHIJKLMNOPQR 3' });
+  });
+  it('makes renames unique, excludes the owner, and broadcasts the assigned name', async () => {
+    const h = harness(); await h.create(); const a = await h.join('A Liong'); const b = await h.join('B');
+    await h.send(a, { type: 'rename', name: 'A Liong' }); expect(h.blob.people[a.token!]!.name).toBe('A Liong');
+    await h.send(b, { type: 'rename', name: ' A Liong ' }); expect(h.blob.people[b.token!]!.name).toBe('A Liong 2');
+    expect(h.frames.get(b.id)!.at(-1)).toMatchObject({ type: 'room', name: 'A Liong 2' });
+    await h.send(b, { type: 'rename', name: ' ' }); expect(errors(h, b).at(-1)).toMatchObject({ code: 'bad_message' });
+  });
+});
+
+
+describe('canonical room names', () => {
+  it('normalizes composition, invisible format characters and Unicode spaces before uniqueness and persistence', async () => {
+    const h = harness(); await h.create();
+    const first = await h.join('  A\u00a0\u200bLi\u200dong\u2060  ');
+    const second = await h.join('a\u2009\u202fliong');
+    expect(h.blob.people[first.token!]!.name).toBe('A Liong');
+    expect(h.blob.people[second.token!]!.name).toBe('a liong 2');
+    const composed = await h.join('Caf\u00e9');
+    const decomposed = await h.join('Cafe\u0301');
+    expect(h.blob.people[composed.token!]!.name).toBe('Caf\u00e9');
+    expect(h.blob.people[decomposed.token!]!.name).toBe('Caf\u00e9 2');
+    await h.send(second, { type: 'rename', name: '\u200bCAFE\u0301\u00a0' });
+    expect(h.blob.people[second.token!]!.name).toBe('CAF\u00c9 3');
+  });
+
+  it('rejects names made only of spaces and format characters on join and rename', async () => {
+    const h = harness(); await h.create();
+    const blank = await h.join('\u200b\u2060\u00a0\u2003');
+    expect(errors(h, blank).at(-1)).toMatchObject({ code: 'bad_message' });
+    expect(Object.values(h.blob.people)).toHaveLength(0);
+    const player = await h.join('A Liong');
+    await h.send(player, { type: 'rename', name: '\u200e\u202f\u200f' });
+    expect(errors(h, player).at(-1)).toMatchObject({ code: 'bad_message' });
+    expect(h.blob.people[player.token!]!.name).toBe('A Liong');
   });
 });

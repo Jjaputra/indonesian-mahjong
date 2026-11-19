@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { connectionIndicator, type ConnectionStatus } from '../../net/connection';
 import { Crown, HelpCircle, LogOut, MessageCircle, Share2 } from 'lucide-react';
 import { SEAT_ORDER } from '../../core/tiles';
 import type { Seat } from '../../core/types';
@@ -7,6 +8,11 @@ import { buildShareText, inviteLink, whatsAppUrl } from '../../net/room-store';
 import { DIFFICULTY_LABEL, SEAT_LABEL } from '../labels';
 import { InviteHelp } from './InviteHelp';
 import { RoomConfigFields } from './RoomConfigFields';
+
+export function ConnectionIndicator({ status, latencyMs = null, pongLate = false }: { status: ConnectionStatus; latencyMs?: number | null; pongLate?: boolean }) {
+  const indicator = connectionIndicator(status, latencyMs, pongLate);
+  return <span className={`online-connection is-${indicator.tone}`} role="status"><span className="online-connection-dot" aria-hidden="true" />{indicator.text}</span>;
+}
 
 const KIM_TEXT = { natural: 'Kim dari tile', dedicated: 'Kim tambahan', off: 'Tanpa Kim' } as const;
 
@@ -20,6 +26,7 @@ export function startBlocker(room: RoomInfo): string | null {
 
 export interface RoomLobbyProps {
   room: RoomInfo;
+  connection?: { status: ConnectionStatus; latencyMs?: number | null; pongLate?: boolean };
   seat: Seat | null;
   isHost: boolean;
   onSit: (seat: Seat) => void;
@@ -30,7 +37,7 @@ export interface RoomLobbyProps {
   onToast: (text: string) => void;
 }
 
-export function RoomLobby({ room, seat, isHost, onSit, onStand, onStart, onConfig, onLeave, onToast }: RoomLobbyProps) {
+export function RoomLobby({ room, connection, seat, isHost, onSit, onStand, onStart, onConfig, onLeave, onToast }: RoomLobbyProps) {
   const [help, setHelp] = useState(false);
   const { config } = room;
   const blocker = startBlocker(room);
@@ -53,6 +60,7 @@ export function RoomLobby({ room, seat, isHost, onSit, onStand, onStart, onConfi
           <button type="button" className="mp-link" onClick={onLeave}><LogOut size={16} aria-hidden="true" /> Keluar room</button>
           <button type="button" className="mp-link" onClick={() => setHelp(true)}><HelpCircle size={16} aria-hidden="true" /> Cara undang teman</button>
         </div>
+        {connection && <ConnectionIndicator {...connection} />}
         <p className="menu-eyebrow">Kode room</p>
         <p className="mp-code" aria-label={`Kode room ${room.code.split('').join(' ')}`}>{room.code}</p>
         <div className="mp-share">
