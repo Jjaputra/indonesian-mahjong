@@ -8,7 +8,9 @@ import {
 } from '../../storage';
 import { soundEffects } from '../../audio';
 import { DIFFICULTY_LABEL } from '../labels';
+import { usePwaInstall } from '../pwa-install';
 import { Modal } from './Modal';
+import '../qol.css';
 
 interface SettingsModalProps {
   settings: GameSettings;
@@ -31,6 +33,7 @@ export function withPreset(current: GameSettings, name: SettingsPresetName): Gam
     musicVolume: current.musicVolume,
     masterVolume: current.masterVolume,
     effectsVolume: current.effectsVolume,
+    keepScreenOn: current.keepScreenOn,
     roundWind: current.roundWind,
     startingSeatWind: current.startingSeatWind,
   };
@@ -55,6 +58,7 @@ export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMod
   }));
   const lastSample = useRef(-Infinity);
   const [draft, setDraft] = useState<GameSettings>({ ...settings });
+  const pwa = usePwaInstall();
   const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
   const setAudio = <K extends 'soundEnabled' | 'musicEnabled' | 'musicVolume' | 'masterVolume' | 'effectsVolume'>(key: K, value: GameSettings[K]) => {
@@ -97,6 +101,14 @@ export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMod
           </div>
           <Toggle label={`Animasi tile: ${draft.animationSpeed === 'off' ? 'mati' : 'aktif'}`}
             checked={draft.animationSpeed !== 'off'} onChange={enabled => set('animationSpeed', enabled ? 'slow' : 'off')} />
+          <Toggle label="Layar tetap menyala saat main" checked={draft.keepScreenOn} onChange={v => set('keepScreenOn', v)} />
+        </section>
+        <section className="install-app">
+          <h3>Pasang sebagai aplikasi</h3>
+          {pwa.state === 'installed' && <p className="field-note">Sudah terpasang sebagai aplikasi.</p>}
+          {pwa.state === 'prompt' && <button type="button" className="btn" onClick={pwa.install}>Pasang sebagai aplikasi</button>}
+          {pwa.state === 'ios' && <p className="field-note">Safari → Bagikan → Tambah ke Layar Utama</p>}
+          {pwa.state === 'none' && <p className="field-note">Di Chrome Android: menu ⋮ → Pasang aplikasi. Di iPhone: Safari → Bagikan → Tambah ke Layar Utama.</p>}
         </section>
         <section>
           <h3>Suara</h3>

@@ -80,6 +80,8 @@ export interface GameSettings {
   masterVolume: number;
   effectsVolume: number;
   musicVolume: number;
+  /** Hold a screen wake lock while a table is shown (device preference, default on). */
+  keepScreenOn: boolean;
 }
 
 export type WinMethod = 'tsumo' | 'ron' | 'chiong_kong' | 'draw';
@@ -219,6 +221,7 @@ export const TOURNAMENT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   musicVolume: 0.5,
   masterVolume: DEFAULT_MASTER_VOLUME,
   effectsVolume: DEFAULT_EFFECTS_VOLUME,
+  keepScreenOn: true,
 });
 
 /** Relaxed casual rules (Kim meld claims permitted, patterns stack). */
@@ -239,6 +242,7 @@ export const CASUAL_SETTINGS: Readonly<GameSettings> = Object.freeze({
   musicVolume: 0.5,
   masterVolume: DEFAULT_MASTER_VOLUME,
   effectsVolume: DEFAULT_EFFECTS_VOLUME,
+  keepScreenOn: true,
 });
 
 /** The user's house choices (not PDF text): column from the match Kim choice, player-confirmed PDF bonus tiles. */
@@ -430,6 +434,7 @@ export function sanitizeSettings(
     masterVolume: isFiniteNumber(src.masterVolume) ? Math.max(0, Math.min(1, src.masterVolume)) : base.masterVolume,
     effectsVolume: isFiniteNumber(src.effectsVolume) ? Math.max(0, Math.min(1, src.effectsVolume)) : base.effectsVolume,
     musicVolume: isFiniteNumber(src.musicVolume) ? Math.max(0, Math.min(1, src.musicVolume)) : base.musicVolume,
+    keepScreenOn: pickBool(src.keepScreenOn, base.keepScreenOn),
   };
 }
 

@@ -6,6 +6,7 @@ import { OnlineMenu } from './OnlineMenu';
 import { RemoteTableView } from './RemoteTableView';
 import '../online.css';
 import { RoomLobby } from './RoomLobby';
+import { startTurnAlerts } from '../turn-alert';
 
 export interface OnlineScreenProps {
   server: string;
@@ -45,6 +46,7 @@ function SeatRolls({ table }: { table: RemoteTable }) {
 
 function RoomScreen({ table, optionsOpen, onOptionsOpenChange, onLeave, toast }: { table: RemoteTable; optionsOpen: boolean; onOptionsOpenChange: (open: boolean) => void; onLeave: () => void; toast: (text: string) => void }) {
   const state = useSyncExternalStore(table.subscribe, table.getState, table.getState);
+  useEffect(() => startTurnAlerts(table), [table]);
   useEffect(() => {
     const visible = () => { if (document.visibilityState === 'visible') table.onVisible(); };
     document.addEventListener('visibilitychange', visible);

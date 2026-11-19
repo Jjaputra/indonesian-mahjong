@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Room, validConfig, type RoomData, type Socket, type RoomIO } from '../../server/room';
 import { DEFAULT_ROOM_CONFIG, type ClientMessage, type ServerMessage } from '../../src/net/protocol';
+import { TableSession } from '../../src/session';
 import type { HandSeed } from '../../src/session';
 import { SEAT_ORDER } from '../../src/core/tiles';
 
@@ -64,6 +65,42 @@ describe('room', () => {
     await h.join(); await h.join(); const extra = await h.join(); expect(errors(h, extra).at(-1)).toMatchObject({ code: 'room_full' });
     await h.send(host, { type: 'start' }); await finishSeating(h); expect(h.room.session).not.toBeNull();
     await h.send(host, { type: 'stand' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'wrong_phase' });
+  });
+  it('allows rematch only for the host after the match is over', async () => {
+    const h = harness(); await h.create(); const host = await h.join(); const peer = await h.join();
+    await h.send(host, { type: 'rematch' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'wrong_phase' });
+    await h.send(host, { type: 'start' });
+    await h.send(host, { type: 'rematch' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'wrong_phase' });
+    await finishSeating(h);
+    await h.send(host, { type: 'rematch' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'wrong_phase' });
+    const snapshot = h.room.session!.serialize(); snapshot.match.endedBy = 'hands'; snapshot.match.finishedAt = h.now;
+    h.room.session = TableSession.deserialize(snapshot, () => h.now);
+    await h.send(peer, { type: 'rematch' }); expect(errors(h, peer).at(-1)).toMatchObject({ code: 'not_host' });
+    expect(h.room.info().phase).toBe('finished');
+  });
+  it('persists a clean rematch with the same room, people and settings, then runs seat dice after reload', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host'); const peer = await h.join('Peer');
+    await h.send(host, { type: 'config', config: { ...DEFAULT_ROOM_CONFIG, minHuTay: 8, turnSeconds: 30 } });
+    await h.send(host, { type: 'start' }); await finishSeating(h);
+    await h.room.disconnect(peer); await h.send(host, { type: 'replaceBot', seat: 'nan' });
+    const snapshot = h.room.session!.serialize();
+    snapshot.match.endedBy = 'hands'; snapshot.match.finishedAt = h.now; snapshot.match.koinTotal.dong = 999;
+    h.room.session = TableSession.deserialize(snapshot, () => h.now);
+    h.room.data!.ready = [host.token!];
+    const people = structuredClone(h.room.data!.people), config = structuredClone(h.room.data!.config);
+    await h.send(host, { type: 'rematch' });
+    expect(h.blob).toMatchObject({ code: 'ABCDEF', people, config, session: null, ready: [], takeovers: [], handEndedAt: null, schedule: null });
+    expect(h.room.info().phase).toBe('seating'); expect(h.blob.seatDice!.dice).toEqual({});
+    h.rebuild(); expect(h.room.info().phase).toBe('seating'); expect(h.blob.people).toEqual(people);
+    // Humans (including offline humans) auto-roll at the deadline; bots roll via alarms.
+    for (let i = 0; h.room.info().phase === 'seating' && i < 50; i++) await h.tick();
+    expect(h.room.info().phase).toBe('playing');
+    const fresh = h.room.session!.serialize();
+    expect(fresh.match.hands).toEqual([]); expect(fresh.match.koinTotal).toEqual({ dong: 0, nan: 0, xi: 0, bei: 0 });
+    expect(fresh.match.endedBy).toBeNull(); expect(fresh.match.minHuTay).toBe(8);
+    const peerSeat = h.blob.people[peer.token!]!.seat!;
+    expect(fresh.options.seats[peerSeat]).toBe('human'); expect(fresh.presence[peerSeat].connected).toBe(false);
+    h.rebuild(); expect(h.room.info().phase).toBe('playing');
   });
   it('seat rolls use server dice, sort descending, persist, and reassign socket seats', async () => {
     const h = harness(); await h.create(); const host = await h.join(); const peer = await h.join();

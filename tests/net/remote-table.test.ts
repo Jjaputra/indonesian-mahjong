@@ -33,6 +33,18 @@ describe('RemoteTable actions', () => {
     expect(net.last.ofType('act')[1]!.action).toMatchObject({ type: 'discard', tileId: 'x', version: session.version });
   });
 
+  it('requests a rematch and clears the old match view and log when seating starts', () => {
+    const { net, table } = joined();
+    const v = oneHumanSession().viewFor('dong');
+    net.last.receive({ type: 'view', view: { ...v, phase: 'RESOLVED_HU', matchOver: true }, serverNow: 0 });
+    net.last.receive({ type: 'event', text: 'Old match' });
+    table.rematch(); expect(net.last.sent.at(-1)).toEqual({ type: 'rematch' });
+    net.last.receive({ type: 'room', room: { ...roomInfo(), phase: 'seating' }, seat: 'dong', host: true });
+    expect(table.getState()).toMatchObject({ view: null, handEndedAt: null, log: [] });
+    net.last.receive({ type: 'view', view: v, serverNow: 0 });
+    expect(table.getState().view).toEqual(v);
+  });
+
   it('refuses to act before the first view', () => {
     const { net, table } = joined();
     expect(table.act({ type: 'pass' })).toBe(false);
@@ -63,6 +75,30 @@ describe('RemoteTable actions', () => {
 });
 
 describe('end of hand', () => {
+  it.each([false, true])('clears old match activity after reconnecting past seating (new hand finished: %s)', finished => {
+    const { net, table, clock } = joined();
+    const view = oneHumanSession().viewFor('dong');
+    net.last.receive({ type: 'view', serverNow: 0, view: { ...view, phase: 'RESOLVED_HU', matchOver: true } });
+    net.last.receive({ type: 'event', text: 'Old match activity' });
+    clock.advance(1000);
+    net.last.drop(); table.onVisible(); net.last.open();
+    const room = roomInfo({ phase: 'playing' });
+    net.last.receive({ type: 'welcome', token: 't', seat: 'dong', host: true, serverNow: 1000, room });
+    net.last.receive({ type: 'room', room, seat: 'dong', host: true });
+    // A same-match resync keeps activity; no seating/lobby message arrives during this reconnect.
+    net.last.receive({ type: 'view', serverNow: 1000, view: { ...view, phase: 'RESOLVED_HU', matchOver: true } });
+    expect(table.getState().log.map(l => l.text)).toEqual(['Old match activity']);
+    const nextView = { ...view, match: { ...view.match, startedAt: view.match.startedAt + 1000 },
+      phase: finished ? 'RESOLVED_HU' as const : view.phase };
+    net.last.receive({ type: 'view', serverNow: 1000, view: nextView });
+    expect(table.getState().log).toEqual([]);
+    expect(table.getState().handEndedAt).toBe(finished ? 1000 : null);
+    net.last.receive({ type: 'event', text: 'New match activity' });
+    net.last.receive({ type: 'view', serverNow: 1000, view: { ...nextView, version: nextView.version + 1 } });
+    expect(table.getState().log.map(l => l.text)).toEqual(['New match activity']);
+    table.disconnect();
+  });
+
   it('stamps the end once; later views of the same finished hand keep the first time', () => {
     const { net, table, clock } = joined();
     const view = oneHumanSession().viewFor('dong');
