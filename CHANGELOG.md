@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-19
+### Changed
+- Online: a slow connection now reads "Sinyal lemah".
+
 ## [0.9.1] - 2026-11-19
 ### Changed
 - Online: the hand result looks like the single-player one. It has a big HU banner, a chip for how the hand was won, a Tay table without 0-Tay rows plus a total, a coloured koin table and a ready strip with a countdown bar.
