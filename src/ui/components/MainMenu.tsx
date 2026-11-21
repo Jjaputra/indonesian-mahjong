@@ -4,6 +4,7 @@ import type { AIDifficulty } from '../../storage';
 import logo from '../../assets/brand/maciokyu-logo.png';
 import { DIFFICULTY_LABEL } from '../labels';
 import { useConfig } from '../../net/config';
+import { useAccount } from '../../net/auth';
 import { PremiumModal } from './PremiumModal';
 import { type DeadWallOption, type DealerWinRule, type MatchTimeLimit } from '../match';
 
@@ -112,6 +113,11 @@ function SoloChoices(props: MainMenuProps & { onBack: () => void }) {
   );
 }
 
+/** Only admins see it. A component of its own, so the account hook runs inside React and not when tests call the menu directly. */
+function AdminLink() {
+  return useAccount()?.admin ? <a className="menu-admin" href="?admin=1">Admin</a> : null;
+}
+
 function FrontChoices({ lastResult, onSolo, onOnline, resumeRoomCode, onResumeRoom, onPremium }: Pick<MainMenuProps, 'lastResult' | 'onOnline' | 'resumeRoomCode' | 'onResumeRoom'> & { onSolo: () => void; onPremium: () => void }) {
   return (
     <section className="menu-card" aria-label="Menu utama">
@@ -134,6 +140,7 @@ function FrontChoices({ lastResult, onSolo, onOnline, resumeRoomCode, onResumeRo
         <button type="button" className="menu-premium" onClick={onPremium}>
           <Sparkles size={16} aria-hidden="true" /> Premium · segera hadir
         </button>
+        <AdminLink />
       </div>
     </section>
   );
