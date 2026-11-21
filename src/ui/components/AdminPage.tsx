@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { authHeaders, useAccount } from '../../net/auth';
+import { authHeaders, openAuth, useAccount } from '../../net/auth';
 import { fetchConfig, type PublicConfig } from '../../net/config';
+import { AccountPanel } from './OnlineScreen';
+import '../online.css';
 
 interface AdminUser { id: string; name: string; email: string | null; premium: number }
 export function AdminPage({ server }: { server: string }) {
@@ -13,8 +15,15 @@ export function AdminPage({ server }: { server: string }) {
     return response.json();
   }
   const fail = (e: Error) => setMessage(e.message);
+  // This page skips the online screen, so it loads the login session itself.
+  const [ready, setReady] = useState(false), [authError, setAuthError] = useState<string | null>(null);
+  useEffect(() => { void openAuth(server).catch(() => setAuthError('Gagal memuat akun, coba lagi.')).finally(() => setReady(true)); }, [server]);
   useEffect(() => { if (account?.admin) void api('settings').then(setSettings).catch(fail); }, [account?.admin, server]);
-  if (!account?.admin) return null;
+  if (!account?.admin) return <main className="main-menu"><section className="menu-card admin-settings"><h1>Pengaturan admin</h1>
+    <p>{!ready ? 'Memuat akun…' : account ? 'Akun ini bukan admin.' : 'Masuk dengan Google untuk membuka halaman admin.'}</p>
+    {ready && <AccountPanel onError={setAuthError} onClear={() => setAuthError(null)} error={authError} />}
+    <a className="btn" href="./">Kembali ke menu</a>
+  </section></main>;
   return <main className="main-menu"><section className="menu-card admin-settings"><h1>Pengaturan admin</h1>
     {settings && <form onSubmit={e => { e.preventDefault(); void api('settings', settings).then(async value => { setSettings(value); await fetchConfig(server); setMessage('Pengaturan disimpan.'); }).catch(fail); }}>
       <label>Jatah match harian (0–50)<input type="number" min={0} max={50} value={settings.dailyMatchLimit} onChange={e => setSettings({ ...settings, dailyMatchLimit: e.target.valueAsNumber })} /></label><p>Jumlah match yang dapat dimulai host tanpa Premium setiap hari.</p>
@@ -28,5 +37,6 @@ export function AdminPage({ server }: { server: string }) {
     {users.map(user => <label key={user.id}>{user.name} · {user.email}<input type="checkbox" checked={!!user.premium} onChange={e => { const premium = e.target.checked; void api(`users/${encodeURIComponent(user.id)}/premium`, { premium }).then(() => setUsers(list => list.map(u => u.id === user.id ? { ...u, premium: premium ? 1 : 0 } : u))).catch(fail); }} /> Premium</label>)}
     <button className="btn" onClick={() => { void api('news-emails').then(async (emails: string[]) => { await navigator.clipboard.writeText(emails.join(', ')); setMessage(`${emails.length} email disalin.`); }).catch(fail); }}>Salin email yang setuju dikabari</button>
     <p role="status">{message}</p>
+    <a className="btn" href="./">Kembali ke menu</a>
   </section></main>;
 }
