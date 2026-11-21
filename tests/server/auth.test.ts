@@ -181,7 +181,7 @@ it('defaults email consent off, records explicit changes, rejects invalid choice
   sqlite.close();
 });
 
-it('verifies /me current room against the room and clears a stale reference; refuses duplicate creation', async () => {
+it.each(['playing', 'finished'])('verifies /me room and clears explicit leave in phase %s; refuses duplicate creation', async phase => {
   const { db, sqlite } = database();
   const token = 'a'.repeat(43);
   sqlite.prepare("INSERT INTO users (id,provider,provider_sub,name,premium,created_at,last_seen_at) VALUES ('u','google','s','Name',0,0,0)").run();
@@ -191,9 +191,9 @@ it('verifies /me current room against the room and clears a stale reference; ref
   const env: Env = { DB: db, ROOM_CREATION_LIMITER: { limit: async () => ({ success: true }) }, ROOMS: { idFromName: n => n, get: () => ({ fetch: async r => {
     expect(r.headers.get('X-User-Id')).toBe('u');
     if (r.method === 'DELETE') live = false;
-    return Response.json(live ? { code: 'ABCDEF', phase: 'playing' } : null);
+    return Response.json(live ? { code: 'ABCDEF', phase } : null);
   } }) } };
-  expect((await (await worker.fetch(request('/me', 'GET', token), env)).json()).currentRoom).toEqual({ code: 'ABCDEF', phase: 'playing' });
+  expect((await (await worker.fetch(request('/me', 'GET', token), env)).json()).currentRoom).toEqual({ code: 'ABCDEF', phase });
   expect((await worker.fetch(request('/rooms', 'POST', token), env)).status).toBe(409);
   for (const body of [undefined, { code: 'GHJKLM' }]) {
     await worker.fetch(request('/me/room', 'DELETE', token, body), env);

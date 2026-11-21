@@ -121,7 +121,7 @@ export class RemoteTable {
   get isHost(): boolean { return this.state.host; }
   get dailyLimitStorage(): StorageLike | undefined { return this.options.storage; }
 
-  leave(): void { this.conn.send({ type: 'leave' }); this.conn.stop(); void refreshAccount().catch(() => {}); }
+  leave(): void { this.conn.send({ type: 'leave' }); this.conn.stop(); if (this.state.view?.matchOver) forgetRoom(this.code, this.options.storage); void refreshAccount().catch(() => {}); }
   reclaim(): void { this.reclaimRequested = true; this.token = undefined; this.patch({ ended: null, joined: false }); this.conn.restart(); }
   react(preset: ReactionId): void { if (this.state.seat) this.conn.send({ type: 'reaction', preset }); }
   rename(name: string): void { this.conn.send({ type: 'rename', name }); }

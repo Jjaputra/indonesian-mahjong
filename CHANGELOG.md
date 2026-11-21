@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-21
+### Added
+- Online: after the last game of a match, "Klasemen Akhir" opens with the table winner, the ranked totals (koin, Tay, Hu), the Σ 0 check and every game of the match, like in single player. The host can press "Main lagi" from there. Coming back to a finished room opens the standings straight away.
+### Fixed
+- Online: "Keluar room" after a finished match really leaves. The menu no longer offers "Lanjutkan room" for it, so you don't end up going round between the menu and the last hand.
+- Online: players who leave after the match keep their own name in the standings instead of turning into "Bot N".
+- Online: "Lihat meja" on the last hand's result opens the table.
+
 ## [1.5.0] - 2026-11-21
 ### Changed
 - Online: a host can start 3 matches a day (was 5). Joining someone else's room is still free.

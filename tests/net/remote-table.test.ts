@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TableSession } from '../../src/session';
 import { DEFAULT_SETTINGS, MemoryStorage, loadGameHistory } from '../../src/storage';
 import { DEFAULT_ROOM_CONFIG } from '../../src/net/protocol';
-import { loadRoom } from '../../src/net/room-store';
+import { loadRoom, loadLastRoom } from '../../src/net/room-store';
 import { RemoteTable } from '../../src/net/remote-table';
 import { PLAYER_NAME } from '../../src/ui/labels';
 import { RemoteController, seatNames, spectatorBottomNames } from '../../src/ui/components/remote-adapter';
@@ -19,6 +19,18 @@ function joined(initialConfig?: typeof DEFAULT_ROOM_CONFIG) {
 }
 
 const oneHumanSession = () => new TableSession({ settings: { ...DEFAULT_SETTINGS }, seats: { dong: 'human', nan: 'bot', xi: 'bot', bei: 'bot' }, seed: 5, now: () => 1000 });
+
+it('forgets a finished room on explicit leave but keeps it on tab close', () => {
+  const storage = new MemoryStorage(), net = fakeNetwork();
+  const table = new RemoteTable({ server: 'https://mp.example', code: 'ABC234', name: 'Jason', storage, socketFactory: net.factory });
+  table.connect(); net.last.open();
+  net.last.receive({ type: 'welcome', token: 't', seat: 'dong', host: true, serverNow: 0, room: roomInfo({ phase: 'finished' }) });
+  net.last.receive({ type: 'view', serverNow: 0, view: { ...oneHumanSession().viewFor('dong'), matchOver: true, phase: 'DRAW_SERI' } });
+  table.disconnect();
+  expect(loadLastRoom(storage)?.code).toBe('ABC234');
+  table.leave();
+  expect(loadLastRoom(storage)).toBeNull(); expect(loadRoom('ABC234', storage)).toBeNull();
+});
 
 it('stops on a silent replacement close and sends reclaim only after the button, never on later reconnects', () => {
   const { net, table, clock } = joined();

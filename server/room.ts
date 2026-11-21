@@ -34,6 +34,7 @@ export interface RoomData {
   creatorUserId?: string;
   creatorPending?: boolean;
   matchKey?: string;
+  matchNames?: Record<Seat, string>;
   config: RoomConfig;
   host: string | null;
   people: Record<string, { name: string; seat: Seat | null; seatedAt?: number; userId?: string; sessionHash?: string }>;
@@ -86,6 +87,7 @@ export class Room {
   constructor(private io: RoomIO, data: RoomData | null = null, sockets: Socket[] = []) {
     this.data = data ? structuredClone(data) : null;
     this.session = data?.session ? TableSession.deserialize(data.session, io.now, io.seed) : null;
+    if (this.session && this.data && !this.data.matchNames) this.captureMatchNames();
     for (const socket of sockets) { this.sockets.set(socket.id, socket); if (socket.token && socket.lastReaction != null) this.reactionTimes.set(socket.token, socket.lastReaction); }
   }
   private exclusive<T>(fn: () => Promise<T>): Promise<T> {
@@ -115,7 +117,7 @@ export class Room {
       spectators: [...this.sockets.values()].filter(s => s.token && d.people[s.token]?.seat === null).length,
       seats: SEAT_ORDER.map(seat => {
         const entry = Object.entries(d.people).find(([, p]) => p.seat === seat);
-        return { seat, name: entry?.[1].name ?? (this.session ? 'Bot' : null), bot: !!this.session && !entry,
+        return { seat, name: (this.session?.viewFor(null).matchOver ? d.matchNames?.[seat] : null) ?? entry?.[1].name ?? (this.session ? 'Bot' : null), bot: !!this.session && !entry,
           ready: !entry || !this.connected(entry[0]) || !!d.ready?.includes(entry[0]), takeover: !!d.takeovers?.includes(seat),
           connected: entry ? this.connected(entry[0]) : false, host: !!entry && this.isHost(entry[0]) };
       }) };
@@ -139,7 +141,7 @@ export class Room {
   }
   private cleanupAt(): number {
     const d = this.data!;
-    if (!d.host && !Object.values(d.people).some(p => p.seat)) return (d.createdAt ?? d.lastActivity) + HOUR;
+    if (!this.session && !d.matchKey && ![...this.sockets.values()].some(s => s.token) && !d.host && !Object.values(d.people).some(p => p.seat)) return (d.createdAt ?? d.lastActivity) + HOUR;
     const activity = [...this.sockets.values()].filter(s => s.token).map(s => s.lastActivity ?? d.lastActivity);
     return Math.max(d.lastActivity, ...activity) + DAY;
   }
@@ -264,7 +266,7 @@ export class Room {
         this.sockets.delete(socket.id);
         if (person.seat) this.session?.setConnected(person.seat, false);
         if (socket.token === d.host) { d.hostOfflineAt = now - 60001; this.handoverHost(); }
-        if (person.userId) {
+        if (person.userId || this.session?.viewFor(null).matchOver) {
           if (person.seat) this.session?.setControl(person.seat, 'bot');
           delete d.people[socket.token!];
           if (d.host === socket.token) { d.host = null; d.hostTransferPending = true; }
@@ -302,6 +304,7 @@ export class Room {
           delete d.people[token];
         }
         d.matchKey = this.io.token();
+        d.matchNames = undefined;
         this.session = null; d.session = null; d.handEndedAt = null;
         d.ready = []; d.takeovers = []; d.schedule = null;
         d.seatDice = { groups: [[...SEAT_ORDER]], dice: {}, deadline: now + 15000, botAt: {}, settledAt: null };
@@ -444,6 +447,11 @@ export class Room {
     if (socket) this.error(socket, error, error === 'login_required' ? 'Host perlu masuk. Kembali ke menu online untuk masuk.' : `Batas ${(await this.io.settings?.())?.dailyMatchLimit ?? 3} match hari ini tercapai. Coba lagi setelah reset 00.00 WIB.`);
     return false;
   }
+  private captureMatchNames(): void {
+    const d = this.data!;
+    d.matchNames = Object.fromEntries(SEAT_ORDER.map((seat, i) => [seat,
+      Object.values(d.people).find(p => p.seat === seat)?.name ?? `Bot ${i + 1}`])) as Record<Seat, string>;
+  }
   private async startMatch(): Promise<void> {
     const d = this.data!;
     const host = [...this.sockets.values()].find(s => s.token === d.host) ?? (d.host && d.people[d.host] ? { id: 'offline', ...d.people[d.host] } : undefined);
@@ -451,6 +459,7 @@ export class Room {
     const ranking = d.seatDice!.groups.flat();
     for (const p of Object.values(d.people)) if (p.seat) p.seat = SEAT_ORDER[ranking.indexOf(p.seat)]!;
     for (const socket of this.sockets.values()) if (socket.token) { socket.seat = d.people[socket.token]?.seat; this.io.attach(socket); }
+    this.captureMatchNames();
     const occupied = Object.values(d.people).filter(p => p.seat);
     const seats = Object.fromEntries(SEAT_ORDER.map(s => [s, occupied.some(p => p.seat === s) ? 'human' : 'bot'])) as Record<Seat, 'human' | 'bot'>;
     this.session = new TableSession({ settings: { ...DEFAULT_SETTINGS, kimMode: d.config.kimMode, kimEnabled: d.config.kimMode !== 'off', minHuTay: d.config.minHuTay }, seats,

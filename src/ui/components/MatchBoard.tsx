@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Crown, Home, RotateCcw } from 'lucide-react';
 import { SEAT_ORDER, keyToTile } from '../../core/tiles';
 import type { Seat, Tile, TileFace, Wind } from '../../core/types';
@@ -89,10 +89,11 @@ export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = '
  * Compact ranking table for result dialogs, in match-ranking order. `gained` adds this game's koin
  * column; `highlight` marks the winner's row; `dealer` gets the crown.
  */
-export function StandingsTable({ match, gained, highlight, dealer, dealerLabel = 'Dealer', human = 'dong', showReached }: {
-  match: MatchState; gained?: Partial<Record<Seat, number>>; highlight?: Seat | null; dealer?: Seat | null; dealerLabel?: string; human?: Seat;
+export function StandingsTable({ match, gained, highlight, dealer, dealerLabel = 'Dealer', human = 'dong', showReached, names = PLAYER_NAME }: {
+  match: MatchState; gained?: Partial<Record<Seat, number>>; highlight?: Seat | null; dealer?: Seat | null; dealerLabel?: string; human?: Seat | null;
   /** Final standings: name the game where each Hu winner reached their final total (the last tie-break). */
   showReached?: boolean;
+  names?: Record<Seat, string>;
 }) {
   return (
     <table className={`standings-table${gained ? ' has-gained' : ''}`}>
@@ -110,7 +111,7 @@ export function StandingsTable({ match, gained, highlight, dealer, dealerLabel =
         {standings(match).map((row, _i, rows) => { const { seat, rank, hu, tay, koin, reachedAt } = row; const g = gained?.[seat] ?? 0; const tied = rows.some((r) => r.seat !== seat && r.koin === koin && r.hu === hu); return (
           <tr key={seat} className={`${seat === highlight ? 'is-winner' : ''}${seat === human ? ' is-human' : ''}`.trim() || undefined}>
             <td className="rank">{rank}</td>
-            <th scope="row">{PLAYER_NAME[seat]}{seat === dealer && <Crown size={13} aria-label={dealerLabel} className="dealer-mark" />}
+            <th scope="row">{names[seat]}{seat === dealer && <Crown size={13} aria-label={dealerLabel} className="dealer-mark" />}
               {showReached && tied && hu > 0 && reachedAt > 0 &&<small className="muted reached">Total dicapai di game {reachedAt}</small>}</th>
             {gained && <td className={`num gained ${koinTone(g)}`}>{g ? signedKoin(g) : '–'}</td>}
             <td className={`num total koin ${koinTone(koin)}`}>{signedKoin(koin)}</td>
@@ -146,14 +147,17 @@ export function MatchResultNote({ match }: { match: MatchState }) {
 }
 
 /** Final standings when the match ends: total koin, then valid Hu, then first to reach the final total. */
-export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: MatchState; onPlayAgain: () => void; onMenu: () => void }) {
+export function MatchStandingsModal({ match, onPlayAgain, onMenu, names = PLAYER_NAME, human = 'dong', footer, onLastHand }: {
+  match: MatchState; onPlayAgain?: () => void; onMenu: () => void; names?: Record<Seat, string>; human?: Seat | null;
+  footer?: ReactNode; onLastHand?: () => void;
+}) {
   const rows = standings(match);
   const champion = rows[0] && rows[0].hu > 0 && rows.filter((r) => r.rank === 1).length === 1 ? rows[0] : null;
   return (
     <Modal
       title="Klasemen Akhir"
       onClose={onMenu}
-      footer={
+      footer={footer ??
         <>
           <button type="button" className="btn" onClick={onMenu}>
             <Home size={14} /> Kembali ke menu
@@ -166,14 +170,15 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: Mat
     >
       <MatchMinimumNote match={match} />
       {match.endedBy === 'time' && <p>Pertandingan berakhir karena batas waktu 90 menit; game terakhir telah diselesaikan.</p>}
-      <p>{champion ? `Pemenang meja: ${PLAYER_NAME[champion.seat]} dengan ${signedKoin(champion.koin)} koin · ${champion.hu} Hu.` : 'Tidak ada pemenang meja tunggal.'}</p>
-      <StandingsTable match={match} highlight={champion?.seat ?? null} showReached />
+      <p>{champion ? `Pemenang meja: ${names[champion.seat]} dengan ${signedKoin(champion.koin)} koin · ${champion.hu} Hu.` : 'Tidak ada pemenang meja tunggal.'}</p>
+      <StandingsTable match={match} names={names} human={human} highlight={champion?.seat ?? null} dealer={champion?.seat} dealerLabel="Juara" showReached />
+      {onLastHand && <button type="button" className="btn" onClick={onLastHand}>Lihat hasil game terakhir</button>}
       <ol className="match-history" aria-label="Riwayat game">
         {match.hands.map((h) => (
           <li key={h.hand}>
-            Game {h.hand} · Dealer {PLAYER_NAME[h.dealer]} · {h.winner ? `${PLAYER_NAME[h.winner]} Hu ${tayKoinText(h)}` : h.lewFit ? 'Lew Fit (0 Hu / 0 Tay)' : 'Seri'}
+            Game {h.hand} · Dealer {names[h.dealer]} · {h.winner ? `${names[h.winner]} Hu ${tayKoinText(h)}` : h.lewFit ? 'Lew Fit (0 Hu / 0 Tay)' : 'Seri'}
             {!h.winner && !kongPaymentsOf(h).length && ' · 0 koin'}{kongPaymentsOf(h).length > 0 && ` · ${kongNote(kongPaymentsOf(h))}`}
-            {(h.winner || kongPaymentsOf(h).length > 0) && <small className="hand-koin">{SEAT_ORDER.map((s) => { const d = recordDeltas(h)[s]; return <span key={s} className={koinTone(d)}>{PLAYER_NAME[s]} {signedKoin(d)}</span>; })}</small>}
+            {(h.winner || kongPaymentsOf(h).length > 0) && <small className="hand-koin">{SEAT_ORDER.map((s) => { const d = recordDeltas(h)[s]; return <span key={s} className={koinTone(d)}>{names[s]} {signedKoin(d)}</span>; })}</small>}
           </li>
         ))}
       </ol>
