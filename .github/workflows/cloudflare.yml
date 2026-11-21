@@ -1,0 +1,73 @@
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      server:
+        description: Also deploy the room server
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare
+  cancel-in-progress: false
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  VITE_MP_SERVER: https://api.maciokyu.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Check for the deploy token
+        id: token
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::warning::CLOUDFLARE_API_TOKEN is not set; skipping the Cloudflare deploy."; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.token.outputs.ok == 'true'
+        run: npm ci
+      - if: steps.token.outputs.ok == 'true'
+        run: npx tsc --noEmit
+      - if: steps.token.outputs.ok == 'true'
+        run: npx vitest run
+      # Redeploying the room server restarts live rooms, so only do it when server-side code changed.
+      - name: Did the server change?
+        if: steps.token.outputs.ok == 'true'
+        id: server
+        run: |
+          # Manual runs deploy the server only when the checkbox is ticked.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "changed=${{ inputs.server }}" >> "$GITHUB_OUTPUT"; exit 0; fi
+          before="${{ github.event.before }}"
+          # First push (all zeros) deploys the server; a force push with an unknown base compares against the parent instead.
+          if [ "$before" = "0000000000000000000000000000000000000000" ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git cat-file -e "$before" 2>/dev/null || before="${{ github.sha }}~1"
+          if git diff --name-only "$before" "${{ github.sha }}" | grep -qE '^(server/|src/(core|kim|scoring|ai|session|storage)/|src/net/protocol\.ts)'; then echo "changed=true" >> "$GITHUB_OUTPUT"; else echo "changed=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Deploy room server
+        if: steps.token.outputs.ok == 'true' && steps.server.outputs.changed == 'true'
+        run: npx wrangler deploy --config server/wrangler.jsonc
+      - name: Build
+        if: steps.token.outputs.ok == 'true'
+        run: npx vite build && find dist -name '*.map' -delete && rm -f dist/wrangler.json
+      - name: Deploy maciokyu.com
+        if: steps.token.outputs.ok == 'true'
+        run: npx wrangler deploy --config web/wrangler.jsonc
+      # indomahjong.pages.dev serves the same build, which moves players' data to maciokyu.com.
+      - name: Deploy indomahjong.pages.dev
+        if: steps.token.outputs.ok == 'true'
+        run: mkdir -p /tmp/deployer && cd /tmp/deployer && npx -y wrangler@4.162.0 pages deploy "$GITHUB_WORKSPACE/dist" --project-name indomahjong --branch main --commit-dirty=true
+      - name: Smoke test
+        if: steps.token.outputs.ok == 'true'
+        run: node scripts/smoke.mjs

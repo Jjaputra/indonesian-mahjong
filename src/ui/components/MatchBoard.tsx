@@ -4,6 +4,7 @@ import { SEAT_ORDER, keyToTile } from '../../core/tiles';
 import type { Seat, Tile, TileFace, Wind } from '../../core/types';
 import { standings, isMatchOver, remainingMatchMs, type MatchState } from '../match';
 import { PLAYER_NAME, SEAT_LABEL, SEAT_SHORT, matchProgressLabel, tileText } from '../labels';
+import { ContactLine } from './ContactLine';
 import { Modal } from './Modal';
 import { TileView } from './TileView';
 import { kongDeltas, kongNote, kongPaymentsOf, koinTone, recordDeltas, signedKoin, tayKoinText, type KongPaymentView } from './points';
@@ -177,6 +178,7 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu }: { match: Mat
         ))}
       </ol>
       <p className="muted">Round Score (koin) per game: Ce Mo, pemenang +6 × Tay dan tiap lawan −2 × Tay; buangan atau Chiong Kong, pemenang +4 × Tay, yang buang/Kong −2 × Tay, dua lainnya −1 × Tay. Kong: tiap pemain langsung bayar pemilik 2 (di dalam) atau 1 (makan dari orang), Kong Zhong 4 atau 2; tetap berlaku saat Seri atau Lew Fit. Hu Seri dan Lew Fit 0. Peringkat: koin tertinggi; jika sama, Hu sah terbanyak, lalu yang lebih dulu mencapai total akhir.</p>
+      <ContactLine />
     </Modal>
   );
 }

@@ -3,9 +3,18 @@ import worker, { originAllowed, roomCode, type Env } from '../../server/router';
 import { isRoomCode } from '../../src/net/protocol';
 
 it('allows only the configured production, preview and local origins', () => {
+  for (const origin of ['https://maciokyu.com', 'https://www.maciokyu.com']) expect(originAllowed(origin)).toBe(true);
+  for (const origin of ['http://maciokyu.com', 'https://maciokyu.com.evil.example', 'https://www.maciokyu.com.evil.example']) expect(originAllowed(origin)).toBe(false);
   for (const origin of ['https://indomahjong.pages.dev', 'https://branch-name.indomahjong.pages.dev', 'http://localhost:5199']) expect(originAllowed(origin)).toBe(true);
   for (const origin of [null, 'https://evil.example', 'https://indomahjong.pages.dev.evil.example', 'http://indomahjong.pages.dev', 'http://localhost:5199.evil.example']) expect(originAllowed(origin)).toBe(false);
   for (let i = 0; i < 100; i++) expect(isRoomCode(roomCode())).toBe(true);
+});
+it('returns CORS headers for both new domain origins', async () => {
+  for (const origin of ['https://maciokyu.com', 'https://www.maciokyu.com']) {
+    const response = await worker.fetch(new Request('https://worker.test/rooms', { method: 'OPTIONS', headers: { Origin: origin } }), {} as Env);
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(origin);
+  }
 });
 it('creates with collision retry, forwards known WS routes and returns unknown rooms', async () => {
   let creates = 0;

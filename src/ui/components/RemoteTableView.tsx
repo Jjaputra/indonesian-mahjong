@@ -9,6 +9,7 @@ import { REACTIONS, type ReactionId, type RoomSeat } from '../../net/protocol';
 import { SEAT_SHORT, tileText } from '../labels';
 import { seatWindOf } from '../../session/win-context';
 import { ActionHud, CenterArea, HumanArea, OpponentPanel, seatPositions } from './GameTable';
+import { ContactLine } from './ContactLine';
 import { MatchScoreboard, TableInfo } from './MatchBoard';
 import { Modal } from './Modal';
 import { MeldView, TileRow } from './TileView';
@@ -167,7 +168,7 @@ export function HandResult({ table, state, onClose, onLeave }: { table: RemoteTa
             <div className="mp-next-bar"><i style={{ transform: `scaleX(${Math.min(1, left / NEXT_HAND_GRACE_MS)})` }} /></div>
           </div>
         )}
-        {view.matchOver && <p><strong>Pertandingan selesai.</strong></p>}
+        {view.matchOver && <><p><strong>Pertandingan selesai.</strong></p><ContactLine /></>}
       </div>
     </Modal>
   );

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-21
+### Changed
+- The game moved to **https://maciokyu.com**. Old links (GitHub Pages and indomahjong.pages.dev) open maciokyu.com and bring your history, settings, name and room seats along. Invite links with a room code keep working.
+- The online room server moved to api.maciokyu.com; the old address stays up during the move.
+### Added
+- A contact address for feedback after a match and in Settings, with links to the new Privacy Policy and Terms pages.
+- Privacy Policy, Terms of Service and account deletion pages under maciokyu.com/legal/.
+
 ## [1.1.0] - 2026-11-21
 ### Changed
 - The front menu has three choices: "Main sendiri", "Main bareng teman" and "Premium · segera hadir". The Kim, bot level, Akhir tembok and Waktu options moved to the Main sendiri screen, which has a "Kembali" button.

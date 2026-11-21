@@ -9,6 +9,7 @@ import {
 import { soundEffects } from '../../audio';
 import { DIFFICULTY_LABEL } from '../labels';
 import { usePwaInstall } from '../pwa-install';
+import { ContactLine } from './ContactLine';
 import { Modal } from './Modal';
 import '../qol.css';
 
@@ -133,6 +134,7 @@ export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMod
           <Toggle label="Mode developer" checked={devMode} onChange={onDevModeChange} />
           <p className="field-note dev-warning" role="note">Untuk cek skor. Game di mode ini tidak dicatat ke riwayat.</p>
         </section>}
+        <ContactLine />
       </div>
     </Modal>
   );

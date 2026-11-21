@@ -3467,3 +3467,8 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .hu-glow, .hu-flower { display: none; }
 }
+
+/* Feedback contact after a match and in Settings. */
+.contact-line { margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted, inherit); overflow-wrap: anywhere; }
+.contact-line a { color: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
+.contact-legal { display: block; margin-top: 4px; font-size: 12px; }
