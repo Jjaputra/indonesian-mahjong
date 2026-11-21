@@ -5,11 +5,11 @@ import { TableSession } from '../../src/session';
 import type { HandSeed } from '../../src/session';
 import { SEAT_ORDER, parseTileHand } from '../../src/core/tiles';
 
-function harness(authorize?: RoomIO['authorize']) {
+function harness(authorize?: RoomIO['authorize'], loginRequired = false, joinAccount?: RoomIO['joinAccount']) {
   let now = 1000, counter = 0, alarm: number | null = null, blob: RoomData | null = null, writes = 0, alarmWrites = 0, seeds = 0;
   const frames = new Map<string, ServerMessage[]>(), closed: string[] = [];
   const seedQueue: HandSeed[] = [];
-  const io: RoomIO = { authorize, seed: () => seedQueue.shift() ?? 1000 + seeds++, log: () => {}, now: () => now, token: () => `token-${++counter}`,
+  const io: RoomIO = { authorize, loginRequired, joinAccount, seed: () => seedQueue.shift() ?? 1000 + seeds++, log: () => {}, now: () => now, token: () => `token-${++counter}`,
     put: async d => { blob = structuredClone(d); writes++; }, deleteAll: async () => { blob = null; },
     setAlarm: async at => { alarm = at; alarmWrites++; },
     send: (s, m) => { frames.get(s.id)!.push(structuredClone(m)); }, close: s => { closed.push(s.id); }, attach: () => {},
@@ -49,7 +49,7 @@ describe('room', () => {
   });
   it('replaces the first device and ignores its late close', async () => {
     const h = harness(); await h.create(); const first = await h.join(); const second = await h.join('Lagi', first.token);
-    expect(h.closed).toEqual([first.id]); expect(h.frames.get(first.id)!.at(-1)).toEqual({ type: 'kicked', reason: 'replaced' });
+    expect(h.closed).toEqual([first.id]); expect(h.frames.get(first.id)!.some(m => m.type === 'kicked')).toBe(false);
     await h.room.disconnect(first); expect(h.room.info().seats[0]!.connected).toBe(true);
     expect(second.token).toBe(first.token);
   });
@@ -444,7 +444,7 @@ it('keeps account ownership on reconnect and rejects replacement before kicking 
     expect(h.room.data!.host).toBe(owner.token);
   }
   const refreshed = h.connect(); refreshed.userId = 'owner'; refreshed.sessionHash = 'new-session';
-  await h.send(refreshed, { type: 'hello', name: 'Owner', token: owner.token });
+  await h.send(refreshed, { type: 'hello', name: 'Owner', token: owner.token, reclaim: true });
   expect(refreshed.token).toBe(owner.token); expect(h.closed).toContain(owner.id);
   expect(h.room.data!.people[owner.token!]!.sessionHash).toBe('new-session');
   await h.send(refreshed, { type: 'start' }); await finishSeating(h);
@@ -459,8 +459,8 @@ it('reserves Dong against sit and promotes a creator who logs in from an existin
   const creator = h.connect(); creator.userId = 'creator'; creator.sessionHash = 'session';
   await h.send(creator, { type: 'hello', name: 'Creator', token: guest.token });
   expect(h.room.data!.host).toBe(guest.token);
-  expect(h.room.data!.people[guest.token!]!).toMatchObject({ seat: 'dong', userId: 'creator' });
-  expect(h.room.info().seats.find(s => s.seat === 'dong')!.host).toBe(true);
+  expect(h.room.data!.people[guest.token!]!).toMatchObject({ seat: 'nan', userId: 'creator' });
+  expect(h.room.info().seats.find(s => s.seat === 'nan')!.host).toBe(true);
 });
 it('does not change the paying identity during seating and promotes a stable account on hand-over', async () => {
   const charges: (string | undefined)[] = [];
@@ -535,4 +535,168 @@ it.each(['hello', 'rename', 'disconnect'] as const)('keeps the reveal deadline a
   expect(h.room.session.viewFor(null).phase).toBe('ACTION_DECISION');
   expect(h.blob.session!.claimRevealAt).toBeNull();
   expect(h.alarm).toBe(h.blob.schedule!.botAt);
+});
+
+it('recovers the same account without a token, rotates the token and replaces the old device', async () => {
+  const h = harness(undefined, true); await h.create();
+  const a = h.connect(); a.userId = 'owner';
+  await h.send(a, { type: 'hello', name: 'Owner' });
+  const oldToken = a.token;
+  const b = h.connect(); b.userId = 'owner';
+  await h.send(b, { type: 'hello', name: 'Device B', reclaim: true });
+  expect(b.seat).toBe('dong'); expect(b.token).not.toBe(oldToken);
+  expect(h.frames.get(a.id)!.at(-1)).toEqual({ type: 'kicked', reason: 'replaced' });
+  expect(Object.values(h.blob.people).filter(p => p.userId === 'owner')).toHaveLength(1);
+  expect(h.blob.host).toBe(b.token);
+  await h.room.disconnect(a);
+  expect(h.room.info().seats[0]!.connected).toBe(true);
+  const reload = h.connect(); reload.userId = 'owner';
+  await h.room.disconnect(b);
+  await h.send(reload, { type: 'hello', name: 'Reload', token: b.token });
+  expect(reload.token).toBe(b.token);
+});
+
+it('gates new anonymous seats and spectators, preserves legacy seats and permits anonymous rooms when disabled', async () => {
+  const h = harness(undefined, true); await h.create();
+  const anon = await h.join();
+  expect(errors(h, anon).at(-1)?.code).toBe('login_required');
+  for (let i = 0; i < 4; i++) {
+    const s = h.connect(); s.userId = 'u' + i; await h.send(s, { type: 'hello', name: 'Player' });
+  }
+  const spectator = await h.join();
+  expect(errors(h, spectator).at(-1)?.code).toBe('login_required');
+  const free = harness(); await free.create(); const old = await free.join();
+  const grandfather = new Room({ now: () => free.now, token: () => 'new', seed: () => 1, log: () => {}, put: async () => {}, deleteAll: async () => {}, setAlarm: async () => {}, send: () => {}, close: () => {}, attach: () => {}, loginRequired: true }, free.blob);
+  const reconnect: Socket = { id: 'legacy' }; grandfather.connect(reconnect);
+  await grandfather.message(reconnect, JSON.stringify({ type: 'hello', name: 'Legacy', token: old.token }));
+  expect(reconnect.seat).toBe('dong');
+});
+
+it('does not let an anonymous or different account reclaim a bound seat', async () => {
+  const h = harness(undefined, true); await h.create();
+  const owner = h.connect(); owner.userId = 'owner'; await h.send(owner, { type: 'hello', name: 'Owner' });
+  for (const userId of [undefined, 'intruder']) {
+    const s = h.connect(); s.userId = userId;
+    await h.send(s, { type: 'hello', name: 'Intruder', token: owner.token });
+    expect(errors(h, s).at(-1)?.code).toBe('login_required');
+    expect(h.closed).not.toContain(owner.id);
+  }
+});
+
+it('releases an account seat through server leave, preserving normal host handover', async () => {
+  const h = harness(); await h.create();
+  const owner = h.connect(); owner.userId = 'owner'; await h.send(owner, { type: 'hello', name: 'Owner' });
+  const next = h.connect(); next.userId = 'next'; await h.send(next, { type: 'hello', name: 'Next' });
+  await h.room.leaveAccount('owner');
+  expect(Object.values(h.blob.people).some(p => p.userId === 'owner')).toBe(false);
+  expect(h.blob.host).toBe(next.token);
+});
+
+it('prevents a second seat through a previously connected spectator socket', async () => {
+  const h = harness(undefined, true); await h.create();
+  const spectator = h.connect(); spectator.userId = 'u';
+  await h.send(spectator, { type: 'hello', name: 'First' });
+  await h.send(spectator, { type: 'stand' });
+  const seat = h.connect(); seat.userId = 'u';
+  await h.send(seat, { type: 'hello', name: 'Second' });
+  await h.send(spectator, { type: 'sit', seat: 'nan' });
+  expect(errors(h, spectator).at(-1)?.code).toBe('seat_taken');
+  expect(Object.values(h.blob.people).filter(p => p.userId === 'u' && p.seat)).toHaveLength(1);
+});
+
+it('expires grandfathered anonymous seats before the next match while keeping logged-in players', async () => {
+  const h = harness(undefined, true); await h.create();
+  const host = h.connect(); host.userId = 'owner';
+  await h.send(host, { type: 'hello', name: 'Owner' });
+  h.room.data!.people.legacy = { name: 'Legacy', seat: 'nan' };
+  await h.send(host, { type: 'start' }); await finishSeating(h);
+  const snapshot = h.room.session!.serialize(); snapshot.match.endedBy = 'hands'; snapshot.match.finishedAt = h.now;
+  h.room.session = TableSession.deserialize(snapshot, () => h.now);
+  await h.send(host, { type: 'rematch' });
+  expect(h.blob.people.legacy).toBeUndefined();
+  expect(h.blob.people[host.token!]!.userId).toBe('owner');
+  expect(h.room.info().phase).toBe('seating');
+});
+
+it('requires login when a legacy anonymous spectator requests a new seat', async () => {
+  const h = harness(undefined, true); await h.create();
+  h.room.data!.people.legacy = { name: 'Legacy', seat: null };
+  const s = h.connect();
+  await h.send(s, { type: 'hello', name: 'Legacy', token: 'legacy' });
+  await h.send(s, { type: 'sit', seat: 'nan' });
+  expect(errors(h, s).at(-1)?.code).toBe('login_required');
+  expect(h.blob.people.legacy!.seat).toBeNull();
+});
+
+it.each(['socket', 'account'])('keeps host handover pending after %s leave with an offline successor', async mode => {
+  const h = harness(); await h.room.create('ABCDEF', 'owner');
+  const host = h.connect(); host.userId = 'owner'; await h.send(host, { type: 'hello', name: 'Host' });
+  const peer = h.connect(); peer.userId = 'peer'; await h.send(peer, { type: 'hello', name: 'Peer' });
+  await h.room.disconnect(peer);
+  if (mode === 'socket') await h.send(host, { type: 'leave' }); else await h.room.leaveAccount('owner');
+  expect(h.blob.hostTransferPending).toBe(true);
+  h.now += 2 * 3600000; await h.room.alarm();
+  expect(h.room.data).not.toBeNull();
+  h.rebuild();
+  const back = h.connect(); back.userId = 'peer'; await h.send(back, { type: 'hello', name: 'Peer' });
+  expect(h.blob.host).toBe(back.token); expect(h.blob.hostTransferPending).toBe(false);
+});
+
+it('restores the creator to their bound seat when Dong is occupied', async () => {
+  const h = harness(); await h.room.create('ABCDEF', 'owner');
+  h.room.data!.people.owner = { name: 'Owner', userId: 'owner', seat: 'xi' };
+  h.room.data!.people.peer = { name: 'Peer', userId: 'peer', seat: 'dong' };
+  h.room.data!.hostTransferPending = true;
+  const back = h.connect(); back.userId = 'owner'; await h.send(back, { type: 'hello', name: 'Owner' });
+  expect(back.seat).toBe('xi');
+  expect(Object.values(h.blob.people).filter(p => p.seat === 'dong')).toHaveLength(1);
+  expect(h.blob.host).toBe(back.token);
+});
+
+it('rejects automatic device takeover even with its former token; explicit reclaim wins', async () => {
+  const h = harness(); await h.create();
+  const a = h.connect(); a.userId = 'u'; await h.send(a, { type: 'hello', name: 'A' });
+  const b = h.connect(); b.userId = 'u'; await h.send(b, { type: 'hello', name: 'B', reclaim: true });
+  const retry = h.connect(); retry.userId = 'u'; await h.send(retry, { type: 'hello', name: 'A', token: a.token });
+  expect(retry.token).toBeUndefined(); expect(h.closed).not.toContain(b.id);
+  expect(h.frames.get(retry.id)!.at(-1)).toEqual({ type: 'kicked', reason: 'replaced' });
+  const reclaim = h.connect(); reclaim.userId = 'u'; await h.send(reclaim, { type: 'hello', name: 'A', reclaim: true });
+  expect(reclaim.seat).toBe('dong'); expect(h.closed).toContain(b.id);
+});
+
+it('returns a clear current_room error unless the hello confirms a switch', async () => {
+  const h = harness(undefined, true, async (_user, _code, confirmed) => confirmed ? null : 'GHJKLM');
+  await h.create();
+  const a = h.connect(); a.userId = 'u'; await h.send(a, { type: 'hello', name: 'A' });
+  expect(errors(h, a).at(-1)).toMatchObject({ code: 'current_room', message: 'Kamu masih duduk di room GHJKLM' });
+  expect(Object.values(h.room.data!.people)).toHaveLength(0);
+  await h.send(a, { type: 'hello', name: 'A', switchRoom: true }); expect(a.seat).toBe('dong');
+});
+
+it('a spectator switch never releases the account seat in another room', async () => {
+  const calls: boolean[] = [];
+  const h = harness(undefined, false, async (_user, _code, confirmed) => { calls.push(confirmed); return null; });
+  await h.create();
+  for (const name of ['A', 'B', 'C', 'D']) await h.join(name);
+  const watcher = h.connect(); watcher.userId = 'u'; await h.send(watcher, { type: 'hello', name: 'W', switchRoom: true });
+  expect(watcher.seat).toBeNull(); expect(calls).toEqual([]);
+});
+
+it('still reserves the initial Dong seat for a creator arriving after a guest', async () => {
+  const h = harness(); await h.room.create('ABCDEF', 'owner');
+  const guest = await h.join('Guest'); expect(guest.seat).toBe('nan');
+  const owner = h.connect(); owner.userId = 'owner'; await h.send(owner, { type: 'hello', name: 'Owner' });
+  expect(owner.seat).toBe('dong'); expect(h.blob.host).toBe(owner.token);
+});
+
+
+it('accepts an account reload with its own valid token while the old socket is still open', async () => {
+  const h = harness(undefined, true); await h.create();
+  const a = h.connect(); a.userId = 'u'; await h.send(a, { type: 'hello', name: 'A' });
+  const b = h.connect(); b.userId = 'u'; await h.send(b, { type: 'hello', name: 'A', token: a.token });
+  expect(b.token).toBe(a.token); expect(b.seat).toBe('dong');
+  expect(h.frames.get(b.id)!.some(m => m.type === 'welcome')).toBe(true);
+  expect(h.closed).toContain(a.id);
+  expect(h.frames.get(a.id)!.some(m => m.type === 'kicked')).toBe(false);
+  await h.room.disconnect(a); expect(h.room.info().seats[0]!.connected).toBe(true);
 });

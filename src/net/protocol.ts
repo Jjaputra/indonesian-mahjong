@@ -75,7 +75,7 @@ export interface RoomInfo {
 
 /** Client → server. */
 export type ClientMessage =
-  | { type: 'hello'; token?: string; name: string }
+  | { type: 'hello'; token?: string; name: string; reclaim?: boolean; switchRoom?: boolean }
   | { type: 'reaction'; preset: ReactionId }
   | { type: 'leave' }
   | { type: 'rename'; name: string }
@@ -94,7 +94,7 @@ export type ClientMessage =
 
 export type ErrorCode =
   | 'login_required' | 'daily_limit' | 'bad_message' | 'room_not_found' | 'room_full' | 'seat_taken' | 'not_host'
-  | 'not_seated' | 'wrong_phase' | 'stale_version' | 'illegal_action' | 'rate_limited' | 'server_busy';
+  | 'not_seated' | 'wrong_phase' | 'stale_version' | 'illegal_action' | 'rate_limited' | 'server_busy' | 'current_room';
 
 /** Server → client. */
 export type ServerMessage =

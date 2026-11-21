@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-21
+### Changed
+- Online: every player now logs in with Google, including friends who join with a code or link and spectators. An invite link opened while logged out asks for login and then joins that room. Single player still needs no login. Rooms already running keep their players.
+### Added
+- Online: your room follows your account. Log in on another phone or iPad and "Lanjutkan room" takes you back to the same seat. The older device shows "Room ini dibuka di perangkat lain." and can take the seat back with a button.
+- Online: "Buat Room" while you still have a room asks "Lanjutkan" or "Buat room baru". Joining another room while seated asks "Lanjutkan" or "Gabung". The old room is only left once the new one works.
+- An optional "Kabari saya lewat email soal Premium dan update maciokYU!" box in the account panel, off until you tick it. The Privacy and Terms pages explain it.
+
 ## [1.3.3] - 2026-11-21
 ### Fixed
 - Every discard now shows for 1 second before play goes on, whether or not anyone can claim it. The claim popup and the Aktivitas log no longer give away that someone can Jia, Pung, Kong or Hu. This applies online and in single player.

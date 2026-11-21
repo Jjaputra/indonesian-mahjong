@@ -2,11 +2,13 @@ import { beforeAll, afterEach, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { authRoute, countMatch, GOOGLE_CLIENT_ID, remaining, resolveUser, tokenHash, verifyGoogle, wibDay, type Database, type Statement } from '../../server/auth';
+import type { Room, Socket } from '../../server/room';
 import worker, { type Env } from '../../server/router';
 
 function database() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(readFileSync('server/migrations/0001_accounts.sql', 'utf8'));
+  sqlite.exec(readFileSync('server/migrations/0002_account_rooms.sql', 'utf8'));
   const db: Database = {
     prepare(sql) {
       let values: unknown[] = [];
@@ -107,7 +109,7 @@ it('creates hashed sessions, upserts users, logs out, expires sessions and delet
 });
 it('enforces atomic per-account daily counts, dedupes matches and exempts premium', async () => {
   const { db, sqlite } = database();
-  sqlite.exec("INSERT INTO users VALUES ('u','google','s','Name',NULL,NULL,0,0,0)");
+  sqlite.exec("INSERT INTO users (id,provider,provider_sub,name,email,picture,premium,created_at,last_seen_at) VALUES ('u','google','s','Name',NULL,NULL,0,0,0)");
   const day = Date.parse('2026-11-21T16:59:59Z');
   expect(wibDay(day)).toBe('2026-11-21');
   for (let i = 0; i < 5; i++) expect(await countMatch({ DB: db }, 'u', `m${i}`, day)).toBeNull();
@@ -160,4 +162,134 @@ it('rate limits unauthenticated room creation before checking the login requirem
   limit.mockResolvedValue({ success: true });
   expect((await worker.fetch(request('/rooms', 'POST'), env)).status).toBe(401);
   expect(limit).toHaveBeenCalledTimes(2);
+});
+
+it('defaults email consent off, records explicit changes, rejects invalid choices and deletes consent', async () => {
+  const { db, sqlite } = database();
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ keys: [{ ...jwk, kid: 'test' }] })));
+  const account = await (await authRoute(request('/auth/google', 'POST', undefined, { credential: await credential() }), { DB: db }, {})).json();
+  expect(account.newsOptIn).toBe(false); expect(account.currentRoom).toBeNull();
+  for (const newsOptIn of [true, false]) {
+    expect((await authRoute(request('/me', 'POST', account.token, { newsOptIn }), { DB: db }, {})).status).toBe(200);
+    const row = sqlite.prepare('SELECT news_opt_in,news_opt_in_at FROM users').get()!;
+    expect(row.news_opt_in).toBe(newsOptIn ? 1 : 0); expect(row.news_opt_in_at).toBeGreaterThan(0);
+    expect((await (await authRoute(request('/me', 'GET', account.token), { DB: db }, {})).json()).newsOptIn).toBe(newsOptIn);
+  }
+  expect((await authRoute(request('/me', 'POST', account.token, { newsOptIn: 1 }), { DB: db }, {})).status).toBe(400);
+  await authRoute(request('/me', 'DELETE', account.token), { DB: db }, {});
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM users').get()!.n).toBe(0);
+  sqlite.close();
+});
+
+it('verifies /me current room against the room and clears a stale reference; refuses duplicate creation', async () => {
+  const { db, sqlite } = database();
+  const token = 'a'.repeat(43);
+  sqlite.prepare("INSERT INTO users (id,provider,provider_sub,name,premium,created_at,last_seen_at) VALUES ('u','google','s','Name',0,0,0)").run();
+  sqlite.prepare('INSERT INTO sessions VALUES (?,?,?,?)').run(await tokenHash(token), 'u', 0, Date.now() + 100000);
+  sqlite.prepare('INSERT INTO account_rooms VALUES (?,?,?,?)').run('u', 'ABCDEF', 'dong', Date.now());
+  let live = true;
+  const env: Env = { DB: db, ROOM_CREATION_LIMITER: { limit: async () => ({ success: true }) }, ROOMS: { idFromName: n => n, get: () => ({ fetch: async r => {
+    expect(r.headers.get('X-User-Id')).toBe('u');
+    if (r.method === 'DELETE') live = false;
+    return Response.json(live ? { code: 'ABCDEF', phase: 'playing' } : null);
+  } }) } };
+  expect((await (await worker.fetch(request('/me', 'GET', token), env)).json()).currentRoom).toEqual({ code: 'ABCDEF', phase: 'playing' });
+  expect((await worker.fetch(request('/rooms', 'POST', token), env)).status).toBe(409);
+  for (const body of [undefined, { code: 'GHJKLM' }]) {
+    await worker.fetch(request('/me/room', 'DELETE', token, body), env);
+    expect(live).toBe(true);
+    expect((await (await worker.fetch(request('/me', 'GET', token), env)).json()).currentRoom.code).toBe('ABCDEF');
+  }
+  await worker.fetch(request('/me/room', 'DELETE', token, { code: 'ABCDEF' }), env);
+  expect((await (await worker.fetch(request('/me', 'GET', token), env)).json()).currentRoom).toBeNull();
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM account_rooms').get()!.n).toBe(0);
+  sqlite.prepare('INSERT INTO account_rooms VALUES (?,?,?,?)').run('u', 'ABCDEF', 'dong', 0);
+  expect((await (await worker.fetch(request('/me', 'GET', token), env)).json()).currentRoom).toBeNull();
+  sqlite.close();
+});
+
+it('keeps the account room index consistent through DO persistence, leave and idle room deletion', async () => {
+  const { db, sqlite } = database();
+  sqlite.prepare("INSERT INTO users (id,provider,provider_sub,name,premium,created_at,last_seen_at) VALUES ('u','google','s','Name',0,0,0)").run();
+  const memory = new Map<string, unknown>();
+  let ready: Promise<unknown> = Promise.resolve();
+  const ctx = {
+    blockConcurrencyWhile: (fn: () => Promise<unknown>) => { ready = fn(); },
+    getWebSockets: () => [],
+    storage: {
+      get: async (key: string) => memory.get(key),
+      put: async (key: string, value: unknown) => { memory.set(key, value); },
+      deleteAll: async () => { memory.clear(); },
+      setAlarm: async () => {}, deleteAlarm: async () => {},
+    },
+  };
+  // Keep Worker globals out of the browser TypeScript compilation.
+  const adapterPath = '../../server/index.ts';
+  const { RoomDO } = await import(adapterPath);
+  let otherLive = true;
+  const otherRequests: string[] = [];
+  const object = new RoomDO(ctx, { DB: db, ROOMS: { idFromName: (code: string) => code, get: (code: string) => ({ fetch: async (r: Request) => {
+    expect(code).toBe('GHJKLM'); otherRequests.push(r.method);
+    if (r.method === 'DELETE') { otherLive = false; sqlite.prepare('DELETE FROM account_rooms WHERE code=?').run(code); }
+    return Response.json(otherLive ? { code, phase: 'playing' } : null);
+  } }) } });
+  await ready;
+  expect((await object.fetch(new Request('https://room/create/ABCDEF', { method: 'POST', headers: { 'X-User-Id': 'u' } }))).status).toBe(201);
+  expect(sqlite.prepare('SELECT code,seat FROM account_rooms').get()).toMatchObject({ code: 'ABCDEF', seat: 'dong' });
+  expect(await (await object.fetch(new Request('https://room/account', { headers: { 'X-User-Id': 'u' } }))).json()).toEqual({ code: 'ABCDEF', phase: 'lobby' });
+  const room = (object as unknown as { room: Room }).room;
+  const sit = async (switchRoom = false) => {
+    const socket: Socket = { id: crypto.randomUUID(), userId: 'u' };
+    room.connect(socket); await room.message(socket, JSON.stringify({ type: 'hello', name: 'Name', switchRoom }));
+    return socket;
+  };
+  await sit();
+  expect(sqlite.prepare('SELECT code,seat FROM account_rooms').get()).toMatchObject({ code: 'ABCDEF', seat: 'dong' });
+  const accountRequest = () => new Request('https://room/account', { headers: { 'X-User-Id': 'u' } });
+  expect(await (await object.fetch(accountRequest())).json()).toEqual({ code: 'ABCDEF', phase: 'lobby' });
+  await room.leaveAccount('u');
+  expect(await (await object.fetch(accountRequest())).json()).toBeNull();
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM account_rooms').get()!.n).toBe(0);
+  sqlite.prepare('INSERT INTO account_rooms VALUES (?,?,?,?)').run('u', 'GHJKLM', 'nan', Date.now());
+  expect((await sit()).token).toBeUndefined();
+  expect(otherLive).toBe(true);
+  expect(sqlite.prepare('SELECT code FROM account_rooms').get()!.code).toBe('GHJKLM');
+  // Refusal by B must never leave A or overwrite its account index.
+  room.data!.config.allowSpectators = false;
+  for (const seat of ['dong', 'nan', 'xi', 'bei'] as const) room.data!.people[seat] = { name: seat, seat };
+  expect((await sit(true)).token).toBeUndefined();
+  expect(otherLive).toBe(true); expect(otherRequests).toEqual(['GET']);
+  expect(sqlite.prepare('SELECT code FROM account_rooms').get()!.code).toBe('GHJKLM');
+  room.data!.people = {};
+  expect((await sit(true)).seat).toBe('dong');
+  expect(otherRequests).toEqual(['GET', 'GET', 'DELETE']);
+  expect(sqlite.prepare('SELECT code FROM account_rooms').get()!.code).toBe('ABCDEF');
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 2 * 86400000);
+  try { await object.alarm(); } finally { clock.mockRestore(); }
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM account_rooms').get()!.n).toBe(0);
+  expect(memory.size).toBe(0);
+  sqlite.close();
+});
+
+
+it('keeps A when confirmed creation fails and leaves it only after successful creation', async () => {
+  const { db, sqlite } = database(); const token = 'a'.repeat(43);
+  sqlite.prepare("INSERT INTO users (id,provider,provider_sub,name,premium,created_at,last_seen_at) VALUES ('u','google','s','Name',0,0,0)").run();
+  sqlite.prepare('INSERT INTO sessions VALUES (?,?,?,?)').run(await tokenHash(token), 'u', 0, Date.now() + 100000);
+  sqlite.prepare('INSERT INTO account_rooms VALUES (?,?,?,?)').run('u', 'ABCDEF', 'dong', Date.now());
+  let fail = true, created = false, live = true;
+  const env: Env = { DB: db, ROOM_CREATION_LIMITER: { limit: async () => ({ success: true }) }, ROOMS: { idFromName: n => n, get: () => ({ fetch: async r => {
+    if (new URL(r.url).pathname.startsWith('/create/')) {
+      if (fail) return new Response(null, { status: 409 });
+      created = true; return new Response(null, { status: 201 });
+    }
+    if (r.method === 'DELETE') { expect(created).toBe(true); live = false; }
+    return Response.json(live ? { code: 'ABCDEF', phase: 'playing' } : null);
+  } }) } };
+  expect((await worker.fetch(request('/rooms', 'POST', token, { replace: true }), env)).status).toBe(503);
+  expect(live).toBe(true);
+  expect((await (await worker.fetch(request('/me', 'GET', token), env)).json()).currentRoom.code).toBe('ABCDEF');
+  fail = false;
+  expect((await worker.fetch(request('/rooms', 'POST', token, { replace: true }), env)).status).toBe(201);
+  expect(live).toBe(false); sqlite.close();
 });

@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TableSession } from '../../src/session';
 import { DEFAULT_SETTINGS, MemoryStorage, loadGameHistory } from '../../src/storage';
 import { DEFAULT_ROOM_CONFIG } from '../../src/net/protocol';
+import { loadRoom } from '../../src/net/room-store';
 import { RemoteTable } from '../../src/net/remote-table';
 import { PLAYER_NAME } from '../../src/ui/labels';
 import { RemoteController, seatNames, spectatorBottomNames } from '../../src/ui/components/remote-adapter';
@@ -18,6 +19,34 @@ function joined(initialConfig?: typeof DEFAULT_ROOM_CONFIG) {
 }
 
 const oneHumanSession = () => new TableSession({ settings: { ...DEFAULT_SETTINGS }, seats: { dong: 'human', nan: 'bot', xi: 'bot', bei: 'bot' }, seed: 5, now: () => 1000 });
+
+it('stops on a silent replacement close and sends reclaim only after the button, never on later reconnects', () => {
+  const { net, table, clock } = joined();
+  (net.last.onclose as ((event: { code: number }) => void) | null)?.({ code: 4001 });
+  expect(table.getState()).toMatchObject({ ended: 'replaced', status: 'stopped' });
+  clock.advance(60000); table.onVisible(); expect(net.sockets).toHaveLength(1);
+  table.reclaim(); net.last.open();
+  expect(net.last.sent[0]).toMatchObject({ type: 'hello', reclaim: true });
+  net.last.receive({ type: 'welcome', token: 'new', seat: 'dong', host: true, serverNow: 0, room: roomInfo() });
+  net.last.drop(); clock.advance(500); net.last.open();
+  expect(net.last.sent[0]).not.toHaveProperty('reclaim');
+});
+
+it('refreshes the account at welcome, match end, kick and leave, avoiding room broadcast polling', () => {
+  const fetcher = vi.fn(async () => Response.json(null)); vi.stubGlobal('fetch', fetcher);
+  try {
+    const { net, table } = joined(); expect(fetcher).toHaveBeenCalledTimes(1);
+    const room = roomInfo();
+    for (let i = 0; i < 10; i++) net.last.receive({ type: 'room', room, seat: 'dong', host: true });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    net.last.receive({ type: 'room', room: { ...room, phase: 'finished' }, seat: 'dong', host: true });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    net.last.receive({ type: 'room', room: { ...room, phase: 'finished' }, seat: 'dong', host: true });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    net.last.receive({ type: 'kicked', reason: 'replaced' }); expect(fetcher).toHaveBeenCalledTimes(3);
+    table.leave(); expect(fetcher).toHaveBeenCalledTimes(4);
+  } finally { vi.unstubAllGlobals(); }
+});
 
 describe('RemoteTable actions', () => {
   it('act carries the version of the latest view', () => {
@@ -204,4 +233,54 @@ it('uses server chronology after reload even when Kong disrupts seat rotation', 
   view.discardTrail = [{ seat: 'dong', tile: a }, { seat: 'nan', tile: b }, { seat: 'dong', tile: c }];
   net.last.receive({ type: 'view', view, serverNow: 0 });
   expect(new RemoteController(table).discardTrail.map(d => d.tile.id)).toEqual(['first', 'kong-turn', 'third']); table.disconnect();
+});
+
+it('stops after device replacement and explicitly reclaims without the superseded token', () => {
+  const { net, table, clock } = joined();
+  net.last.receive({ type: 'kicked', reason: 'replaced' });
+  expect(table.getState().ended).toBe('replaced');
+  expect(table.getState().status).toBe('stopped');
+  const replaced = net.last;
+  clock.advance(60000); table.onVisible();
+  expect(net.sockets).toHaveLength(1);
+  table.reclaim();
+  expect(net.last).not.toBe(replaced);
+  net.last.open();
+  expect(net.last.ofType('hello').at(-1)?.token).toBeUndefined();
+  net.last.receive({ type: 'welcome', token: 'new-token', seat: 'dong', host: true, serverNow: clock.now, room: roomInfo() });
+  expect(table.getState().ended).toBeNull();
+  expect(table.getState().seat).toBe('dong');
+  expect(table.getState().status).toBe('open');
+  table.disconnect();
+});
+
+
+it('handles a silent room_closed close without showing device replacement', () => {
+  const { net, table, clock } = joined();
+  (net.last.onclose as ((event: { code: number }) => void) | null)?.({ code: 4002 });
+  expect(table.getState()).toMatchObject({ ended: 'room_closed', status: 'stopped' });
+  clock.advance(60000); expect(net.sockets).toHaveLength(1);
+});
+
+it('quietly stops the older same-token socket without forgetting the device token', () => {
+  const net = fakeNetwork(), storage = new MemoryStorage(), clock = fakeTimers();
+  const table = new RemoteTable({ server: 'https://mp.example', code: 'ABC234', name: 'Jason', storage,
+    socketFactory: net.factory, timers: clock.timers });
+  table.connect(); net.last.open();
+  net.last.receive({ type: 'welcome', token: 'same', seat: 'dong', host: true, serverNow: 0, room: roomInfo() });
+  (net.last.onclose as ((event: { code: number }) => void) | null)?.({ code: 4003 });
+  expect(table.getState()).toMatchObject({ ended: null, status: 'stopped' });
+  expect(loadRoom('ABC234', storage)?.token).toBe('same');
+  clock.advance(60000); table.onVisible(); expect(net.sockets).toHaveLength(1);
+});
+
+
+it('preserves the stored token when a different device replaces the seat', () => {
+  const net = fakeNetwork(), storage = new MemoryStorage();
+  const table = new RemoteTable({ server: 'https://mp.example', code: 'ABC234', name: 'Jason', storage, socketFactory: net.factory });
+  table.connect(); net.last.open();
+  net.last.receive({ type: 'welcome', token: 'old-device', seat: 'dong', host: true, serverNow: 0, room: roomInfo() });
+  net.last.receive({ type: 'kicked', reason: 'replaced' });
+  expect(loadRoom('ABC234', storage)?.token).toBe('old-device');
+  expect(table.getState()).toMatchObject({ ended: 'replaced', status: 'stopped' });
 });

@@ -27,7 +27,7 @@ it('loads server policy, signs in with credentials, shows account UI and clears 
   expect(renderToStaticMarkup(createElement(AccountPanel, { onError: () => {}, error: 'Gagal masuk, coba lagi.' }))).toContain('<p class="mp-account-error" role="alert">Gagal masuk, coba lagi.</p>');
   await signOut(true); expect(authStore.get()).toBeNull(); expect(authHeaders()).toEqual({});
   const loggedOut = renderToStaticMarkup(createElement(AccountPanel, { onError: () => {} }));
-  expect(loggedOut).toContain('Teman yang join tidak perlu.'); expect(loggedOut).toContain('class="mp-google"'); expect(loggedOut).not.toContain('Facebook');
+  expect(loggedOut).toContain('Semua pemain online perlu masuk dengan Google.'); expect(loggedOut).toContain('class="mp-google"'); expect(loggedOut).not.toContain('Facebook');
   unsubscribe();
 });
 it('shows the initial when the account has no picture and "Tanpa batas" for premium', async () => {

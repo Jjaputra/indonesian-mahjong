@@ -1,4 +1,4 @@
-import { openAuth, refreshAccount, renderGoogle, signOut, useAccount, facebookLogin } from '../../net/auth';
+import { openAuth, refreshAccount, renderGoogle, signOut, useAccount, facebookLogin, onlineLoginRequired, setNewsOptIn, leaveCurrentRoom, authStore } from '../../net/auth';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoom, RemoteTable } from '../../net/remote-table';
 import type { RoomConfig } from '../../net/protocol';
@@ -22,7 +22,7 @@ export interface OnlineScreenProps {
   onExit: () => void;
 }
 
-interface Join { code: string; name: string; token?: string; config?: RoomConfig }
+interface Join { code: string; name: string; token?: string; config?: RoomConfig; switchRoom?: boolean }
 
 const emptyStore = () => () => {};
 
@@ -54,10 +54,11 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
   useEffect(() => {
     if (!account && button.current) void renderGoogle(button.current, onError).catch(error => onError(error.message));
   }, [account, onError]);
-  return <div className={`mp-account ${account ? 'is-in' : 'is-out'}`} role="group" aria-label="Akun host">
+  return <div className={`mp-account ${account ? 'is-in' : 'is-out'}`} role="group" aria-label="Akun pemain">
     {account ? <>
       <span className="mp-account-who"><Avatar name={account.name} picture={account.picture} /><span className="mp-account-name" title={account.name}>{account.name}</span></span>
       <span className="mp-pill">{account.premium ? 'Tanpa batas' : `Sisa ${account.remainingMatches} dari 5 match hari ini`}</span>
+      <label><input type="checkbox" checked={account.newsOptIn === true} onChange={e => { void setNewsOptIn(e.target.checked).catch(error => onError(error.message)); }} /> Kabari saya lewat email soal Premium dan update maciokYU!</label>
       <span className="mp-account-actions">
         <button type="button" className="mp-link" onClick={attempt(() => { void signOut().catch(error => onError(error.message)); })}>Keluar</button>
         <button type="button" className="mp-link mp-link-quiet" onClick={attempt(() => {
@@ -65,7 +66,7 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
         })}>Hapus akun</button>
       </span>
     </> : <>
-      <p className="mp-account-note">Host perlu masuk untuk membuat room. Teman yang join tidak perlu.</p>
+      <p className="mp-account-note">Semua pemain online perlu masuk dengan Google.</p>
       <div className="mp-google" ref={button} />
       {import.meta.env.VITE_FACEBOOK_LOGIN === '1' && <button type="button" className="btn" onClick={attempt(() => { void facebookLogin().catch(error => onError(error.message)); })}>Masuk dengan Facebook</button>}
     </>}
@@ -118,6 +119,7 @@ function RoomScreen({ table, optionsOpen, onOptionsOpenChange, onLeave, toast }:
         <section className="menu-card mp-card" role="alert">
           <h2>{state.ended === 'replaced' ? 'Room ini dibuka di perangkat lain' : 'Room ditutup'}</h2>
           <p className="muted">{state.ended === 'replaced' ? 'Kursi Anda sekarang dipakai di perangkat itu. Tutup tab ini atau kembali ke menu.' : 'Host menutup room ini.'}</p>
+          {state.ended === 'replaced' && <button type="button" className="btn btn-gold" onClick={() => table.reclaim()}>Ambil kembali kursi</button>}
           <div className="menu-choices"><button type="button" className="btn btn-primary menu-choice" onClick={onLeave}><strong>Kembali ke menu</strong></button></div>
         </section>
       </main>
@@ -144,12 +146,17 @@ function RoomScreen({ table, optionsOpen, onOptionsOpenChange, onLeave, toast }:
 }
 
 export function OnlineScreen({ server, inviteCode, resume, onTableChange, optionsOpen, onOptionsOpenChange, onExit }: OnlineScreenProps) {
+  const account = useAccount();
+  const [authReady, setAuthReady] = useState(false);
+  const [pendingCreate, setPendingCreate] = useState<{ config: RoomConfig; name: string } | null>(null);
+  const [pendingJoin, setPendingJoin] = useState<Join | null>(null);
+  const [switchJoin, setSwitchJoin] = useState<Join | null>(null);
   const [table, setTable] = useState<RemoteTable | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const clearAuthError = useCallback(() => setAuthError(null), []);
-  useEffect(() => { void openAuth(server).catch(() => setAuthError('Gagal masuk, coba lagi.')); }, [server]);
+  useEffect(() => { void openAuth(server).catch(() => setAuthError('Gagal masuk, coba lagi.')).finally(() => setAuthReady(true)); }, [server]);
   const [toastText, setToastText] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastRoom, setLastRoom] = useState(() => loadLastRoom());
@@ -162,28 +169,37 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   const join = useCallback((j: Join) => {
+    const current = authStore.get();
+    if (!current && onlineLoginRequired()) { setPendingJoin(j); return; }
+    if (!j.switchRoom && current?.currentRoom && current.currentRoom.code !== j.code) { setSwitchJoin(j); return; }
     setError(null);
-    const next = new RemoteTable({ server, code: j.code, name: j.name, token: j.token, initialConfig: j.config });
+    const next = new RemoteTable({ server, code: j.code, name: j.name, token: j.token, initialConfig: j.config, switchRoom: j.switchRoom });
     next.connect();
     setTable(next);
-  }, [server]);
+  }, [server, account]);
 
-  // Leaving keeps the seat (the token stays stored); only the live connection is dropped.
+  // Explicit leave releases the account's seat.
   const leave = useCallback(() => {
-    table?.leave();
+    const seated = table?.getState().joined && table.getState().seat && !table.getState().ended;
+    if (table?.getState().ended !== 'replaced') { table?.leave(); if (account && table) forgetRoom(table.code); }
     setTable(null);
     setLastRoom(loadLastRoom());
+    if (account && seated && table) void leaveCurrentRoom(table.code).catch(() => {});
     try { window.history.replaceState(null, '', window.location.pathname); } catch { /* sandboxed frame */ }
-  }, [table]);
+  }, [table, account]);
 
   // A stored seat for the invited room (or "Lanjutkan room") rejoins directly instead of showing the form.
   const autoJoined = useRef(false);
   useEffect(() => {
-    if (autoJoined.current) return;
+    if (table || (autoJoined.current && !pendingJoin) || !authReady || (!account && onlineLoginRequired())) return;
+    const code = pendingJoin?.code ?? inviteCode ?? (resume ? account ? account.currentRoom?.code : loadLastRoom()?.code : null);
+    if (!code) return;
+    const stored = loadRoom(code);
+    if (!account && !stored && !pendingJoin) return;
     autoJoined.current = true;
-    const stored = inviteCode ? loadRoom(inviteCode) : resume ? loadLastRoom() : null;
-    if (stored) join({ code: stored.code, name: stored.name, token: stored.token });
-  }, [inviteCode, resume, join]);
+    join({ code, name: pendingJoin?.name ?? stored?.name ?? account?.name ?? 'Pemain', token: stored?.token });
+    setPendingJoin(null);
+  }, [inviteCode, resume, join, account, authReady, pendingJoin, table]);
 
   useEffect(() => () => table?.disconnect(), [table]);
 
@@ -198,15 +214,34 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
   }, [ended, table]);
 
   const state = useSyncExternalStore(table?.subscribe ?? emptyStore, () => table?.getState() ?? null, () => null);
+  useEffect(() => {
+    if (state?.error?.code === 'current_room' && !state.joined && table) {
+      table.disconnect(); setTable(null);
+      void refreshAccount().then(() => setSwitchJoin({ code: table.code, name: table.playerName })).catch(() => setError(state.error!.message));
+    }
+    if (state?.error?.code === 'login_required' && !state.joined && table) {
+      setPendingJoin({ code: table.code, name: table.playerName });
+      table.disconnect(); setTable(null); autoJoined.current = false;
+      void refreshAccount().catch(() => {});
+    }
+  }, [state?.error, state?.joined, table]);
   const onTable = !!state?.view && state.room?.phase !== 'lobby' && state.ended === null;
   useEffect(() => { onTableChange(onTable); }, [onTable, onTableChange]);
   useEffect(() => () => onTableChange(false), [onTableChange]);
 
-  const create = async (config: RoomConfig, name: string) => {
+  const resumeRoom = account?.currentRoom ? { code: account.currentRoom.code, name: account.name, token: loadRoom(account.currentRoom.code)?.token ?? '' } : account ? null : lastRoom;
+  const create = async (config: RoomConfig, name: string, replace = false) => {
+    if (!account && onlineLoginRequired()) { setError('Masuk dengan Google untuk membuat room.'); return; }
+    await refreshAccount().catch(() => {});
+    if (!replace && authStore.get()?.currentRoom) { setPendingCreate({ config, name }); return; }
     setBusy(true);
     setError(null);
     try {
-      join({ code: await createRoom(server), name, config });
+      const code = await createRoom(server, undefined, replace);
+      setPendingCreate(null);
+      // The server already moved the account to the new room; don't offer the old one again.
+      await refreshAccount().catch(() => {});
+      join({ code, name, config, switchRoom: replace || undefined });
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Gagal membuat room.');
     } finally {
@@ -216,14 +251,16 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
 
   return (
     <>
+      {switchJoin && account?.currentRoom && <div className="main-menu"><section className="menu-card mp-card" role="dialog" aria-modal="true" aria-label="Kursi masih aktif"><p>Kamu masih duduk di room {account.currentRoom.code}</p><button type="button" onClick={() => { setSwitchJoin(null); join({ code: account.currentRoom!.code, name: account.name }); }}>Lanjutkan {account.currentRoom.code}</button><button type="button" onClick={() => { const next = switchJoin; setSwitchJoin(null); join({ ...next, switchRoom: true }); }}>Gabung {switchJoin.code}</button></section></div>}
+      {pendingCreate && <div className="main-menu"><section className="menu-card mp-card" role="dialog" aria-modal="true" aria-label="Room masih aktif"><p>Kamu masih punya room {resumeRoom?.code}</p><button type="button" onClick={() => { setPendingCreate(null); if (resumeRoom) join(resumeRoom); }}>Lanjutkan</button><button type="button" disabled={busy} onClick={() => { void create(pendingCreate.config, pendingCreate.name, true); }}>Buat room baru</button></section></div>}
       {table && (state?.room?.phase === 'lobby' || state?.room?.phase === 'finished') && <div className="mp-account-standalone"><AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></div>}
       {table && error && <p className="mp-error" role="alert">{error}</p>}
       {table
         ? <RoomScreen table={table} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} onLeave={leave} toast={toast} />
-        : <OnlineMenu inviteCode={inviteCode} lastRoom={lastRoom} busy={busy} error={error}
-            account={<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} />}
+        : <OnlineMenu inviteCode={inviteCode} lastRoom={resumeRoom} busy={busy} error={error}
+            account={<>{!account && (inviteCode || pendingJoin) && <p>Masuk dengan Google untuk gabung ke room {inviteCode ?? pendingJoin?.code}</p>}<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></>}
             onCreate={create} onJoin={(code, name) => join({ code, name, token: loadRoom(code)?.token })}
-            onResume={() => lastRoom && join({ code: lastRoom.code, name: lastRoom.name, token: lastRoom.token })} onBack={onExit} />}
+            onResume={() => resumeRoom && join(resumeRoom)} onBack={onExit} />}
       {toastText && <div className="mp-toast-wrap"><p className="mp-toast" role="status">{toastText}</p></div>}
     </>
   );

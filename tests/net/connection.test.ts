@@ -137,13 +137,13 @@ describe('errors and kicks', () => {
     expect(net.sockets).toHaveLength(1);
   });
 
-  it('kicked forgets the stored room so the menu stops offering it', () => {
+  it('room closure forgets the stored room so the menu stops offering it', () => {
     const { net, table, storage } = setup();
     table.connect();
     net.last.open();
     net.last.receive(welcome('tok-k'));
     expect(loadLastRoom(storage)?.code).toBe('ABC234');
-    net.last.receive({ type: 'kicked', reason: 'replaced' });
+    net.last.receive({ type: 'kicked', reason: 'room_closed' });
     expect(loadRoom('ABC234', storage)).toBeNull();
     expect(loadLastRoom(storage)).toBeNull();
   });
