@@ -41,6 +41,7 @@ export interface RemoteTableOptions {
   code: string;
   name: string;
   token?: string;
+  switchRoom?: boolean;
   /** The host's "Buat Room" form: sent once, right after the first welcome of a room just created. */
   initialConfig?: RoomConfig;
   storage?: StorageLike;
@@ -59,6 +60,8 @@ export class RemoteTable {
   private readonly actionListeners = new Set<(action: ActionInput) => void>();
   private readonly conn: Connection;
   private token: string | undefined;
+  private reclaimRequested = false;
+  private switchRequested: boolean;
   private assignedName: string;
   private endedKey: number | null = null;
   private pendingConfig: RoomConfig | undefined;
@@ -68,12 +71,13 @@ export class RemoteTable {
 
   constructor(private readonly options: RemoteTableOptions) {
     this.code = options.code;
+    this.switchRequested = options.switchRoom === true;
     this.assignedName = options.name;
     this.token = options.token;
     this.pendingConfig = options.initialConfig;
     this.conn = new Connection({
       url: roomSocketUrl(options.server, options.code),
-      hello: () => ({ token: this.token, name: this.assignedName }),
+      hello: () => ({ token: this.token, name: this.assignedName, ...(this.reclaimRequested ? { reclaim: true } : {}), ...(this.switchRequested ? { switchRoom: true } : {}) }),
       onMessage: m => this.receive(m),
       onStatus: status => this.patch({ status }),
       onQuality: (latencyMs, pongLate) => this.patch({ latencyMs, pongLate }),
@@ -116,7 +120,8 @@ export class RemoteTable {
   get isHost(): boolean { return this.state.host; }
   get dailyLimitStorage(): StorageLike | undefined { return this.options.storage; }
 
-  leave(): void { this.conn.send({ type: 'leave' }); this.conn.stop(); }
+  leave(): void { this.conn.send({ type: 'leave' }); this.conn.stop(); void refreshAccount().catch(() => {}); }
+  reclaim(): void { this.reclaimRequested = true; this.token = undefined; this.patch({ ended: null, joined: false }); this.conn.restart(); }
   react(preset: ReactionId): void { if (this.state.seat) this.conn.send({ type: 'reaction', preset }); }
   rename(name: string): void { this.conn.send({ type: 'rename', name }); }
   sit(seat: Seat): void { this.conn.send({ type: 'sit', seat }); }
@@ -140,9 +145,12 @@ export class RemoteTable {
   private receive(message: ServerMessage): void {
     switch (message.type) {
       case 'welcome':
+        this.reclaimRequested = false;
+        this.switchRequested = false;
         this.token = message.token;
         this.assignedName = message.name ?? this.assignedName;
         saveRoom({ code: this.code, token: message.token, name: this.assignedName }, this.options.storage);
+        void refreshAccount().catch(() => {});
         this.observeRoom(message.room, message.host);
         this.patch({ seat: message.seat, host: message.host, room: message.room, joined: true, ended: null });
         if (this.pendingConfig && message.room.phase === 'lobby') {
@@ -152,6 +160,7 @@ export class RemoteTable {
         }
         break;
       case 'room':
+        if (message.room.phase === 'finished' && this.state.room?.phase !== 'finished') void refreshAccount().catch(() => {});
         this.observeRoom(message.room, message.host);
         if (message.name) {
           this.assignedName = message.name;
@@ -163,7 +172,6 @@ export class RemoteTable {
         } else this.patch({ room: message.room, seat: message.seat, host: message.host });
         break;
       case 'view': {
-        if (this.state.host && this.state.view?.match.startedAt !== message.view.match?.startedAt) void refreshAccount().catch(() => {});
         const boundary = this.hostBoundary;
         const identity = message.view.match?.startedAt;
         if (boundary && this.state.host && identity !== undefined &&
@@ -214,8 +222,9 @@ export class RemoteTable {
         this.patch({ error: { id: ++this.errorSeq, code: message.code, message: message.message } });
         break;
       case 'kicked':
-        // This device lost the seat: stop offering it, so reopening can't kick the other device back.
-        forgetRoom(this.code, this.options.storage);
+        void refreshAccount().catch(() => {});
+        // Preserve this device's token on replacement; only explicit reclaim may retake the seat.
+        if (message.reason === 'room_closed') forgetRoom(this.code, this.options.storage);
         this.patch({ ended: message.reason });
         break;
       case 'pong':
@@ -253,8 +262,8 @@ export class RemoteTable {
 }
 
 /** POST /rooms; resolves with the new room code. */
-export async function createRoom(server: string, fetchImpl: typeof fetch = fetch): Promise<string> {
-  const res = await fetchImpl(`${server}/rooms`, { method: 'POST', credentials: 'include', headers: authHeaders() });
+export async function createRoom(server: string, fetchImpl: typeof fetch = fetch, replace = false): Promise<string> {
+  const res = await fetchImpl(`${server}/rooms`, { method: 'POST', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ replace }) });
   if (!res.ok) { const error = await res.json().catch(() => ({})); throw new Error(error.message ?? `HTTP ${res.status}`); }
   const body = await res.json() as { code?: unknown };
   if (typeof body.code !== 'string') throw new Error('Bad response');

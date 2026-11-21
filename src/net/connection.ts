@@ -7,7 +7,7 @@ export interface SocketLike {
   close(): void;
   onopen: (() => void) | null;
   onmessage: ((event: { data: unknown }) => void) | null;
-  onclose: (() => void) | null;
+  onclose: ((event?: { code: number }) => void) | null;
   onerror: (() => void) | null;
 }
 
@@ -21,7 +21,7 @@ export interface Timers {
 export interface ConnectionOptions {
   url: string;
   /** Read at every connect, so a token learned from `welcome` is used on the next hello. */
-  hello: () => { token?: string; name: string };
+  hello: () => Omit<Extract<ClientMessage, { type: 'hello' }>, 'type'>;
   onMessage: (message: ServerMessage) => void;
   onStatus: (status: ConnectionStatus) => void;
   socketFactory?: (url: string) => SocketLike;
@@ -90,8 +90,11 @@ export class Connection {
       try { message = JSON.parse(String(event.data)) as ServerMessage; } catch { return; }
       this.receive(message);
     };
-    socket.onclose = () => {
+    socket.onclose = event => {
       if (this.socket !== socket) return;
+      if (event?.code === 4001) { this.receive({ type: 'kicked', reason: 'replaced' }); return; }
+      if (event?.code === 4002) { this.receive({ type: 'kicked', reason: 'room_closed' }); return; }
+      if (event?.code === 4003) { this.stop(); return; }
       this.socket = null;
       this.stopPing();
       if (this.status !== 'stopped') this.scheduleRetry();
@@ -110,6 +113,9 @@ export class Connection {
     if (this.status === 'open' && this.socket) this.send({ type: 'resync' });
     else { this.attempt = 0; this.connect(); }
   }
+
+  /** Explicit user action may reopen a connection stopped after replacement. */
+  restart(): void { this.attempt = 0; this.setStatus('idle'); this.connect(); }
 
   /** Stop for good (left the room, or kicked). No further reconnects. */
   stop(): void {

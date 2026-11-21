@@ -6,8 +6,8 @@ export interface Statement {
   run(): Promise<{ meta: { changes: number } }>;
 }
 export interface Database { prepare(sql: string): Statement; batch(statements: Statement[]): Promise<unknown> }
-export interface AuthEnv { DB?: Database; LOGIN_REQUIRED?: string; FACEBOOK_ENABLED?: string }
-export interface User { id: string; name: string; picture: string | null; premium: number }
+export interface AuthEnv { currentRoom?(userId: string): Promise<{ code: string; phase: string } | null>; DB?: Database; LOGIN_REQUIRED?: string; FACEBOOK_ENABLED?: string }
+export interface User { id: string; name: string; picture: string | null; premium: number; news_opt_in?: number; news_opt_in_at?: number | null }
 interface Identity { sub: string; name: string; email?: string; picture?: string }
 const COOKIE = '__Host-maciokyu_session';
 const LIFETIME = 60 * 86400000;
@@ -64,7 +64,7 @@ export function sessionToken(request: Request): string | null {
 export async function resolveUser(request: Request, env: AuthEnv): Promise<User | null> {
   const token = sessionToken(request);
   if (!token || !env.DB) return null;
-  return env.DB.prepare('SELECT u.id, u.name, u.picture, u.premium FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await tokenHash(token), Date.now()).first<User>();
+  return env.DB.prepare('SELECT u.id, u.name, u.picture, u.premium, u.news_opt_in, u.news_opt_in_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await tokenHash(token), Date.now()).first<User>();
 }
 export async function remaining(db: Database, user: User, now = Date.now()): Promise<number | null> {
   if (user.premium) return null;
@@ -110,11 +110,11 @@ export async function authRoute(request: Request, env: AuthEnv, cors: Record<str
     } catch { return respond({ code: 'invalid_credential', message: 'Gagal masuk. Coba lagi.' }, 401); }
     const now = Date.now(), provider = path.endsWith('google') ? 'google' : 'facebook';
     await env.DB.prepare('INSERT INTO users (id,provider,provider_sub,name,email,picture,premium,created_at,last_seen_at) VALUES (?,?,?,?,?,?,0,?,?) ON CONFLICT(provider,provider_sub) DO UPDATE SET name=excluded.name,email=excluded.email,picture=excluded.picture,last_seen_at=excluded.last_seen_at').bind(crypto.randomUUID(), provider, identity.sub, identity.name, identity.email ?? null, identity.picture ?? null, now, now).run();
-    const user = (await env.DB.prepare('SELECT id,name,picture,premium FROM users WHERE provider=? AND provider_sub=?').bind(provider, identity.sub).first<User>())!;
+    const user = (await env.DB.prepare('SELECT id,name,picture,premium,news_opt_in,news_opt_in_at FROM users WHERE provider=? AND provider_sub=?').bind(provider, identity.sub).first<User>())!;
     const token = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     await env.DB.prepare('INSERT INTO sessions (token_hash,user_id,created_at,expires_at) VALUES (?,?,?,?)').bind(await tokenHash(token), user.id, now, now + LIFETIME).run();
     const local = new URL(request.headers.get('Origin') ?? request.url).hostname === 'localhost';
-    return respond({ ...user, premium: !!user.premium, remainingMatches: await remaining(env.DB, user), ...(local ? { token } : {}) }, 200, { 'Set-Cookie': cookie(token) });
+    return respond({ ...user, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, remainingMatches: await remaining(env.DB, user), ...(local ? { token } : {}) }, 200, { 'Set-Cookie': cookie(token) });
   }
   const user = await resolveUser(request, env);
   if (request.method === 'POST' && path === '/auth/logout') {
@@ -123,9 +123,16 @@ export async function authRoute(request: Request, env: AuthEnv, cors: Record<str
     return respond({ ok: true }, 200, { 'Set-Cookie': cookie('', 0) });
   }
   if (!user) return respond({ code: 'login_required', message: 'Host perlu masuk.' }, 401);
-  if (request.method === 'GET' && path === '/me') return respond({ ...user, premium: !!user.premium, remainingMatches: await remaining(env.DB, user) });
+  if (request.method === 'GET' && path === '/me') return respond({ ...user, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, remainingMatches: await remaining(env.DB, user) });
+  if (request.method === 'POST' && path === '/me') {
+    let body: { newsOptIn?: unknown };
+    try { body = await request.json(); } catch { return respond({ message: 'Data tidak valid.' }, 400); }
+    if (typeof body.newsOptIn !== 'boolean') return respond({ message: 'Pilihan email tidak valid.' }, 400);
+    await env.DB.prepare('UPDATE users SET news_opt_in=?,news_opt_in_at=? WHERE id=?').bind(body.newsOptIn ? 1 : 0, Date.now(), user.id).run();
+    return respond({ ok: true });
+  }
   if (request.method === 'DELETE' && path === '/me') {
-    await env.DB.batch(['DELETE FROM sessions WHERE user_id=?', 'DELETE FROM daily_matches WHERE user_id=?', 'DELETE FROM users WHERE id=?'].map(sql => env.DB!.prepare(sql).bind(user.id)));
+    await env.DB.batch(['DELETE FROM sessions WHERE user_id=?', 'DELETE FROM daily_matches WHERE user_id=?', 'DELETE FROM account_rooms WHERE user_id=?', 'DELETE FROM users WHERE id=?'].map(sql => env.DB!.prepare(sql).bind(user.id)));
     return respond({ ok: true }, 200, { 'Set-Cookie': cookie('', 0) });
   }
   return respond({ message: 'Tidak ditemukan.' }, 404);

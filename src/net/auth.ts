@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 export const GOOGLE_CLIENT_ID = '493683615084-apa5g3v01866pb8b9qfrgc75ii4pqtqk.apps.googleusercontent.com';
-export interface Account { id: string; name: string; picture: string | null; premium: boolean; remainingMatches: number | null }
+export interface Account { id: string; name: string; picture: string | null; premium: boolean; remainingMatches: number | null; currentRoom?: { code: string; phase: string } | null; newsOptIn?: boolean }
 interface Google { accounts: { id: { initialize(options: { client_id: string; callback: (result: { credential: string }) => void }): void; renderButton(element: HTMLElement, options: { type: string; text: string; locale: string; theme: string; size: string }): void } } }
 interface Facebook { init(options: { appId: string; version: string }): void; login(callback: (response: { authResponse?: { accessToken: string } }) => void, options: { scope: string }): void }
 let me: Account | null = null;
@@ -17,6 +17,7 @@ const update = (value: Account | null) => { me = value; revision++; for (const f
 export function useAccount(): Account | null { useSyncExternalStore(authStore.subscribe, () => revision, () => revision); return me; }
 export const deviceLimitFallback = () => !me && !loginRequired;
 let loginRequired = false;
+export const onlineLoginRequired = () => loginRequired;
 export function authHeaders(): Record<string, string> { return bearer ? { Authorization: `Bearer ${bearer}` } : {}; }
 export function authSocket(url: string): WebSocket { return bearer && new URL(url).hostname === 'localhost' ? new WebSocket(url, ['maciokyu-auth', bearer]) : new WebSocket(url); }
 export async function refreshAccount(): Promise<void> {
@@ -38,7 +39,18 @@ export async function signIn(provider: 'google' | 'facebook', credential: string
   const value = await response.json() as Account & { token?: string };
   bearer = value.token ?? null;
   if (bearer) try { sessionStorage.setItem(`itm.auth:${server}`, bearer); } catch { /* blocked storage */ }
-  update({ id: value.id, name: value.name, picture: value.picture, premium: value.premium, remainingMatches: value.remainingMatches });
+  const { token: _token, ...account } = value;
+  update(account);
+}
+export async function setNewsOptIn(newsOptIn: boolean): Promise<void> {
+  const response = await fetch(`${server}/me`, { method: 'POST', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ newsOptIn }) });
+  if (!response.ok) throw new Error('Gagal menyimpan pilihan email.');
+  await refreshAccount();
+}
+export async function leaveCurrentRoom(code: string): Promise<void> {
+  const response = await fetch(`${server}/me/room`, { method: 'DELETE', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+  if (!response.ok) throw new Error('Gagal meninggalkan room.');
+  await refreshAccount();
 }
 export async function signOut(remove = false): Promise<void> {
   const response = await fetch(`${server}${remove ? '/me' : '/auth/logout'}`, { method: remove ? 'DELETE' : 'POST', credentials: 'include', headers: authHeaders() });

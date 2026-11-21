@@ -19,6 +19,7 @@ import { devHandFromOutcome, type DevHand } from './dev/hand-code';
 import { SettingsModal } from './ui/components/SettingsModal';
 import { MainMenu } from './ui/components/MainMenu';
 import { OnlineScreen } from './ui/components/OnlineScreen';
+import { openAuth, useAccount } from './net/auth';
 import { loadLastRoom, mpServerUrl, parseRoomParam } from './net/room-store';
 import { AbandonMatchDialog } from './ui/components/AbandonMatchDialog';
 import { GameController, type GameEventType } from './ui/game-controller';
@@ -103,6 +104,8 @@ export function App() {
   useEffect(() => savePracticePace(pace), [pace]);
   // Online play needs a configured room server; an invite link (?room=CODE) opens it directly.
   const mpServer = mpServerUrl();
+  const account = useAccount();
+  useEffect(() => { if (mpServer) void openAuth(mpServer).catch(() => {}); }, [mpServer]);
   const [inviteCode, setInviteCode] = useState(() => mpServer && typeof window !== 'undefined' ? parseRoomParam(window.location.search) : null);
   const [view, setView] = useState<View>(inviteCode ? 'online' : 'menu');
   const [onlineTable, setOnlineTable] = useState(false);
@@ -354,7 +357,7 @@ export function App() {
           onExit={() => { setInviteCode(null); setResumeOnline(false); setView('menu'); }} />
       ) : view === 'menu' ? (
         <MainMenu onOnline={mpServer ? () => setView('online') : undefined}
-          resumeRoomCode={mpServer ? loadLastRoom()?.code : null} onResumeRoom={() => { setResumeOnline(true); setView('online'); }} kimMode={settings.kimMode ?? (settings.kimEnabled ? 'natural' : 'off')} onKimModeChange={(kimMode, minHuTay) => {
+          resumeRoomCode={mpServer ? account ? account.currentRoom?.code : loadLastRoom()?.code : null} onResumeRoom={() => { setResumeOnline(true); setView('online'); }} kimMode={settings.kimMode ?? (settings.kimEnabled ? 'natural' : 'off')} onKimModeChange={(kimMode, minHuTay) => {
           const stored = persistSettings(settings, { kimEnabled: kimMode !== 'off', kimMode, minHuTay });
           setSettings(stored);
           controller.setSettings(stored);
