@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-21
+### Changed
+- Online: the host now logs in with Google to create a room and to press Mulai or Main lagi. Friends who join with a code or link still don't need to log in.
+- The account row sits inside the online card and fits small phones.
+
 ## [1.3.0] - 2026-11-21
 ### Added
 - Online: "Masuk dengan Google" on the online screen. A logged-in host's 5 matches a day are counted on the server, so they hold across devices. The panel shows your name and photo, "Keluar" and "Hapus akun".

@@ -70,4 +70,6 @@ jobs:
         run: mkdir -p /tmp/deployer && cd /tmp/deployer && npx -y wrangler@4.162.0 pages deploy "$GITHUB_WORKSPACE/dist" --project-name indomahjong --branch main --commit-dirty=true
       - name: Smoke test
         if: steps.token.outputs.ok == 'true'
+        env:
+          SMOKE_SESSION: ${{ secrets.SMOKE_SESSION }}
         run: node scripts/smoke.mjs

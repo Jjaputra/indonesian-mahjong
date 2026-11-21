@@ -26,9 +26,26 @@ interface Join { code: string; name: string; token?: string; config?: RoomConfig
 
 const emptyStore = () => () => {};
 
-export function AccountPanel({ onError }: { onError: (message: string) => void }) {
+function Avatar({ name, picture }: { name: string; picture: string | null }) {
+  const [broken, setBroken] = useState(false);
+  return <span className="mp-avatar" aria-hidden="true">
+    {picture && !broken ? <img src={picture} alt="" width={26} height={26} referrerPolicy="no-referrer" onError={() => setBroken(true)} /> : (Array.from(name.trim())[0] ?? '?').toUpperCase()}
+  </span>;
+}
+
+export function AccountPanel({ onError, onClear, error }: { onError: (message: string) => void; onClear?: () => void; error?: string | null }) {
   const account = useAccount();
   const button = useRef<HTMLDivElement>(null);
+  // A new attempt (login, Keluar, Hapus akun) wipes the last error; so does a successful login.
+  const attempt = <A extends unknown[]>(run: (...args: A) => void) => (...args: A) => { onClear?.(); run(...args); };
+  useEffect(() => { if (account) onClear?.(); }, [account?.id]);
+  // A click inside the GIS iframe never reaches the page; the window blur with the iframe focused is the only hint.
+  useEffect(() => {
+    if (account) return;
+    const blur = () => { if (button.current?.contains(document.activeElement)) onClear?.(); };
+    window.addEventListener('blur', blur);
+    return () => window.removeEventListener('blur', blur);
+  }, [account, onClear]);
   useEffect(() => {
     if (!account) return;
     const timer = setInterval(() => { void refreshAccount().catch(() => {}); }, 60000);
@@ -37,21 +54,23 @@ export function AccountPanel({ onError }: { onError: (message: string) => void }
   useEffect(() => {
     if (!account && button.current) void renderGoogle(button.current, onError).catch(error => onError(error.message));
   }, [account, onError]);
-  return <section className="menu-card mp-card" aria-label="Akun host">
+  return <div className={`mp-account ${account ? 'is-in' : 'is-out'}`} role="group" aria-label="Akun host">
     {account ? <>
-      {account.picture && <img src={account.picture} alt="" width={36} height={36} referrerPolicy="no-referrer" />}
-      <span>{account.name}</span>
-      <p>{account.premium ? 'Match tanpa batas' : `Sisa ${account.remainingMatches} dari 5 match hari ini`}</p>
-      <button type="button" className="mp-link" onClick={() => { void signOut().catch(error => onError(error.message)); }}>Keluar</button>
-      <button type="button" className="mp-link" onClick={() => {
-        if (window.confirm('Hapus akun beserta semua sesi dan hitungan match?')) void signOut(true).catch(error => onError(error.message));
-      }}>Hapus akun</button>
+      <span className="mp-account-who"><Avatar name={account.name} picture={account.picture} /><span className="mp-account-name" title={account.name}>{account.name}</span></span>
+      <span className="mp-pill">{account.premium ? 'Tanpa batas' : `Sisa ${account.remainingMatches} dari 5 match hari ini`}</span>
+      <span className="mp-account-actions">
+        <button type="button" className="mp-link" onClick={attempt(() => { void signOut().catch(error => onError(error.message)); })}>Keluar</button>
+        <button type="button" className="mp-link mp-link-quiet" onClick={attempt(() => {
+          if (window.confirm('Hapus akun beserta semua sesi dan hitungan match?')) void signOut(true).catch(error => onError(error.message));
+        })}>Hapus akun</button>
+      </span>
     </> : <>
-      <p>Host perlu masuk untuk membuat room. Teman yang join tidak perlu.</p>
-      <div ref={button} />
-      {import.meta.env.VITE_FACEBOOK_LOGIN === '1' && <button type="button" className="btn" onClick={() => { void facebookLogin().catch(error => onError(error.message)); }}>Masuk dengan Facebook</button>}
+      <p className="mp-account-note">Host perlu masuk untuk membuat room. Teman yang join tidak perlu.</p>
+      <div className="mp-google" ref={button} />
+      {import.meta.env.VITE_FACEBOOK_LOGIN === '1' && <button type="button" className="btn" onClick={attempt(() => { void facebookLogin().catch(error => onError(error.message)); })}>Masuk dengan Facebook</button>}
     </>}
-  </section>;
+    {error && <p className="mp-account-error" role="alert">{error}</p>}
+  </div>;
 }
 
 export function SeatRolls({ table }: { table: RemoteTable }) {
@@ -128,7 +147,9 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
   const [table, setTable] = useState<RemoteTable | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { void openAuth(server).catch(() => setError('Gagal masuk, coba lagi.')); }, [server]);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const clearAuthError = useCallback(() => setAuthError(null), []);
+  useEffect(() => { void openAuth(server).catch(() => setAuthError('Gagal masuk, coba lagi.')); }, [server]);
   const [toastText, setToastText] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastRoom, setLastRoom] = useState(() => loadLastRoom());
@@ -195,11 +216,12 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
 
   return (
     <>
-      {(!table || state?.room?.phase === 'lobby' || state?.room?.phase === 'finished') && <AccountPanel onError={setError} />}
+      {table && (state?.room?.phase === 'lobby' || state?.room?.phase === 'finished') && <div className="mp-account-standalone"><AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></div>}
       {table && error && <p className="mp-error" role="alert">{error}</p>}
       {table
         ? <RoomScreen table={table} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} onLeave={leave} toast={toast} />
         : <OnlineMenu inviteCode={inviteCode} lastRoom={lastRoom} busy={busy} error={error}
+            account={<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} />}
             onCreate={create} onJoin={(code, name) => join({ code, name, token: loadRoom(code)?.token })}
             onResume={() => lastRoom && join({ code: lastRoom.code, name: lastRoom.name, token: lastRoom.token })} onBack={onExit} />}
       {toastText && <div className="mp-toast-wrap"><p className="mp-toast" role="status">{toastText}</p></div>}
