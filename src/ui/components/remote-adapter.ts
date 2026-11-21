@@ -76,7 +76,7 @@ export class RemoteController {
     return v?.phase === 'RESOLVED_HU' && last?.winner && !last.payments.lewFit ? last.winner : null;
   }
 
-  getSettings() { return { kimEnabled: this.table.getState().room?.config.kimMode !== 'off', minHuTay: this.table.getState().room?.config.minHuTay ?? 5 }; }
+  getSettings() { return this.view.settings ?? { kimEnabled: this.table.getState().room?.config.kimMode !== 'off', minHuTay: this.table.getState().room?.config.minHuTay ?? 5 }; }
 
   getState() {
     const { view, seat } = this.table.getState();

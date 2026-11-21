@@ -102,8 +102,8 @@ export function kongFaceText(p: Pick<KongPaymentView, 'kind' | 'face'>): string 
 }
 
 /** Live toast: "Kong 中! tiap pemain bayar 4 koin ke Bot Kanan". */
-export function kongToastText(p: KongPaymentView): string {
-  return `Kong ${kongFaceText(p)}! tiap pemain bayar ${p.perPlayer} koin ke ${PLAYER_NAME[p.owner]}`;
+export function kongToastText(p: KongPaymentView, nameOf: (seat: Seat) => string = (seat) => PLAYER_NAME[seat]): string {
+  return `Kong ${kongFaceText(p)}! tiap pemain bayar ${p.perPlayer} koin ke ${nameOf(p.owner)}`;
 }
 
 /** History note, e.g. "Kong Bot Kanan +6", per owner; empty without kongs. */

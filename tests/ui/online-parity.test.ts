@@ -1,0 +1,34 @@
+import { createElement } from 'react';
+import { expect, it } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { HandResult } from '../../src/ui/components/RemoteTableView';
+import { RemoteController } from '../../src/ui/components/remote-adapter';
+import { HistoryDetail } from '../../src/ui/components/HistoryModal';
+import { parityFixture } from '../session/online-parity-fixture';
+import { roomInfo } from '../net/fake-transport';
+import { TableSession } from '../../src/session';
+import { parseTileHand } from '../../src/core/tiles';
+import { kongPayment } from '../../src/core/round-score';
+import { historyScoringFields, MemoryStorage, saveGameRecord } from '../../src/storage';
+import type { RemoteState, RemoteTable } from '../../src/net/remote-table';
+
+it('renders the full online receipt and history names, flowers, column, zero Tay and Kong lines', () => {
+  const { session } = parityFixture(); const data = session.serialize();
+  data.payments = [kongPayment('nan', parseTileHand('DZ')[0]!, true)];
+  data.state.players.dong.flowers = parseTileHand('F1');
+  const s = TableSession.deserialize(data, () => 51000);
+  expect(s.apply('dong', { type: 'selfHu', version: s.version }).ok).toBe(true);
+  const view = s.viewFor('dong'), last = view.lastHand!;
+  last.scoring!.patterns.push({ id: 99, name: 'Zero receipt row', description: 'Receipt guard', tay: 0 });
+  const state = { view, room: roomInfo(), seat: 'dong' } as RemoteState;
+  const table = { getState: () => state, now: () => 51000, serverNow: () => 51000 } as unknown as RemoteTable;
+  expect(new RemoteController(table).getSettings()).toMatchObject({ scoringBasis: 'match_table', overlapPolicy: data.options.settings.overlapPolicy, allowKimInPair: data.options.settings.allowKimInPair });
+  const html = renderToStaticMarkup(createElement(HandResult, { table, state, onClose: () => {}, onLeave: () => {} }));
+  for (const text of ['Ada Kim', 'Zero receipt row', 'Bunga 1', 'receipt-set', 'Pembayaran Kong', 'Round Score', 'klasemen berjalan', 'Status siap', 'Lanjut']) expect(html).toContain(text);
+  const record = saveGameRecord({ winner: 'dong', winningHand: last.hand, flowers: last.flowers, winningTile: last.hand.at(-1)!, scoringBreakdown: [], totalTay: last.payments.totalTay, isWithKim: false, winMethod: 'tsumo', durationSeconds: 50, names: { dong: 'Nickname', nan: 'Other nickname' }, ...historyScoringFields(last.scoring!), matchSummary: { seat: 'dong', koinTotal: view.match.koinTotal, tayTotal: view.match.tayTotal, handsPlayed: 1, huCount: 1 } }, new MemoryStorage())!;
+  expect(record.tableColumn).toBe('K'); expect(record.scoringBasis).toBe('match_table');
+  const history = renderToStaticMarkup(createElement(HistoryDetail, { record, onDelete: () => {} }));
+  expect(history).toContain('Nickname'); expect(history).toContain('Other nickname'); expect(history).toContain('Bunga 1');
+  last.payments.lewFit = true;
+  expect(renderToStaticMarkup(createElement(HandResult, { table, state, onClose: () => {}, onLeave: () => {} }))).toContain('Hu di bawah minimum Tay');
+});

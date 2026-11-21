@@ -96,6 +96,7 @@ export interface ScoringBreakdownItem {
 export interface MatchHistoryRecord {
   online?: boolean;
   roomCode?: string;
+  names?: Partial<Record<Seat, string>>;
   matchSummary?: {
     seat: Seat;
     koinTotal: Record<Seat, number>;
@@ -535,13 +536,15 @@ export function updateSettings(patch: Partial<GameSettings>, storage?: StorageLi
  * Practice table defaults: a scoring choice the user never stored follows the house defaults
  * (match table). Bonus tiles always follow the player-confirmed PDF values.
  */
+export function practiceScoringSettings(settings: GameSettings): GameSettings {
+  return { ...settings, ...PRACTICE_SCORING_DEFAULTS };
+}
+
 export function withPracticeScoringDefaults(settings: GameSettings, storage?: StorageLike): GameSettings {
   const raw = safeRead(getStorage(storage), SETTINGS_STORAGE_KEY);
   const stored = isRecord(raw) ? raw : {};
-  const next = { ...settings, bonusTileRule: 'rulebook_per_tile' as const };
-  for (const key of SCORING_CHOICE_KEYS) {
-    if (!hasValidChoice(stored, key)) Object.assign(next, { [key]: PRACTICE_SCORING_DEFAULTS[key] });
-  }
+  const next = practiceScoringSettings(settings);
+  if (hasValidChoice(stored, 'scoringBasis')) next.scoringBasis = settings.scoringBasis;
   return next;
 }
 
@@ -719,6 +722,7 @@ export function sanitizeGameRecord(raw: unknown): MatchHistoryRecord | null {
   const discarder = (SEATS as readonly unknown[]).includes(raw.discarder) ? raw.discarder as Seat : undefined;
   return {
     ...(raw.online === true ? { online: true, roomCode: typeof raw.roomCode === 'string' ? raw.roomCode : undefined } : {}),
+    ...(isRecord(raw.names) ? { names: Object.fromEntries(SEATS.flatMap(seat => typeof (raw.names as Record<string, string>)[seat] === 'string' ? [[seat, (raw.names as Record<string, string>)[seat]]] : [])) } : {}),
     id: raw.id,
     timestamp: raw.timestamp,
     winner,

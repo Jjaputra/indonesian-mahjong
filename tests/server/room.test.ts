@@ -750,3 +750,18 @@ it('accepts an account reload with its own valid token while the old socket is s
   expect(h.frames.get(a.id)!.some(m => m.type === 'kicked')).toBe(false);
   await h.room.disconnect(a); expect(h.room.info().seats[0]!.connected).toBe(true);
 });
+
+
+it('new room matches and rematches use practice scoring while restored matches keep their frozen basis', async () => {
+  const h = harness(); await h.create(); const host = await h.join('Host');
+  await h.send(host, { type: 'start' }); await finishSeating(h);
+  expect(h.room.session!.viewFor(null).settings).toMatchObject({ scoringBasis: 'match_table', bonusTileRule: 'rulebook_per_tile' });
+  const frozen = h.room.session!.serialize();
+  frozen.options.settings.scoringBasis = 'hand_kim_usage';
+  h.room.session = TableSession.deserialize(frozen, () => h.now);
+  expect(h.room.session.viewFor(null).settings.scoringBasis).toBe('hand_kim_usage');
+  frozen.match.endedBy = 'hands'; frozen.match.finishedAt = h.now;
+  h.room.session = TableSession.deserialize(frozen, () => h.now);
+  await h.send(host, { type: 'rematch' }); await finishSeating(h);
+  expect(h.room.session!.viewFor(null).settings.scoringBasis).toBe('match_table');
+});

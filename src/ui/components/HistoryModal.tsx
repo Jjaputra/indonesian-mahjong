@@ -25,7 +25,7 @@ export function HistoryDetail({ record, onDelete }: { record: MatchHistoryRecord
       {record.matchSummary && <>
         <p>{record.matchSummary.handsPlayed} game · Hu Anda: {record.matchSummary.huCount}</p>
         <table className="tay-table" aria-label="Hasil pertandingan online"><thead><tr><th>Pemain</th><th>Tay</th><th>Koin</th></tr></thead><tbody>
-          {(['dong', 'nan', 'xi', 'bei'] as const).map(seat => <tr key={seat}><td>{PLAYER_NAME[seat]}{seat === record.matchSummary!.seat ? ' (Anda)' : ''}</td><td>{record.matchSummary!.tayTotal[seat]}</td><td>{record.matchSummary!.koinTotal[seat]}</td></tr>)}
+          {(['dong', 'nan', 'xi', 'bei'] as const).map(seat => <tr key={seat}><td>{record.names?.[seat] ?? PLAYER_NAME[seat]}{seat === record.matchSummary!.seat ? ' (Anda)' : ''}</td><td>{record.matchSummary!.tayTotal[seat]}</td><td>{record.matchSummary!.koinTotal[seat]}</td></tr>)}
         </tbody></table>
       </>}
       {record.winningTile && (
@@ -58,7 +58,7 @@ export function HistoryDetail({ record, onDelete }: { record: MatchHistoryRecord
       {kongPaymentsOf(record).length > 0 && (
         <ul className="history-kongs" aria-label="Pembayaran Kong">
           {kongPaymentsOf(record).map((p, i) => (
-            <li key={i}>{KONG_KIND_LABEL[p.kind]} {kongFaceText(p)} · {PLAYER_NAME[p.owner]} +{p.perPlayer * 3} koin (tiap pemain {p.perPlayer})</li>
+            <li key={i}>{KONG_KIND_LABEL[p.kind]} {kongFaceText(p)} · {record.names?.[p.owner] ?? PLAYER_NAME[p.owner]} +{p.perPlayer * 3} koin (tiap pemain {p.perPlayer})</li>
           ))}
         </ul>
       )}
@@ -116,7 +116,7 @@ export function HistoryModal({ history, onDelete, onClear, onClose }: HistoryMod
               <button type="button" className="history-row" onClick={() => setOpenId(open ? null : r.id)} aria-expanded={open}>
                 <span className="muted">{formatDate(r.timestamp)}</span>
                 {r.online && <span className="badge" title={r.roomCode}>Online</span>}
-                <strong>{r.matchSummary ? 'Pertandingan online' : r.winner ? `${PLAYER_NAME[r.winner]} Hu` : 'Seri'}</strong>
+                <strong>{r.matchSummary && !r.names ? 'Pertandingan online' : r.winner ? `${r.names?.[r.winner] ?? PLAYER_NAME[r.winner]} Hu` : 'Seri'}</strong>
                 <span>{r.matchSummary ? `Room ${r.roomCode ?? ''}` : WIN_METHOD_LABEL[r.winMethod].split(' (')[0]}</span>
                 {r.winner && <span className="badge badge-kim">{modeLabel(r.tableColumn ?? (r.isWithKim ? 'K' : 'NK'))}</span>}
                 <span className="num">{r.matchSummary ? `${r.matchSummary.handsPlayed} game · ${r.matchSummary.koinTotal[r.matchSummary.seat]} koin · ${r.matchSummary.huCount} Hu` : <>{r.winner || !kongPaymentsOf(r).length ? tayKoinText(r) : ''}{kongPaymentsOf(r).length > 0 && `${r.winner ? ' · ' : ''}${kongNote(kongPaymentsOf(r))}`}</>}</span>

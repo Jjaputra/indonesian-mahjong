@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-22
+### Fixed
+- Online Tay now matches single player. In a Kim match every Hu reads the Ada KIM column, as the house rule says. Before, online read the Tanpa KIM column for a hand without Kim, so some hands scored higher online (for example 44 instead of 29 Tay). Rooms already playing keep their old scoring until the match ends.
+### Changed
+- The online Hu receipt is the same as in single player. It shows the Tay column, the winning hand by set with flowers, numbered patterns with the minimum-Hu check, Round Score, Kong lines, "Total game Hu + Kong" and the running standings. Reactions, the ready strip and "Lanjut" stay.
+- Online Kong koin show on the scoreboard as soon as the Kong is made, with the "tiap pemain bayar" notice using player names.
+- Riwayat saves every online hand with the players' names and the Tay column, not just one row per match.
+
 ## [1.5.2] - 2026-11-21
 ### Fixed
 - The admin page (`?admin=1`) was blank. It now loads your login itself and shows "Memuat akun…", the Google login, "Akun ini bukan admin." or the settings, plus "Kembali ke menu".
