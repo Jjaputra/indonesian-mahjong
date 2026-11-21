@@ -22,11 +22,20 @@ it('loads server policy, signs in with credentials, shows account UI and clears 
   expect(authHeaders()).toEqual({ Authorization: 'Bearer test-bearer' });
   expect(fetcher.mock.calls.find(([url]) => url.endsWith('/auth/google'))).toBeDefined();
   const html = renderToStaticMarkup(createElement(AccountPanel, { onError: () => {} }));
-  for (const text of ['Jason', 'Sisa 3 dari 5', 'Keluar', 'Hapus akun']) expect(html).toContain(text);
+  for (const text of ['Jason', 'Sisa 3 dari 5 match hari ini', 'Keluar', 'Hapus akun', 'mp-avatar', 'mp-pill']) expect(html).toContain(text);
+  expect(html).not.toContain('<section'); expect(html).not.toContain('role="alert"');
+  expect(renderToStaticMarkup(createElement(AccountPanel, { onError: () => {}, error: 'Gagal masuk, coba lagi.' }))).toContain('<p class="mp-account-error" role="alert">Gagal masuk, coba lagi.</p>');
   await signOut(true); expect(authStore.get()).toBeNull(); expect(authHeaders()).toEqual({});
   const loggedOut = renderToStaticMarkup(createElement(AccountPanel, { onError: () => {} }));
-  expect(loggedOut).toContain('Teman yang join tidak perlu.'); expect(loggedOut).not.toContain('Facebook');
+  expect(loggedOut).toContain('Teman yang join tidak perlu.'); expect(loggedOut).toContain('class="mp-google"'); expect(loggedOut).not.toContain('Facebook');
   unsubscribe();
+});
+it('shows the initial when the account has no picture and "Tanpa batas" for premium', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/auth/config') ? Response.json({ loginRequired: true }) : Response.json({ id: 'p', name: 'budi', picture: null, premium: true, remainingMatches: null, token: 't' })));
+  await openAuth('http://localhost:8787'); await signIn('google', 'credential');
+  const html = renderToStaticMarkup(createElement(AccountPanel, { onError: () => {} }));
+  expect(html).toContain('<span class="mp-avatar" aria-hidden="true">B</span>'); expect(html).not.toContain('<img'); expect(html).toContain('Tanpa batas'); expect(html).not.toContain('Sisa');
+  await signOut();
 });
 it('handles anonymous sessions, rejects failed login and enables device fallback only when the server permits it', async () => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/auth/config') ? Response.json({ loginRequired: false }) : new Response(null, { status: 401 })));

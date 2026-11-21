@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
 import { DEFAULT_ROOM_CONFIG, NAME_MAX_LENGTH, ROOM_CODE_LENGTH, isRoomCode, type RoomConfig } from '../../net/protocol';
 import { cleanName, loadPlayerName, normalizeRoomCode, savePlayerName, type StoredRoom } from '../../net/room-store';
@@ -13,6 +13,8 @@ export interface OnlineMenuProps {
   lastRoom: StoredRoom | null;
   busy: boolean;
   error: string | null;
+  /** The account row, shown inside the card under the Kembali bar. */
+  account?: ReactNode;
   onCreate: (config: RoomConfig, name: string) => void;
   onJoin: (code: string, name: string) => void;
   onResume: () => void;
@@ -28,7 +30,7 @@ function NameField({ value, onChange }: { value: string; onChange: (value: strin
   );
 }
 
-export function OnlineMenu({ inviteCode, lastRoom, busy, error, onCreate, onJoin, onResume, onBack }: OnlineMenuProps) {
+export function OnlineMenu({ inviteCode, lastRoom, busy, error, account, onCreate, onJoin, onResume, onBack }: OnlineMenuProps) {
   const [screen, setScreen] = useState<Screen>(inviteCode ? 'join' : 'home');
   const [name, setName] = useState(loadPlayerName);
   const [code, setCode] = useState(inviteCode ?? '');
@@ -58,6 +60,7 @@ export function OnlineMenu({ inviteCode, lastRoom, busy, error, onCreate, onJoin
           <button type="button" className="mp-link" onClick={back}><ArrowLeft size={16} aria-hidden="true" /> Kembali</button>
           <button type="button" className="mp-link" onClick={() => setHelp(true)}><HelpCircle size={16} aria-hidden="true" /> Cara undang teman</button>
         </div>
+        {account}
         <p className="menu-eyebrow">Main bareng teman</p>
         {error && <p className="mp-error" role="alert">{error}</p>}
 
