@@ -58,7 +58,7 @@ interface HuResultModalProps {
 function roundScoreLines(outcome: Extract<GameOutcome, { kind: 'hu' }>): string[] {
   const rs = outcome.scoring.isValidHu ? outcome.roundScore : null;
   const kongs = kongPaymentsOf(outcome);
-  const lines = rs ? ['Round Score (' + roundScoreHint(rs) + ')', ...roundScoreOrder(outcome.winner, rs.payer).map((s) => PLAYER_NAME[s] + ': ' + signedKoin(rs.deltas[s]) + ' koin')] : ['Round Score: 0 koin semua'];
+  const lines = rs ? ['Round Score (' + roundScoreHint(rs) + ')', ...roundScoreOrder(outcome.winner, rs.payer).map((s) => PLAYER_NAME[s] + ': ' + signedKoin(rs.deltas[s]) + ' koin')] : ['Round Score: semua 0 koin'];
   if (!kongs.length) return lines;
   const total = gameDeltasOf({ roundScore: rs, kongPayments: kongs });
   return [...lines, ...kongs.map((p) => `Kong ${kongFaceText(p)} ${PLAYER_NAME[p.owner]} (${KONG_KIND_LABEL[p.kind]}): tiap pemain ${p.perPlayer} koin`),
@@ -113,7 +113,7 @@ export function RoundScoreBlock({ outcome, kongPayments = [], nameOf = (s) => PL
     return (
       <section className="round-score is-empty" aria-label="Round Score">
         <h3>Round Score</h3>
-        <p>Round Score: 0 koin semua</p>
+        <p>Round Score: semua 0 koin</p>
       </section>
     );
   }
@@ -194,7 +194,7 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
             ].join('\n')));
           }}
         >
-          {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Struk disalin' : 'Salin Struk'}
+          {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Struk disalin' : 'Salin struk'}
         </button>
       )}
       {outcome.kind === 'hu' && onOpenSandbox && (
@@ -203,11 +203,11 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
         </button>
       )}
       <button type="button" className={inMatch ? 'btn' : 'btn btn-primary'} onClick={onNewGame}>
-        <RotateCcw size={14} /> {inMatch ? 'Kembali ke menu' : 'Permainan Baru'}
+        <RotateCcw size={14} /> Ke menu
       </button>
       {onNextHand && (
         <button type="button" className="btn btn-primary" onClick={onNextHand}>
-          Lanjut ke game berikutnya <ArrowRight size={14} />
+          Lanjut <ArrowRight size={14} />
         </button>
       )}
       {onStandings && (
@@ -220,9 +220,9 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
 
   if (outcome.kind === 'seri') {
     return (
-      <Modal title="Seri — Tembok Habis" onClose={onClose} footer={footer}>
+      <Modal title="Seri — Tembok abis" onClose={onClose} footer={footer}>
         {matchSummary}
-        <p>Tidak ada pemain yang Hu sebelum tembok habis. Permainan berakhir Seri.</p>
+        <p>Nggak ada yang Hu sampai tembok abis. Game berakhir Seri.</p>
         <RoundScoreBlock outcome={null} kongPayments={kongPaymentsOf(outcome)} />
         <p className="muted">Durasi: {outcome.durationSeconds} detik</p>
       </Modal>

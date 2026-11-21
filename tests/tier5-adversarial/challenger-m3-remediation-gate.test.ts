@@ -88,7 +88,7 @@ describe('Challenger 2 M3 Remediation Verification Gate', () => {
       expect(res.isValidHu).toBe(false);
       expect(res.isLewFit).toBe(true);
       expect(res.lewFitReason).toBe('structure');
-      expect(res.rejectionReason).toMatch(/Se Sam Pu Tat tidak boleh memiliki bunga/i);
+      expect(res.rejectionReason).toMatch(/Se Sam Pu Tat nggak boleh ada Bunga/i);
     });
 
     it('uncorrelated hand with 4 seasons (20 Tay bonus) is rejected as Lew Fit structure', () => {
@@ -103,7 +103,7 @@ describe('Challenger 2 M3 Remediation Verification Gate', () => {
       expect(res.isValidHu).toBe(false);
       expect(res.isLewFit).toBe(true);
       expect(res.lewFitReason).toBe('structure');
-      expect(res.rejectionReason).toMatch(/Se Sam Pu Tat tidak boleh memiliki bunga/i);
+      expect(res.rejectionReason).toMatch(/Se Sam Pu Tat nggak boleh ada Bunga/i);
     });
 
     it('uncorrelated hand with a Kim tile is rejected as Lew Fit structure', () => {

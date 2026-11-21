@@ -143,9 +143,9 @@ describe('match scoring and end', () => {
   it('final standings render with Main lagi and back to menu', () => {
     const m = recordHand(createMatch(), 'nan', true, 9, 0, { winMethod: 'tsumo' });
     const html = renderToStaticMarkup(createElement(MatchStandingsModal, { match: m, onPlayAgain: () => {}, onMenu: () => {} }));
-    expect(html).toContain('Klasemen Akhir');
+    expect(html).toContain('Klasemen akhir');
     expect(html).toContain('Main lagi');
-    expect(html).toContain('Kembali ke menu');
+    expect(html).toContain('Ke menu');
     expect(html).toContain('Pemenang meja');
   });
 
@@ -254,11 +254,11 @@ describe('match UI wiring', () => {
   it('result modal offers the next hand or the final standings', () => {
     const seri = { kind: 'seri' as const, kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 }, durationSeconds: 1 };
     const next = renderToStaticMarkup(createElement(HuResultModal, { outcome: seri, onClose: noop, onNewGame: noop, onNextHand: noop }));
-    expect(next).toContain('Lanjut ke game berikutnya');
-    expect(next).toContain('Kembali ke menu');
+    expect(next).toMatch(/Lanjut <svg/);
+    expect(next).toContain('Ke menu');
     const last = renderToStaticMarkup(createElement(HuResultModal, { outcome: seri, onClose: noop, onNewGame: noop, onStandings: noop }));
     expect(last).toContain('Lihat klasemen akhir');
-    expect(last).not.toContain('Lanjut ke game berikutnya');
+    expect(last).not.toMatch(/Lanjut <svg/);
   });
 });
 
@@ -357,12 +357,12 @@ describe('match review regressions', () => {
     c.startMatch();
     playHand(c);
     const line = () => renderToStaticMarkup(createElement(PracticeCoach, { controller: c, actions: c.getHumanActions(), selectedId: null }));
-    expect(line()).toContain('Lanjut ke game berikutnya');
+    expect(line()).toContain('tekan Lanjut buat main game berikutnya');
     c.nextHand();
     expect(line()).not.toContain('Hasil game sudah siap');
     for (let i = 2; i <= 16; i++) { playHand(c); if (i < 16) c.nextHand(); }
     expect(line()).toContain('Lihat klasemen akhir');
-    expect(line()).not.toContain('Lanjut ke game berikutnya');
+    expect(line()).not.toContain('tekan Lanjut');
   });
 
   function rotatedScore(hand: string, flowers: string = '', roundWind: 'dong' | 'xi' = 'dong') {

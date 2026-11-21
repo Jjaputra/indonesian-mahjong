@@ -38,8 +38,8 @@ function result(used: number, host = true) {
 }
 describe('host daily limit UI', () => {
   it('shows the host remaining count in lobby and result', () => {
-    expect(lobby(2)).toContain('Sisa 1 dari 3 match hari ini');
-    expect(result(2)).toContain('Sisa 1 dari 3 match hari ini');
+    expect(lobby(2)).toContain('Jatah host hari ini: sisa 1 dari 3 match');
+    expect(result(2)).toContain('Jatah host hari ini: sisa 1 dari 3 match');
   });
   it('disables Mulai at zero and explains the limit', () => {
     const html = lobby(5);

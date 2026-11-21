@@ -15,7 +15,7 @@ How maciokYU! talks to players. Every agent follows it for player-facing text (U
 - **No stacked politeness:** "Silakan", "Mohon maaf", "Terima kasih atas…", "Harap".
 - **Punctuation:** no exclamation mark unless it's a real moment (Hu!, juara). Never "!!" and no emoji in UI text. Reactions are the exception.
 - **No three-part lists for rhythm**, and no "bukan hanya X, tapi juga Y".
-- **No bureaucratic words:** "perangkat" → "HP" / "HP lain" (or "device"), "pengguna" → "pemain", "tautan" → "link", "melakukan", "terkait", "guna".
+- **No bureaucratic words:** "perangkat" → "tab atau HP lain" (a second tab counts too), "pengguna" → "pemain", "tautan" → "link", "melakukan", "terkait", "guna".
 
 ## Glossary (use exactly these words)
 
@@ -25,8 +25,8 @@ How maciokYU! talks to players. Every agent follows it for player-facing text (U
 | room, kode room, link undangan | ruang, tautan |
 | Masuk pakai Google / Keluar | Login dengan akun Google / Sign out |
 | jatah host (3 match sehari) | kuota, batas harian |
-| HP lain | perangkat lain |
-| Lanjut / Main lagi / Keluar room | Lanjutkan permainan / Mulai ulang |
+| tab atau HP lain | perangkat lain |
+| Lanjut / Main lagi / Keluar room / Ke menu | Lanjutkan permainan / Mulai ulang / Kembali ke menu |
 | Klasemen akhir | Peringkat akhir pertandingan |
 | Riwayat | Histori |
 

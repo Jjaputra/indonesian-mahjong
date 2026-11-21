@@ -42,7 +42,7 @@ describe('v0.5.2 table layout (v0.5.3: central discard pool)', () => {
 
   it('shows one turn card naming whose turn it is, without a separate Giliran stat', () => {
     const html = renderToString(createElement(CenterArea, { controller: controllerAt('table') }));
-    expect(html).toMatch(/class="table-stage turn-card"[^>]*><span class="turn-who">Giliran <strong>Anda<\/strong><\/span>/);
+    expect(html).toMatch(/class="table-stage turn-card"[^>]*><span class="turn-who">Giliran <strong>Kamu<\/strong><\/span>/);
     expect(html).not.toContain('center-stats');
   });
 
@@ -67,7 +67,7 @@ describe('v0.5.2 result standings', () => {
     expect(html).toContain('<strong>Game 2/16 selesai.</strong>');
     expect(html).toContain('Koin<span class="th-long"> game ini</span>');
     const rows = [...html.matchAll(/<tr( class="([^"]*)")?><td class="rank">(\d)<\/td><th scope="row">([^<]+)/g)].map((r) => ({ cls: r[2] ?? '', rank: r[3], name: r[4] }));
-    expect(rows.map((r) => r.name)).toEqual(['Bot Kanan', 'Bot Seberang', 'Anda', 'Bot Kiri']);
+    expect(rows.map((r) => r.name)).toEqual(['Bot Kanan', 'Bot Seberang', 'Kamu', 'Bot Kiri']);
     expect(rows[1]!.cls).toContain('is-winner');
     expect(rows.filter((r) => r.cls.includes('is-winner'))).toHaveLength(1);
     // Bot Seberang won this game and, after Bot Kanan's earlier Hu, deals next.

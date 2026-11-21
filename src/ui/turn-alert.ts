@@ -52,10 +52,10 @@ export function startTurnAlerts(table: RemoteTable): () => void {
     try { navigator.vibrate?.(150); } catch { /* Unsupported or blocked by the browser. */ }
     if (timer !== null) return;
     title = document.title;
-    document.title = '● Giliran Anda!';
+    document.title = '● Giliran kamu';
     timer = setInterval(() => {
       if (!away()) { restore(); return; }
-      document.title = document.title === title ? '● Giliran Anda!' : title;
+      document.title = document.title === title ? '● Giliran kamu' : title;
     }, 800);
   };
   const unsubscribe = table.subscribe(update);

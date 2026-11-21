@@ -582,7 +582,7 @@ describe('Instant Hu #6, #9, and #34', () => {
     expect(result.lewFitReason).toBe('instant-invalid');
     expect(result.isValidHu).toBe(false);
     expect(result.patterns).toHaveLength(0);
-    expect(result.rejectionReason).toMatch(/tanpa syarat/);
+    expect(result.rejectionReason).toMatch(/tanpa memenuhi syaratnya/);
   });
 
   it('six bonus tiles do not trigger instant #6', () => {

@@ -23,7 +23,7 @@ describe('handReadingLine', () => {
 
   it('distinguishes a real 4 Tay shape below the minimum', () => {
     expect(handReadingLine(chickenInput()))
-      .toBe('Bentuk sah, 4 Tay, kurang dari minimum 5 Tay.');
+      .toBe('Bentuk sah, tapi 4 Tay masih di bawah minimum 5 Tay.');
   });
 
   it('uses the configured minimum', () => {
@@ -41,6 +41,6 @@ describe('handReadingLine', () => {
       ...chickenInput(),
       hand: parseTileHand('1T 3T 5T 7T 9T 1S 3S 5S 7S 9S WD WN WX'),
       winningTile: keyToTile('DZ'),
-    })).toBe('Tile ini tidak membentuk Hu.');
+    })).toBe('Tile ini nggak jadi Hu.');
   });
 });

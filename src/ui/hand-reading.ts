@@ -32,7 +32,7 @@ export function handReadingLine(input: HandReadingInput): string {
 
   if (result.isValidHu) return `Hu dengan tile ini: ${result.totalTay} Tay.`;
   if (result.lewFitReason === 'below-minimum') {
-    return `Bentuk sah, ${result.totalTay} Tay, kurang dari minimum ${input.minHuTay} Tay.`;
+    return `Bentuk sah, tapi ${result.totalTay} Tay masih di bawah minimum ${input.minHuTay} Tay.`;
   }
-  return 'Tile ini tidak membentuk Hu.';
+  return 'Tile ini nggak jadi Hu.';
 }

@@ -1,7 +1,7 @@
 {
   "name": "maciokYU!",
   "short_name": "maciokYU!",
-  "description": "maciokYU! · Mahjong Indonesia (ITM / YDSP) di browser, main bareng teman",
+  "description": "Mahjong Indonesia (ITM / YDSP) di browser. Main sendiri atau bareng teman.",
   "lang": "id",
   "start_url": "./",
   "scope": "./",

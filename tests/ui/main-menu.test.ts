@@ -38,7 +38,7 @@ describe('MainMenu', () => {
   it('renders a focused game start with current difficulty', () => {
     const html = renderMenu();
     expect(html).toContain('aria-label="Main sendiri"');
-    expect(html).toContain('Mulai bermain');
+    expect(html).toContain('<strong>Mulai <');
     expect(html).toContain('Tiga bot · Sulit');
     expect(html).not.toMatch(/Rulebook|Kalkulator|PDF|ver06|tile-legend|aturan rumah/);
   });
@@ -70,7 +70,7 @@ describe('MainMenu', () => {
 
   it('renders the pregame three-mode Kim choice without development explanations', () => {
     const on = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: true, onKimChange: noop, initialStep: 'solo' }));
-    expect(on).toContain('role="radiogroup" aria-label="Pilihan Kim"');
+    expect(on).toContain('role="radiogroup" aria-label="Kim"');
     expect(on).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Kim dari tile</button>');
     expect(on).toContain('<button type="button" role="radio" aria-checked="false">Tanpa Kim</button>');
     expect(on).toContain('keempat kopinya jadi Kim');
@@ -88,7 +88,7 @@ describe('MainMenu', () => {
       onPractice: noop,
       initialStep: 'solo',
     }));
-    expect(html).toContain('role="radiogroup" aria-label="Tingkat kesulitan bot"');
+    expect(html).toContain('role="radiogroup" aria-label="Level bot"');
     expect(html).toContain('<button type="button" role="radio" aria-checked="false">Mudah</button>');
     expect(html).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Normal</button>');
     expect(html).toContain('<button type="button" role="radio" aria-checked="false">Sulit</button>');
@@ -103,7 +103,7 @@ describe('MainMenu', () => {
       onPractice: noop,
       initialStep: 'solo',
     }));
-    expect(html).not.toContain('aria-label="Tingkat kesulitan bot"');
+    expect(html).not.toContain('aria-label="Level bot"');
   });
 
   it('renders correct note and summary line for each difficulty level', () => {
@@ -124,7 +124,7 @@ describe('MainMenu', () => {
   it('triggers onDifficultyChange callback when clicking difficulty buttons', () => {
     const onDifficultyChange = vi.fn();
     const tree = MenuSolo({ difficulty: 'normal', onDifficultyChange, lastResult: null, onPractice: noop, onBack: noop });
-    const difficultyChoice = elements(tree).find((c: any) => c.props?.label === 'Tingkat kesulitan bot');
+    const difficultyChoice = elements(tree).find((c: any) => c.props?.label === 'Level bot');
     expect(difficultyChoice).toBeDefined();
 
     expect(difficultyChoice.props.value).toBe('normal');
@@ -160,11 +160,11 @@ describe('MainMenu front screen', () => {
     expect(html).toContain('aria-label="Menu utama"');
     expect(html).toContain('Main sendiri');
     expect(html).toContain('Lawan tiga bot');
-    expect(html).toContain('Main bareng teman');
-    expect(html).toContain('Room pribadi · undang lewat tautan');
+    expect(html).toContain('Main bareng');
+    expect(html).toContain('Room pribadi · undang lewat link');
     expect(html).toContain('Premium · segera hadir');
-    expect(html).toContain('Mahjong Indonesia · main bareng teman');
-    expect(html).not.toContain('Mulai bermain');
+    expect(html).toContain('Mahjong Indonesia di browser');
+    expect(html).not.toContain('<strong>Mulai <');
     expect(html).not.toContain('role="radiogroup"');
     expect(html).not.toContain('role="dialog"');
   });
@@ -174,7 +174,7 @@ describe('MainMenu front screen', () => {
     expect(offline).not.toContain('Room pribadi');
     expect(offline).toContain('Main sendiri');
     const resume = front({ resumeRoomCode: 'ABCD', onResumeRoom: noop });
-    expect(resume).toContain('Lanjutkan room ABCD');
+    expect(resume).toContain('Lanjut room ABCD');
   });
 
   it('Main sendiri reveals the options and Kembali returns to the front screen', () => {
@@ -184,8 +184,8 @@ describe('MainMenu front screen', () => {
 
     const solo = renderToStaticMarkup(createElement(MainMenu, { difficulty: 'normal', onDifficultyChange: noop, lastResult: null, onPractice: noop, initialStep: 'solo', onOnline: noop }));
     expect(solo).toContain('<h2>Main sendiri</h2>');
-    expect(solo).toContain('aria-label="Tingkat kesulitan bot"');
-    expect(solo).toContain('Mulai bermain');
+    expect(solo).toContain('aria-label="Level bot"');
+    expect(solo).toContain('<strong>Mulai <');
     expect(solo).toContain('Kembali');
     expect(solo).not.toContain('Premium · segera hadir');
 
@@ -208,8 +208,8 @@ describe('PremiumModal', () => {
     expect(html).toContain('role="dialog"');
     expect(html).toContain('maciokYU! Premium');
     expect(html).toContain('Segera hadir');
-    expect(html).toContain('Main bareng teman tanpa batas harian. Tanpa Premium, host bisa memulai 3 match online per hari; teman yang join tetap gratis.');
-    expect(html).toContain('Fitur lain menyusul.');
+    expect(html).toContain('Premium: host main bareng tanpa jatah harian. Tanpa Premium, jatah host 3 match online per hari. Teman yang gabung tetap gratis.');
+    expect(html).not.toContain('Fitur lain menyusul.');
     expect(html).toMatch(/<button[^>]*>Oke<\/button>/);
     expect(html).not.toMatch(/<input|<form|Rp|\$|bayar|email/i);
   });
@@ -228,8 +228,8 @@ describe('AbandonMatchDialog', () => {
     const html = renderToStaticMarkup(createElement(AbandonMatchDialog, { onStay: noop, onLeave: noop }));
     expect(html).toContain('role="dialog"');
     expect(html).toContain('aria-modal="true"');
-    expect(html).toContain('Apakah Anda ingin meninggalkan pertandingan saat ini dan kembali ke menu?');
+    expect(html).toContain('Tinggalkan match yang lagi jalan dan balik ke menu?');
     expect(html).toMatch(/<button[^>]*>Tetap di meja<\/button>/);
-    expect(html).toMatch(/<button[^>]*>Kembali ke menu<\/button>/);
+    expect(html).toMatch(/<button[^>]*>Ke menu<\/button>/);
   });
 });

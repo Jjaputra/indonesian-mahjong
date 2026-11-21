@@ -339,17 +339,17 @@ export function App() {
           {devMode && <button type="button" className="icon-btn is-dev" onClick={() => setSandbox({ initial: null })} title="Uji Tangan (mode developer)" aria-label="Uji Tangan">
             <FlaskConical size={18} />
           </button>}
-          <button type="button" className="icon-btn" onClick={() => setModal('history')} title="Riwayat Permainan">
+          <button type="button" className="icon-btn" onClick={() => setModal('history')} title="Riwayat">
             <History size={18} />
           </button>
-          <button type="button" className="icon-btn" onClick={toggleSound} aria-label={settings.soundEnabled || settings.musicEnabled ? 'Bisukan semua audio' : 'Pulihkan pilihan audio'} title={settings.soundEnabled || settings.musicEnabled ? 'Bisukan semua audio' : 'Pulihkan pilihan audio'}>
+          <button type="button" className="icon-btn" onClick={toggleSound} aria-label={settings.soundEnabled || settings.musicEnabled ? 'Bisukan semua audio' : 'Balikin pilihan audio'} title={settings.soundEnabled || settings.musicEnabled ? 'Bisukan semua audio' : 'Balikin pilihan audio'}>
             {settings.soundEnabled || settings.musicEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
           <button type="button" className="icon-btn" onClick={() => setModal('settings')} title="Pengaturan">
             <Settings size={18} />
           </button>
-          {matchStarted && <button type="button" className="btn btn-primary btn-new-game" title="Permainan Baru" onClick={() => midMatch ? setAbandonOpen(true) : newGame()}>
-            <RotateCcw size={14} /> <span className="btn-text">Permainan Baru</span>
+          {matchStarted && <button type="button" className="btn btn-primary btn-new-game" title="Ke menu" onClick={() => midMatch ? setAbandonOpen(true) : newGame()}>
+            <RotateCcw size={14} /> <span className="btn-text">Ke menu</span>
           </button>}
         </div>
       </header>
@@ -390,7 +390,7 @@ export function App() {
               coach={<PracticeCoach controller={controller} actions={actions} selectedId={selectedId} />} />
             {outcome && !resultOpen && (
               <button type="button" className="btn btn-gold result-reopen" onClick={() => setResultOpen(true)}>
-                Lihat hasil permainan
+                Lihat hasil game
               </button>
             )}
           </div>

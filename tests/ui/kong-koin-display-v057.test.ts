@@ -29,20 +29,20 @@ const koinCells = (html: string) => [...html.matchAll(/class="rs-koin [^"]*">([^
 describe('v0.5.7 Kong koin display', () => {
   it('labels and toast text in Bahasa Indonesia', () => {
     expect(KONG_KIND_LABEL).toEqual({ ankong: 'Kong di dalam', kong: 'Kong makan dari orang', ankong_zhong: 'Kong Zhong di dalam', kong_zhong: 'Kong Zhong makan dari orang' });
-    expect(kongToastText(zhong)).toBe('Kong 中! tiap pemain bayar 4 koin ke Bot Kanan');
-    expect(kongToastText(fiveTong)).toBe('Kong 5 Tong! tiap pemain bayar 1 koin ke Anda');
-    expect(kongToastText(zhong, () => 'A Liong')).toBe('Kong 中! tiap pemain bayar 4 koin ke A Liong');
-    expect(kongNote(kongs)).toBe(`Kong Anda ${MINUS}1, Bot Kanan +11`);
+    expect(kongToastText(zhong)).toBe('Kong 中: tiap pemain bayar 4 koin ke Bot Kanan');
+    expect(kongToastText(fiveTong)).toBe('Kong 5 Tong: tiap pemain bayar 1 koin ke Kamu');
+    expect(kongToastText(zhong, () => 'A Liong')).toBe('Kong 中: tiap pemain bayar 4 koin ke A Liong');
+    expect(kongNote(kongs)).toBe(`Kong Kamu ${MINUS}1, Bot Kanan +11`);
     expect(kongNote([])).toBe('');
   });
 
   it('Hu: Kong lines under the Hu rows, then Hu + Kong totals summing to 0', () => {
     const rs = roundScore('xi', 5, { winMethod: 'ron', discarder: 'dong' });
     const html = renderToStaticMarkup(createElement(RoundScoreBlock, { outcome: { winner: 'xi', seatWind: 'xi', roundScore: rs }, kongPayments: kongs }));
-    expect(html).toContain('Buangan: 4 × 5 tay');
+    expect(html).toContain('Buangan: 4 × 5 Tay');
     expect(html).toContain('<b>Bot Kanan</b> · Kong Zhong di dalam');
     expect(html).toContain('tiap pemain bayar 4 koin');
-    expect(html).toContain('<b>Anda</b> · Kong makan dari orang');
+    expect(html).toContain('<b>Kamu</b> · Kong makan dari orang');
     expect(html).toContain('Hu + Kong');
     // Hu rows (+20, −10, −5, −5), then totals in the same order: xi +20−5, dong −10−1, bei −5−5, nan −5+11
     expect(koinCells(html)).toEqual(['+20', `${MINUS}10`, `${MINUS}5`, `${MINUS}5`, '+15', `${MINUS}11`, `${MINUS}10`, '+6']);
@@ -54,7 +54,7 @@ describe('v0.5.7 Kong koin display', () => {
     const html = renderToStaticMarkup(createElement(HuResultModal, {
       outcome: { kind: 'seri', kongPayments: kongs, gameDeltas: gameDeltas(null, kongs), durationSeconds: 3 }, onClose: noop, onNewGame: noop,
     }));
-    expect(html).not.toContain('Round Score: 0 koin semua');
+    expect(html).not.toContain('Round Score: semua 0 koin');
     expect(html).toContain('hanya Kong');
     expect(html).toContain('Kong saja');
     expect(koinCells(html)).toEqual([`${MINUS}1`, '+11', `${MINUS}5`, `${MINUS}5`]);
@@ -63,7 +63,7 @@ describe('v0.5.7 Kong koin display', () => {
 
   it('Seri without kongs keeps "0 koin semua"', () => {
     const html = renderToStaticMarkup(createElement(RoundScoreBlock, { outcome: null, kongPayments: [] }));
-    expect(html).toContain('Round Score: 0 koin semua');
+    expect(html).toContain('Round Score: semua 0 koin');
   });
 
   it('Tabel Total Poin: live Kong koin counted, chip beside each owner, Σ 0', () => {
@@ -86,7 +86,7 @@ describe('v0.5.7 Kong koin display', () => {
     m = recordHand(m, 'xi', true, 5, Date.now(), { winMethod: 'tsumo' }, kongs);
     m = recordHand(m, null, false, 0, Date.now(), undefined, [zhong]);
     const html = renderToStaticMarkup(createElement(MatchStandingsModal, { match: m, onMenu: noop, onPlayAgain: noop }));
-    expect(html).toContain(`Bot Seberang Hu 5 Tay · +25 koin · Kong Anda ${MINUS}1, Bot Kanan +11`);
+    expect(html).toContain(`Bot Seberang Hu 5 Tay · +25 koin · Kong Kamu ${MINUS}1, Bot Kanan +11`);
     expect(html).toContain('Seri · Kong Bot Kanan +12');
     expect(html).not.toContain('Seri · 0 koin');
     expect(recordDeltas(m.hands[1]!)).toEqual({ dong: -4, nan: 12, xi: -4, bei: -4 });

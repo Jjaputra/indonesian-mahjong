@@ -97,7 +97,7 @@ it('uses online names, correct ranking and zero sum, a crown, own highlight and 
   expect(html).toContain('Pemenang meja: Disa');
   expect(html).toMatch(/<td class="rank">1<\/td><th scope="row">Disa/);
   expect(html).toContain('aria-label="Juara"'); expect(html).toContain('is-human');
-  expect(html).toContain('Σ 0 · kit-kit ✓'); expect(html).toContain('Menunggu host memulai lagi');
+  expect(html).toContain('Σ 0 · kit-kit ✓'); expect(html).toContain('Nunggu host mulai lagi');
   expect(html).toContain('+288'); expect(html).toContain('+96'); expect(html).toContain('−192');
   expect(html).toContain('Keluar room'); expect(html).toContain('Lihat meja'); expect(html).toContain('Lihat hasil game terakhir');
   const last = renderToStaticMarkup(createElement(HandResult, { ...f, onClose: noop, onLeave: noop, onStandings: noop }));

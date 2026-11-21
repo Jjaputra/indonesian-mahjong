@@ -210,7 +210,7 @@ describe('public bot discard explanation', () => {
     const action = decideTurnAction(observation, rng());
     if (action.type !== 'discard') throw new Error('expected discard');
     const explanation = explainDiscardChoice(observation, action.tileId)!;
-    expect(explanation).toContain('termasuk nilai retensi terendah');
-    expect(explanation).toContain('tidak menambahkan variasi acak');
+    expect(explanation).toContain('termasuk yang nilai simpannya paling rendah');
+    expect(explanation).toContain('nggak pakai variasi acak');
   });
 });

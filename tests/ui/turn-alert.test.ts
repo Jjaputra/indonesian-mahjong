@@ -27,11 +27,11 @@ describe('turn alerts', () => {
     net.last.receive({ type: 'welcome', token: 't', seat: 'dong', host: true, serverNow: 0, room: { ...roomInfo(), phase: 'playing' } });
     const stop = startTurnAlerts(table), v = view();
     net.last.receive({ type: 'view', view: v, serverNow: 0 });
-    expect(doc.title).toBe('● Giliran Anda!'); expect(vibrate).toHaveBeenCalledWith(150); expect(sound).toHaveBeenCalledTimes(1);
+    expect(doc.title).toBe('● Giliran kamu'); expect(vibrate).toHaveBeenCalledWith(150); expect(sound).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(800); expect(doc.title).toBe('Mahjong');
-    vi.advanceTimersByTime(800); expect(doc.title).toBe('● Giliran Anda!');
+    vi.advanceTimersByTime(800); expect(doc.title).toBe('● Giliran kamu');
     doc.hidden = false; doc.dispatchEvent(new Event('visibilitychange'));
-    expect(doc.title).toBe('● Giliran Anda!');
+    expect(doc.title).toBe('● Giliran kamu');
     focused = true; win.dispatchEvent(new Event('focus')); expect(doc.title).toBe('Mahjong');
     net.last.receive({ type: 'view', view: { ...v, version: 5 }, serverNow: 0 });
     expect(sound).toHaveBeenCalledTimes(1);
@@ -39,7 +39,7 @@ describe('turn alerts', () => {
     expect(sound).toHaveBeenCalledTimes(2); expect(vibrate).toHaveBeenCalledTimes(1); expect(doc.title).toBe('Mahjong');
     doc.hidden = true;
     net.last.receive({ type: 'view', view: { ...v, match: { ...v.match, startedAt: 3000 } }, serverNow: 0 });
-    expect(doc.title).toBe('● Giliran Anda!');
+    expect(doc.title).toBe('● Giliran kamu');
     stop(); expect(doc.title).toBe('Mahjong');
     vi.advanceTimersByTime(1600); expect(doc.title).toBe('Mahjong');
     table.disconnect();

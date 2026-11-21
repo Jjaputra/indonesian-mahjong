@@ -61,7 +61,7 @@ describe('practiceCoachLine', () => {
   it('mentions only Jia, from the left player, when Jia is the only claim', () => {
     const line = practiceCoachLine({ ...idle, claim: { ...claim, jiaOptions: [[]] } });
     expect(line.emphasis).toBe('jia');
-    expect(line.text).toContain('Jia hanya dari pemain di kiri Anda');
+    expect(line.text).toContain('Jia cuma dari buangan pemain di kiri kamu');
     expect(line.text).not.toMatch(/\b(Hu|Pung|Kong)\b/);
     expect(line.text).toContain('Lew');
   });
@@ -85,12 +85,12 @@ describe('practiceCoachLine', () => {
 
   it('says the bots are playing when nothing is enabled', () => {
     expect(practiceCoachLine({ ...idle, waiting: true })).toEqual({ text: COACH_BOTS_TEXT, emphasis: 'none' });
-    expect(COACH_BOTS_TEXT).toBe('Pemain lain sedang mengambil giliran.');
+    expect(COACH_BOTS_TEXT).toBe('Nunggu giliran pemain lain.');
   });
 
   it('reports the finished hand once there is an outcome', () => {
     const line = practiceCoachLine({ ...idle, canDraw: true, outcome: { kind: 'seri', durationSeconds: 10 } });
     expect(line).toEqual({ text: COACH_GAME_OVER_TEXT, emphasis: 'none' });
-    expect(COACH_GAME_OVER_TEXT).toBe('Hasil permainan sudah siap. Permainan Baru membawa Anda kembali ke menu utama.');
+    expect(COACH_GAME_OVER_TEXT).toBe('Hasil game udah siap. Tekan Ke menu buat balik ke menu utama.');
   });
 });

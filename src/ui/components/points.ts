@@ -42,8 +42,8 @@ export function tayKoinText(record: { winner: Seat | null; totalTay: number; rou
 
 /** Formula hint, e.g. "Ce Mo: 6 × 5 tay" or "Buangan: 4 × 5 tay; yang buang 2×, lainnya 1×". */
 export function roundScoreHint(rs: RoundScore): string {
-  if (rs.kind === 'ce_mo') return `Ce Mo: 6 × ${rs.tay} tay; tiap lawan 2×`;
-  return `${ROUND_SCORE_LABEL[rs.kind]}: 4 × ${rs.tay} tay; yang ${PAYER_TAG[rs.kind]} 2×, lainnya 1×`;
+  if (rs.kind === 'ce_mo') return `Ce Mo: 6 × ${rs.tay} Tay; tiap lawan 2×`;
+  return `${ROUND_SCORE_LABEL[rs.kind]}: 4 × ${rs.tay} Tay; yang ${PAYER_TAG[rs.kind]} 2×, lainnya 1×`;
 }
 
 /** Seat wind of `seat` given another seat's wind this hand (winds follow chair order). */
@@ -103,7 +103,7 @@ export function kongFaceText(p: Pick<KongPaymentView, 'kind' | 'face'>): string 
 
 /** Live toast: "Kong 中! tiap pemain bayar 4 koin ke Bot Kanan". */
 export function kongToastText(p: KongPaymentView, nameOf: (seat: Seat) => string = (seat) => PLAYER_NAME[seat]): string {
-  return `Kong ${kongFaceText(p)}! tiap pemain bayar ${p.perPlayer} koin ke ${nameOf(p.owner)}`;
+  return `Kong ${kongFaceText(p)}: tiap pemain bayar ${p.perPlayer} koin ke ${nameOf(p.owner)}`;
 }
 
 /** History note, e.g. "Kong Bot Kanan +6", per owner; empty without kongs. */

@@ -43,7 +43,7 @@ function Countdown({ table, state }: { table: RemoteTable; state: RemoteState })
   const own = view.pendingDecisions.some(d => d.seat === state.seat);
   const seconds = Math.ceil(left / 1000);
   return (<>
-    {own && seconds > 0 && seconds <= 5 && <div className="online-warning" role="status"><strong>Waktu hampir habis!</strong><b>{seconds}</b></div>}
+    {own && seconds > 0 && seconds <= 5 && <div className="online-warning" role="status"><strong>Waktu hampir abis</strong><b>{seconds}</b></div>}
     <div className={`mp-countdown${ratio < 0.25 ? ' is-low' : ''}`} role="timer" aria-label={`${who}, sisa ${Math.ceil(left / 1000)} detik`}>
       <span>{who}</span>
       <i style={{ transform: `scaleX(${ratio})` }} />
@@ -86,7 +86,7 @@ export function ReadyStrip({ seats, self, nameOf }: { seats: RoomSeat[]; self: S
         const offline = !s.bot && !s.connected;
         return (
           <li key={s.seat} className={`${done ? 'is-ready' : ''}${s.seat === self ? ' is-self' : ''}${offline ? ' is-offline' : ''}`.trim() || undefined}>
-            <span>{nameOf(s.seat)}</span><b>{offline ? 'offline' : done ? '✓ siap' : '⏳ tunggu'}</b>
+            <span>{nameOf(s.seat)}</span><b>{offline ? 'offline' : done ? '✓ siap' : 'nunggu'}</b>
           </li>
         );
       })}
@@ -103,10 +103,10 @@ export function FinishedMatchActions({ table, state, onLeave }: { table: RemoteT
         {state.host
           ? <div className="online-daily-limit">
               <button type="button" className="btn btn-primary" disabled={remaining === 0 || loginBlocked} onClick={() => table.rematch()}>Main lagi</button>
-              <div role="status"><p>{Number.isFinite(remaining) ? `Sisa ${remaining} dari ${dailyMatchLimit} match hari ini` : account ? 'Match tanpa batas' : 'Host perlu masuk.'}</p>
+              <div role="status"><p>{Number.isFinite(remaining) ? `Jatah host hari ini: sisa ${remaining} dari ${dailyMatchLimit} match` : account ? 'Jatah host: tanpa batas' : 'Host perlu masuk dulu.'}</p>
                 {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE()}</p>}<AllowanceReset remaining={remaining} /></div>
             </div>
-          : <span className="muted" role="status">Menunggu host memulai lagi</span>}
+          : <span className="muted" role="status">Nunggu host mulai lagi</span>}
         <button type="button" className="btn" onClick={onLeave}>Keluar room</button>
   </>;
 }
@@ -180,19 +180,19 @@ export function HandResult({ table, state, onClose, onLeave, onStandings }: { ta
 
           </>
         )}
-        {!winner && !lewFit && <p className="mp-result-note">Tembok habis. Tidak ada pemenang.</p>}
-        {lewFit && <p className="mp-result-note">Hu di bawah minimum Tay: tidak dihitung.</p>}
+        {!winner && !lewFit && <p className="mp-result-note">Tembok abis. Nggak ada pemenang.</p>}
+        {lewFit && <p className="mp-result-note">Hu di bawah minimum Tay, nggak dihitung.</p>}
         <RoundScoreBlock outcome={winner && record ? { winner, seatWind: seatWindOf({ dealerSeat: view.dealer }, winner), roundScore: lewFit ? null : record.roundScore } : null} kongPayments={record?.kongPayments ?? []} nameOf={seat => seatName(table, seat)} />
-        <p className="muted">Game {view.match.hands.length}/16 selesai · Koin game ini sudah masuk klasemen berjalan.</p>
+        <p className="muted">Game {view.match.hands.length}/16 selesai · Koin game ini udah masuk klasemen sementara.</p>
         <StandingsTable match={view.match} gained={deltas} names={seatNames(table)} human={state.seat ?? undefined} />
         {!view.matchOver && state.room && (
           <div className="online-ready" role="status">
             <ReadyStrip seats={state.room.seats} self={state.seat} nameOf={seat => seatName(table, seat)} />
-            <p className="mp-next">Hand berikutnya dalam {seconds} detik</p>
+            <p className="mp-next">Game berikutnya {seconds} detik lagi</p>
             <div className="mp-next-bar"><i style={{ transform: `scaleX(${Math.min(1, left / NEXT_HAND_GRACE_MS)})` }} /></div>
           </div>
         )}
-        {view.matchOver && <><p><strong>Pertandingan selesai.</strong></p><ContactLine /></>}
+        {view.matchOver && <><p><strong>Match selesai.</strong></p><ContactLine /></>}
       </div>
     </Modal>
   );
@@ -251,24 +251,24 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
           <div className="play-progress">
             <TableInfo roundWind={view.roundWind} kimEnabled={kimEnabled} kimFace={view.kimFace} kimIndicator={view.indicator} minHuTay={view.match.minHuTay} />
             {!optionsOpen && (
-              <button type="button" className="options-tab" id="table-options-trigger" aria-controls="table-options-panel" aria-expanded={false} aria-label="Buka panel OPTION" onClick={() => onOptionsOpenChange(true)}>
+              <button type="button" className="options-tab" id="table-options-trigger" aria-controls="table-options-panel" aria-expanded={false} aria-label="Buka panel Opsi" onClick={() => onOptionsOpenChange(true)}>
                 <span className="options-tab-mark" aria-hidden="true">◀</span>
-                <span className="options-tab-label">OPTION</span>
+                <span className="options-tab-label">Opsi</span>
               </button>
             )}
             <section id="table-options-panel" className={`options-panel${optionsOpen ? ' is-open' : ''}`} hidden={!optionsOpen} aria-labelledby="table-options-title">
               <header className="options-panel-head">
                 <h2 id="table-options-title" className="options-panel-title">ROOM {state.room?.code}</h2>
-                <button type="button" className="options-panel-close" aria-controls="table-options-panel" aria-expanded={optionsOpen} aria-label="Sembunyikan panel OPTION" onClick={() => onOptionsOpenChange(false)}>
+                <button type="button" className="options-panel-close" aria-controls="table-options-panel" aria-expanded={optionsOpen} aria-label="Sembunyikan panel Opsi" onClick={() => onOptionsOpenChange(false)}>
                   <span className="options-close-mark" aria-hidden="true">▶</span>
                 </button>
               </header>
               <div className="options-panel-body">
                 <MatchScoreboard liveKong={finished ? [] : view.liveKong ?? []} match={view.match} hand={handNo} prevailingWind={view.roundWind} dealer={view.dealer} human={spectator ? undefined : remote.humanSeat} names={names} />
-                {state.host && state.room?.seats.filter(s => s.name && !s.bot && !s.connected && !s.takeover).map(s => <button key={s.seat} type="button" className="btn" onClick={() => table.replaceBot(s.seat)}>Ganti bot - {s.name}</button>)}
+                {state.host && state.room?.seats.filter(s => s.name && !s.bot && !s.connected && !s.takeover).map(s => <button key={s.seat} type="button" className="btn" onClick={() => table.replaceBot(s.seat)}>Ganti {s.name} dengan bot</button>)}
                 <details className="table-tools">
                   <summary>Aktivitas terbaru</summary>
-                  <ol className="game-log" aria-label="Log permainan">{state.log.slice(-12).map(l => <li key={l.id}>{l.text}</li>)}</ol>
+                  <ol className="game-log" aria-label="Log game">{state.log.slice(-12).map(l => <li key={l.id}>{l.text}</li>)}</ol>
                 </details>
                 <button type="button" className="btn mp-leave" onClick={onLeave}><LogOut size={14} aria-hidden="true" /> Keluar room</button>
               </div>
@@ -281,7 +281,7 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
             names={spectator ? spectatorBottomNames(table) : names} facedown={spectator}
             hud={spectator ? undefined : <ActionHud controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId} names={names} />} />
           {finished && !resultOpen && !standingsOpen && (
-            <button type="button" className="btn btn-gold result-reopen" onClick={() => view.matchOver ? showStandings() : setResultOpen(true)}>{view.matchOver ? 'Lihat klasemen akhir' : 'Lihat hasil permainan'}</button>
+            <button type="button" className="btn btn-gold result-reopen" onClick={() => view.matchOver ? showStandings() : setResultOpen(true)}>{view.matchOver ? 'Lihat klasemen akhir' : 'Lihat hasil game'}</button>
           )}
         </div>
       </main>

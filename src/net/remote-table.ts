@@ -267,8 +267,8 @@ export class RemoteTable {
 /** POST /rooms; resolves with the new room code. */
 export async function createRoom(server: string, fetchImpl: typeof fetch = fetch, replace = false): Promise<string> {
   const res = await fetchImpl(`${server}/rooms`, { method: 'POST', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ replace }) });
-  if (!res.ok) { const error = await res.json().catch(() => ({})); throw new Error(error.message ?? `HTTP ${res.status}`); }
+  if (!res.ok) { const error = await res.json().catch(() => ({})); throw new Error(error.message ?? `Server error (${res.status}). Coba lagi.`); }
   const body = await res.json() as { code?: unknown };
-  if (typeof body.code !== 'string') throw new Error('Bad response');
+  if (typeof body.code !== 'string') throw new Error('Jawaban server nggak dikenali. Coba lagi.');
   return body.code;
 }

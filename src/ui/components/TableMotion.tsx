@@ -90,11 +90,11 @@ export function TableMotion({ controller }: { controller: GameController }) {
   const state = controller.getState();
   const actor = PLAYER_NAME[state.currentTurn];
   const cue = active ? `${PLAYER_NAME[active.motion.seat]} · ${active.motion.kind === 'draw'
-    ? moving ? 'mengambil tile dari tembok' : 'mengambil tile dari tembok · tiba di tangan, memilih buangan'
-    : active.motion.kind === 'claim' ? `${active.motion.call} ${tileText(active.motion.tile!)} · mengambil ke meld terbuka`
-    : moving ? `membuang ${tileText(active.motion.tile!)}` : `${tileText(active.motion.tile!)} di tengah · menunggu klaim`}`
-    : state.phase === 'CLAIM_WINDOW' ? `${PLAYER_NAME[state.discardPending!.discarder]} · menunggu klaim`
-    : `${actor} · ${state.phase === 'TURN_DRAW' ? 'giliran berikutnya · mengambil tile' : state.phase === 'ACTION_DECISION' ? 'memilih buangan' : 'persiapan / akhir giliran'}`;
+    ? moving ? 'ambil tile dari tembok' : 'ambil tile dari tembok · udah di tangan, pilih buangan'
+    : active.motion.kind === 'claim' ? `${active.motion.call} ${tileText(active.motion.tile!)} · masuk ke set terbuka`
+    : moving ? `buang ${tileText(active.motion.tile!)}` : `${tileText(active.motion.tile!)} di tengah · nunggu klaim`}`
+    : state.phase === 'CLAIM_WINDOW' ? `${PLAYER_NAME[state.discardPending!.discarder]} · nunggu klaim`
+    : `${actor} · ${state.phase === 'TURN_DRAW' ? 'giliran berikutnya · ambil tile' : state.phase === 'ACTION_DECISION' ? 'pilih buangan' : 'persiapan / akhir giliran'}`;
   // One turn card: whose turn it is, then what is happening (the name is dropped when it repeats).
   const turnPrefix = `${actor} · `;
   return <>

@@ -43,8 +43,8 @@ describe('v0.4.2 match options', () => {
     const board = renderToStaticMarkup(createElement(MatchScoreboard, { match: m, hand: 6, prevailingWind: 'dong', dealer: 'dong' }));
     expect(board).toContain('Koin');
     expect(board).toMatch(/<tr class="match-score is-leader"><td class="rank">#1<\/td><th scope="row">Bot Kanan<\/th>/);
-    expect(board).toMatch(/is-human"><td class="rank">#2<\/td><th scope="row">Anda/);
-    expect(board.indexOf('Bot Kanan')).toBeLessThan(board.indexOf('Anda'));
+    expect(board).toMatch(/is-human"><td class="rank">#2<\/td><th scope="row">Kamu/);
+    expect(board.indexOf('Bot Kanan')).toBeLessThan(board.indexOf('Kamu'));
     for (const html of [board,
       renderToStaticMarkup(createElement(MatchResultNote, { match: m })),
       renderToStaticMarkup(createElement(HuResultModal, { outcome: { kind: 'seri', kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 }, durationSeconds: 1 }, matchSummary: createElement(MatchResultNote, { match: m }), onClose: noop, onNewGame: noop })),
@@ -53,7 +53,7 @@ describe('v0.4.2 match options', () => {
       expect(html).toContain('23'); expect(html).toContain('Hu');
       // Result notes mention the next dealer before their ranked standings table.
       const scoreSummary = html.match(/<div class="match-note"><p>.*?<\/p>(<table class="standings-table">.*?<\/table>)/)?.[1] ?? html;
-      expect(scoreSummary.indexOf('Bot Kanan')).toBeLessThan(scoreSummary.indexOf('Anda'));
+      expect(scoreSummary.indexOf('Bot Kanan')).toBeLessThan(scoreSummary.indexOf('Kamu'));
     }
   });
   it('breaks koin ties by valid Hu, then first to reach the final koin total', () => {
@@ -133,7 +133,7 @@ describe('v0.4.2 match options', () => {
   });
   it('renders the three Kim choices and two wall choices together in the menu', () => {
     const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, kimMode: 'natural', onKimModeChange: noop, deadWall: 'none', onDeadWallChange: noop, initialStep: 'solo' }));
-    for (const label of ['Kim dari tile', 'Kim tambahan (pemula)', 'Tanpa Kim', 'Sampai habis (turnamen)', 'Sisa 14 tile (dead wall)']) expect(html).toContain(label);
+    for (const label of ['Kim dari tile', 'Kim tambahan (pemula)', 'Tanpa Kim', 'Sampai abis (turnamen)', 'Sisa 14 tile (dead wall)']) expect(html).toContain(label);
   });
 });
 

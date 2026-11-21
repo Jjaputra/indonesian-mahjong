@@ -22,13 +22,13 @@ export function formatCall(event: CallEvent): string {
   if (call) return name ? `${name}: ${call}` : call;
   switch (event.type) {
     case 'discard': {
-      const action = event.tileLabel ? `membuang ${event.tileLabel}` : 'membuang';
+      const action = event.tileLabel ? `buang ${event.tileLabel}` : 'buang';
       return name ? `${name} ${action}` : action.charAt(0).toUpperCase() + action.slice(1);
     }
     case 'hu':
       return name ? `${name} Hu` : 'Hu';
     case 'flower':
-      return name ? `${name} membuka Bunga` : 'Membuka Bunga';
+      return name ? `${name} buka Bunga` : 'Buka Bunga';
     case 'lewFit':
       return 'Lew Fit';
     case 'seri':

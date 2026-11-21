@@ -23,7 +23,7 @@ export function MatchClock({ match }: { match: MatchState }) {
   }, [match.startedAt, match.timeLimitMinutes, match.endedBy]);
   const remaining = remainingMatchMs(match, now);
   const seconds = Math.ceil((remaining ?? 0) / 1000);
-  return <span aria-label="Waktu pertandingan">{remaining === null ? 'Waktu: tanpa batas' : `Waktu: ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`}{remaining === 0 && match.endedBy === null ? ' — waktu habis, selesaikan game ini' : ''}</span>;
+  return <span aria-label="Waktu match">{remaining === null ? 'Waktu: tanpa batas' : `Waktu: ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`}{remaining === 0 && match.endedBy === null ? ' — waktu abis, selesaikan game ini' : ''}</span>;
 }
 
 /**
@@ -40,7 +40,7 @@ export function TableInfo({ roundWind, kimEnabled, kimFace, kimIndicator, minHuT
     <dl className="table-info" aria-label="Info meja">
       <div><dt>Angin meja</dt><dd>{SEAT_LABEL[roundWind]} <TileView tile={wind} size="sm" /></dd></div>
       <div><dt>Kim</dt><dd>{kim ? <>{kimFace ? tileText(kim) : 'Tile KIM'} <TileView tile={kim} size="sm" /></> : 'Tanpa Kim'}</dd></div>
-      {pointer && <div className="table-info-pointer" title="Satu tile ini dikeluarkan dari permainan dan dibuka"><dt>Penunjuk</dt><dd><TileView tile={pointer} size="sm" /> {tileText(pointer)} <small>(3 tile tersisa)</small></dd></div>}
+      {pointer && <div className="table-info-pointer" title="Satu tile ini dikeluarkan dari game dan dibuka"><dt>Penunjuk</dt><dd><TileView tile={pointer} size="sm" /> {tileText(pointer)} <small>(3 tile tersisa)</small></dd></div>}
       <div><dt>Minimum Tay</dt><dd><b>{minHuTay}</b></dd></div>
     </dl>
   );
@@ -60,7 +60,7 @@ function KoinSum({ match, live }: { match: MatchState; live?: Record<Seat, numbe
 export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = 'dong', liveKong = [], names = PLAYER_NAME }: { match: MatchState; hand: number; prevailingWind: Wind; dealer: Seat; human?: Seat; liveKong?: readonly KongPaymentView[]; names?: Record<Seat, string> }) {
   const live = kongDeltas(liveKong);
   return (
-    <div className="match-board" aria-label="Papan skor pertandingan">
+    <div className="match-board" aria-label="Skor match">
       <h3 className="match-board-title">Tabel Total Poin{match.dev && <span className="dev-badge is-inline" title="Pertandingan dengan alat developer tidak dicatat ke riwayat">DEV · tidak dicatat</span>}</h3>
       <strong>{matchProgressLabel(hand, prevailingWind)}</strong>
       <MatchMinimumNote match={match} />
@@ -138,7 +138,7 @@ export function MatchResultNote({ match }: { match: MatchState }) {
   return (
     <div className="match-note"><p>
       <strong>{`Game ${last.hand}/16 selesai.`}</strong>{' '}
-      {over ? match.endedBy === 'time' ? 'Pertandingan berakhir karena batas waktu 90 menit.' : 'Ini game terakhir pertandingan.' : rotation}
+      {over ? match.endedBy === 'time' ? 'Match berakhir karena batas waktu 90 menit.' : 'Ini game terakhir match.' : rotation}
     </p>
     <StandingsTable match={match} gained={recordDeltas(last)} highlight={last.winner}
       dealer={over ? null : next.dealer} dealerLabel="Dealer berikutnya" />
@@ -155,12 +155,12 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu, names = PLAYER
   const champion = rows[0] && rows[0].hu > 0 && rows.filter((r) => r.rank === 1).length === 1 ? rows[0] : null;
   return (
     <Modal
-      title="Klasemen Akhir"
+      title="Klasemen akhir"
       onClose={onMenu}
       footer={footer ??
         <>
           <button type="button" className="btn" onClick={onMenu}>
-            <Home size={14} /> Kembali ke menu
+            <Home size={14} /> Ke menu
           </button>
           <button type="button" className="btn btn-primary" onClick={onPlayAgain}>
             <RotateCcw size={14} /> Main lagi
@@ -169,8 +169,8 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu, names = PLAYER
       }
     >
       <MatchMinimumNote match={match} />
-      {match.endedBy === 'time' && <p>Pertandingan berakhir karena batas waktu 90 menit; game terakhir telah diselesaikan.</p>}
-      <p>{champion ? `Pemenang meja: ${names[champion.seat]} dengan ${signedKoin(champion.koin)} koin · ${champion.hu} Hu.` : 'Tidak ada pemenang meja tunggal.'}</p>
+      {match.endedBy === 'time' && <p>Match berakhir karena batas waktu 90 menit. Game terakhir udah diselesaikan.</p>}
+      <p>{champion ? `Pemenang meja: ${names[champion.seat]} dengan ${signedKoin(champion.koin)} koin · ${champion.hu} Hu.` : 'Nggak ada pemenang tunggal.'}</p>
       <StandingsTable match={match} names={names} human={human} highlight={champion?.seat ?? null} dealer={champion?.seat} dealerLabel="Juara" showReached />
       {onLastHand && <button type="button" className="btn" onClick={onLastHand}>Lihat hasil game terakhir</button>}
       <ol className="match-history" aria-label="Riwayat game">

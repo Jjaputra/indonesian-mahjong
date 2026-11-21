@@ -718,7 +718,7 @@ it('returns a clear current_room error unless the hello confirms a switch', asyn
   const h = harness(undefined, true, async (_user, _code, confirmed) => confirmed ? null : 'GHJKLM');
   await h.create();
   const a = h.connect(); a.userId = 'u'; await h.send(a, { type: 'hello', name: 'A' });
-  expect(errors(h, a).at(-1)).toMatchObject({ code: 'current_room', message: 'Kamu masih duduk di room GHJKLM' });
+  expect(errors(h, a).at(-1)).toMatchObject({ code: 'current_room', message: 'Kamu masih duduk di room GHJKLM.' });
   expect(Object.values(h.room.data!.people)).toHaveLength(0);
   await h.send(a, { type: 'hello', name: 'A', switchRoom: true }); expect(a.seat).toBe('dong');
 });

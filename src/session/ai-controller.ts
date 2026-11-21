@@ -335,11 +335,11 @@ export function explainDiscardChoice(obs: AIObservation, tileId: string): string
   if (!candidates.some(t => t.id === tileId)) return null;
   const value = tileKeepValue(tile, obs, visible);
   const lowest = candidates.every(t => value <= tileKeepValue(t, obs, visible));
-  const choice = lowest ? 'termasuk nilai retensi terendah' : 'terpilih setelah variasi acak pada nilai retensi';
-  const random = obs.difficulty === 'easy' ? ' Mode Mudah menambahkan variasi acak besar; pilihan ini bukan jaminan terbaik.'
-    : obs.difficulty === 'normal' ? ' Mode Normal memakai variasi acak kecil.' : ' Mode Sulit tidak menambahkan variasi acak.';
+  const choice = lowest ? 'termasuk yang nilai simpannya paling rendah' : 'kepilih setelah variasi acak pada nilai simpan';
+  const random = obs.difficulty === 'easy' ? ' Level Mudah pakai variasi acak besar, jadi pilihan ini belum tentu yang terbaik.'
+    : obs.difficulty === 'normal' ? ' Level Normal pakai variasi acak kecil.' : ' Level Sulit nggak pakai variasi acak.';
   // Only the now-public discarded tile is named. No scores or hand composition are exposed.
-  const publicFactor = isTerminal(tile) ? ' Tile ujung mendapat pengurang nilai retensi dalam strategi ini.'
-    : isHonor(tile) && isValuableHonor(tile, obs) ? ' Honor ini memiliki potensi Tay jika menjadi Tris; faktor itu ikut dihitung.' : '';
-  return `${tileText(tile)} ${choice}.${publicFactor} Penilaian mempertimbangkan kecocokan kelompok, potensi Tay, dan tile yang terlihat.${random}`;
+  const publicFactor = isTerminal(tile) ? ' Tile ujung dapat pengurang nilai simpan di strategi ini.'
+    : isHonor(tile) && isValuableHonor(tile, obs) ? ' Honor ini berpotensi nambah Tay kalau jadi Tris, dan itu ikut dihitung.' : '';
+  return `${tileText(tile)} ${choice}.${publicFactor} Penilaiannya lihat kecocokan kelompok, potensi Tay, dan tile yang kelihatan.${random}`;
 }

@@ -24,7 +24,7 @@ it('renders the full online receipt and history names, flowers, column, zero Tay
   const table = { getState: () => state, now: () => 51000, serverNow: () => 51000 } as unknown as RemoteTable;
   expect(new RemoteController(table).getSettings()).toMatchObject({ scoringBasis: 'match_table', overlapPolicy: data.options.settings.overlapPolicy, allowKimInPair: data.options.settings.allowKimInPair });
   const html = renderToStaticMarkup(createElement(HandResult, { table, state, onClose: () => {}, onLeave: () => {} }));
-  for (const text of ['Ada Kim', 'Zero receipt row', 'Bunga 1', 'receipt-set', 'Pembayaran Kong', 'Round Score', 'klasemen berjalan', 'Status siap', 'Lanjut']) expect(html).toContain(text);
+  for (const text of ['Ada Kim', 'Zero receipt row', 'Bunga 1', 'receipt-set', 'Pembayaran Kong', 'Round Score', 'klasemen sementara', 'Status siap', 'Lanjut']) expect(html).toContain(text);
   const record = saveGameRecord({ winner: 'dong', winningHand: last.hand, flowers: last.flowers, winningTile: last.hand.at(-1)!, scoringBreakdown: [], totalTay: last.payments.totalTay, isWithKim: false, winMethod: 'tsumo', durationSeconds: 50, names: { dong: 'Nickname', nan: 'Other nickname' }, ...historyScoringFields(last.scoring!), matchSummary: { seat: 'dong', koinTotal: view.match.koinTotal, tayTotal: view.match.tayTotal, handsPlayed: 1, huCount: 1 } }, new MemoryStorage())!;
   expect(record.tableColumn).toBe('K'); expect(record.scoringBasis).toBe('match_table');
   const history = renderToStaticMarkup(createElement(HistoryDetail, { record, onDelete: () => {} }));

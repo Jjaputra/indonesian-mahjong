@@ -92,11 +92,11 @@ describe('House rules, players 2026-11-16', () => {
   it.each(['off', 'natural', 'dedicated'] as const)('menu and room choose the correct minimum for %s', mode => {
     const change = vi.fn();
     const menu = MenuSolo({ onPractice: () => {}, lastResult: null, onKimModeChange: change, onBack: () => {} });
-    findChoice(menu, 'Pilihan Kim')!.onChange(mode as never);
+    findChoice(menu, 'Kim')!.onChange(mode as never);
     expect(change).toHaveBeenCalledWith(mode, mode === 'off' ? 3 : 5);
     let config = { ...DEFAULT_ROOM_CONFIG };
     const room = () => RoomConfigFields({ config, onChange: patch => { config = { ...config, ...patch }; } });
-    findChoice(room(), 'Mode Kim')!.onChange(mode as never);
+    findChoice(room(), 'Kim')!.onChange(mode as never);
     expect(config.minHuTay).toBe(mode === 'off' ? 3 : 5);
     findChoice(room(), 'Min Tay')!.onChange(8 as never);
     expect(config.minHuTay).toBe(8);

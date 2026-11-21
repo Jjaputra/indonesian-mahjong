@@ -6,7 +6,7 @@ import { mpServerUrl } from '../../net/room-store';
 export function formatCountdown(ms: number, exhausted = false): string {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
   const h = Math.floor(seconds / 3600), m = Math.floor(seconds % 3600 / 60), s = seconds % 60;
-  return exhausted ? `Jatah hari ini habis. Reset dalam ${[h, m, s].map(n => String(n).padStart(2, '0')).join(':')}` : `Reset 00.00 WIB · ${h} jam ${m} menit lagi`;
+  return exhausted ? `Jatah host hari ini abis. Reset dalam ${[h, m, s].map(n => String(n).padStart(2, '0')).join(':')}` : `Reset 00.00 WIB · ${h} jam ${m} menit lagi`;
 }
 let refreshing: Promise<void> | undefined;
 let retryAt = 0, retryStep = 0, expiredResetAt: number | undefined;

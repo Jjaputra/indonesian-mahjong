@@ -306,6 +306,6 @@ export function classifyHand(r: ScoringResult): string {
     case 'standard':
       return '4 set + 1 pasang (standar)';
     default:
-      return 'Tidak membentuk Hu';
+      return 'Bukan Hu';
   }
 }

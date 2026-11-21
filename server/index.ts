@@ -58,7 +58,7 @@ export class RoomDO implements DurableObject {
         },
         setAlarm: async at => { if (at === null) await ctx.storage.deleteAlarm(); else await ctx.storage.setAlarm(at); },
         send: (s, m) => this.peers.get(s.id)?.send(JSON.stringify(m)),
-        close: (s, reason) => { this.peers.get(s.id)?.close(reason === 'replaced' ? 4001 : reason === 'reconnected' ? 4003 : 4002, reason === 'replaced' ? 'Room ini dibuka di perangkat lain.' : reason === 'reconnected' ? 'Koneksi diperbarui.' : 'Room ditutup.'); this.peers.delete(s.id); },
+        close: (s, reason) => { this.peers.get(s.id)?.close(reason === 'replaced' ? 4001 : reason === 'reconnected' ? 4003 : 4002, reason === 'replaced' ? 'Room ini dibuka di tab atau HP lain.' : reason === 'reconnected' ? 'Koneksi diperbarui.' : 'Room ditutup.'); this.peers.delete(s.id); },
         attach: s => this.peers.get(s.id)?.serializeAttachment(s),
       }, await ctx.storage.get<RoomData>('room') ?? null, sockets);
     });
@@ -75,9 +75,9 @@ export class RoomDO implements DurableObject {
       const seated = this.room.data && (Object.values(this.room.data.people).some(p => p.userId === userId && p.seat) || (this.room.data.creatorPending && this.room.data.creatorUserId === userId));
       return Response.json(seated ? { code: this.room.data!.code, phase: this.room.info().phase } : null);
     }
-    if (!this.room.data) return Response.json({ code: 'room_not_found', message: 'Room tidak ditemukan.' }, { status: 404 });
+    if (!this.room.data) return Response.json({ code: 'room_not_found', message: 'Room nggak ketemu. Cek lagi kodenya atau minta link baru.' }, { status: 404 });
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('WebSocket diperlukan.', { status: 426 });
-    if (this.peers.size >= 32) return new Response('Room penuh.', { status: 429 });
+    if (this.peers.size >= 32) return new Response('Room penuh. Coba lagi nanti.', { status: 429 });
     const pair = new WebSocketPair();
     const socket: Socket = { id: crypto.randomUUID(), lastActivity: Date.now(), userId: request.headers.get('X-User-Id') ?? undefined, sessionHash: request.headers.get('X-Session-Hash') ?? undefined };
     this.ctx.acceptWebSocket(pair[1]); pair[1].serializeAttachment(socket);

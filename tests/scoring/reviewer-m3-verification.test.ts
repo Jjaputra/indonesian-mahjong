@@ -247,7 +247,7 @@ describe('Reviewer 1 Verification: 44-Tay Conformance & Invariants', () => {
       expect(res.isValidHu).toBe(false);
       expect(res.isLewFit).toBe(true);
       expect(res.lewFitReason).toBe('instant-invalid');
-      expect(res.rejectionReason).toContain('Lew Fit: Hu langsung dideklarasikan tanpa syarat');
+      expect(res.rejectionReason).toContain('Lew Fit: Hu langsung diumumkan tanpa memenuhi syaratnya');
     });
   });
 

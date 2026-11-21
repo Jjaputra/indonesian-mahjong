@@ -24,8 +24,8 @@ export interface OnlineMenuProps {
 function NameField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <label className="mp-field">
-      <span className="menu-option-label">Nama Anda</span>
-      <input type="text" value={value} maxLength={NAME_MAX_LENGTH} autoComplete="nickname" placeholder="Mis. A Liong" onChange={e => onChange(e.target.value)} />
+      <span className="menu-option-label">Nama</span>
+      <input type="text" value={value} maxLength={NAME_MAX_LENGTH} autoComplete="nickname" placeholder="Misal: A Liong" onChange={e => onChange(e.target.value)} />
     </label>
   );
 }
@@ -55,28 +55,28 @@ export function OnlineMenu({ inviteCode, lastRoom, busy, error, account, onCreat
 
   return (
     <main className="main-menu">
-      <section className="menu-card mp-card" aria-label="Main bareng teman">
+      <section className="menu-card mp-card" aria-label="Main bareng">
         <div className="mp-bar">
           <button type="button" className="mp-link" onClick={back}><ArrowLeft size={16} aria-hidden="true" /> Kembali</button>
           <button type="button" className="mp-link" onClick={() => setHelp(true)}><HelpCircle size={16} aria-hidden="true" /> Cara undang teman</button>
         </div>
         {account}
-        <p className="menu-eyebrow">Main bareng teman</p>
+        <p className="menu-eyebrow">Main bareng</p>
         {error && <p className="mp-error" role="alert">{error}</p>}
 
         {screen === 'home' && (
           <>
-            <h2>Satu meja, empat sahabat.</h2>
-            <p className="muted">Buat room pribadi lalu kirim tautannya ke grup, atau masuk dengan kode.</p>
+            <h2>Room pribadi buat empat orang.</h2>
+            <p className="muted">Bikin room, kirim link-nya ke grup WA, atau gabung pakai kode dari teman.</p>
             <div className="menu-choices">
               <button type="button" className="btn btn-primary menu-choice" onClick={() => setScreen('create')}>
-                <strong>Buat Room</strong><span>Atur aturan dan undang teman</span>
+                <strong>Buat room</strong><span>Atur aturan, undang teman</span>
               </button>
               <button type="button" className="btn btn-primary menu-choice" onClick={() => setScreen('join')}>
-                <strong>Gabung</strong><span>Masukkan kode room</span>
+                <strong>Gabung</strong><span>Isi kode room</span>
               </button>
               {lastRoom && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onResume} disabled={busy}>
-                <strong>Lanjutkan room {lastRoom.code}</strong><span>Kursi Anda masih disimpan</span>
+                <strong>Lanjut room {lastRoom.code}</strong><span>Kursi masih disimpan</span>
               </button>}
             </div>
           </>
@@ -84,12 +84,12 @@ export function OnlineMenu({ inviteCode, lastRoom, busy, error, account, onCreat
 
         {screen === 'create' && (
           <form onSubmit={submitCreate}>
-            <h2>Buat Room</h2>
+            <h2>Buat room</h2>
             <NameField value={name} onChange={setName} />
             <RoomConfigFields config={config} onChange={patch} />
             <div className="menu-choices">
               <button type="submit" className="btn btn-primary menu-choice" disabled={!nameOk || busy}>
-                <strong>{busy ? 'Membuat room…' : 'Buat Room'}</strong><span>{nameOk ? 'Kode room dibuat otomatis' : 'Isi nama Anda dulu'}</span>
+                <strong>{busy ? 'Buat room…' : 'Buat room'}</strong><span>{nameOk ? 'Kode room dibuat otomatis' : 'Isi nama dulu'}</span>
               </button>
             </div>
           </form>
@@ -107,7 +107,7 @@ export function OnlineMenu({ inviteCode, lastRoom, busy, error, account, onCreat
             <div className="menu-choices">
               <button type="submit" className="btn btn-primary menu-choice" disabled={!nameOk || !isRoomCode(code) || busy}>
                 <strong>{busy ? 'Menyambung…' : 'Gabung'}</strong>
-                <span>{!isRoomCode(code) ? `Kode room ${ROOM_CODE_LENGTH} karakter` : nameOk ? 'Lalu pilih kursi di lobi' : 'Isi nama Anda dulu'}</span>
+                <span>{!isRoomCode(code) ? `Kode room ${ROOM_CODE_LENGTH} karakter` : nameOk ? 'Lalu pilih kursi di lobi' : 'Isi nama dulu'}</span>
               </button>
             </div>
           </form>

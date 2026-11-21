@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-11-22
+### Changed
+- Every text in the game is rewritten to sound like a person, not a manual. It is short and relaxed, says "kamu" only where it's needed, has no slogans, and every error says what to do next. Rule explanations keep every fact. The menu tagline is "Mahjong Indonesia di browser", the side panel is "Opsi", the leave button is "Ke menu" everywhere, and the WhatsApp invite says "Yuk main maciokYU! bareng.".
+- The Privacy, Terms and Delete Account pages use the same plain voice. No fact changed.
+- The site has a description for search results and link previews.
+
 ## [1.7.0] - 2026-11-22
 ### Changed
 - The admin panel is rebuilt with four tabs. Ringkasan shows player and match numbers with a 30-day chart. Pemain lists every player with search, filters, sorting, paging, the Premium switch, "Unduh CSV" and copying the emails of players who asked for news. Pengaturan groups the settings with explanations, a banner preview and who changed what last. Riwayat perubahan lists every settings and Premium change. The front menu shows an "Admin" button to the owner only.

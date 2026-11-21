@@ -160,7 +160,7 @@ describe('names and spectators', () => {
   it('builds room names without touching the shared PLAYER_NAME', () => {
     const before = { ...PLAYER_NAME };
     const { table } = joined();
-    expect(seatNames(table)).toMatchObject({ dong: 'Jason (Anda)', nan: 'Kursi Selatan' });
+    expect(seatNames(table)).toMatchObject({ dong: 'Jason (kamu)', nan: 'Kursi Selatan' });
     expect(PLAYER_NAME).toEqual(before);
   });
 

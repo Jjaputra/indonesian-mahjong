@@ -26,12 +26,12 @@ export function AdminPage({ server, initialTab = 'stats' }: { server: string; in
   if (!isAdmin) return <main className="main-menu"><section className="menu-card admin-settings"><h1>Pengaturan admin</h1>
     <p>{!ready ? 'Memuat akun…' : account ? 'Akun ini bukan admin.' : 'Masuk pakai Google dulu buat buka halaman admin.'}</p>
     {ready && <AccountPanel onError={setAuthError} onClear={() => setAuthError(null)} error={authError} />}
-    <a className="btn" href="./">Kembali ke menu</a>
+    <a className="btn" href="./">Ke menu</a>
   </section></main>;
   return <div className="admin">
     <header className="admin-header">
       <h1>maciokYU! <span>Admin</span></h1>
-      <a className="btn" href="./">Kembali ke menu</a>
+      <a className="btn" href="./">Ke menu</a>
     </header>
     <div className="admin-tabs" role="tablist" aria-label="Bagian admin">
       {ADMIN_TABS.map(t => <button key={t.id} type="button" role="tab" id={`admin-tab-${t.id}`} aria-selected={tab === t.id} aria-controls="admin-panel" className={tab === t.id ? 'is-on' : undefined} onClick={() => setTab(t.id)}>{t.label}</button>)}

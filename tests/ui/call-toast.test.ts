@@ -12,7 +12,7 @@ describe('CallToast', () => {
 
   it('renders a discard with the tile label', () => {
     const html = renderToString(createElement(CallToast, { event: { type: 'discard', seat: 'xi', tileLabel: '5 Tong' } }));
-    expect(html).toContain('Bot Seberang membuang 5 Tong');
+    expect(html).toContain('Bot Seberang buang 5 Tong');
   });
 
   it('renders nothing for a quiet draw', () => {
@@ -22,7 +22,7 @@ describe('CallToast', () => {
 
 describe('formatCall', () => {
   it('formats Hu for the player', () => {
-    expect(formatCall({ type: 'hu', seat: 'dong' })).toBe('Anda Hu');
+    expect(formatCall({ type: 'hu', seat: 'dong' })).toBe('Kamu Hu');
   });
 
   it('formats Seri', () => {

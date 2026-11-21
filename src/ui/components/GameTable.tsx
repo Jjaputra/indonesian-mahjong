@@ -141,7 +141,7 @@ export function CenterArea({ controller, progress, names = PLAYER_NAME }: { cont
         <div className="pool-frame">
           {/* No wall on the felt: this tab is also where a draw's tile flies from. */}
           <p data-wall-anchor="" className={`wall-counter${left <= 20 ? ' is-low' : ''}`} aria-label={`Sisa ${left} tile di tembok`}>
-            SISA: <b>{left}</b> TILES
+            SISA: <b>{left}</b> TILE
           </p>
           {(Object.entries(positions) as ['bottom' | 'right' | 'top' | 'left', Seat][]).map(([position, seat]) => {
             const wind = seatWindOf(s, seat);
@@ -315,7 +315,7 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
   };
 
   return (
-    <section className={`human-area${active ? ' is-active' : ''}`} data-seat-panel={seat} aria-label="Tangan Anda">
+    <section className={`human-area${active ? ' is-active' : ''}`} data-seat-panel={seat} aria-label="Tangan kamu">
       {hud}
       {coach && <div className="coach-slot">{coach}</div>}
       <SeatSets seat={seat} controller={controller} size="md" head={
@@ -323,7 +323,7 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
           <strong>{names[seat]}</strong>
           <WindBadges seat={seat} controller={controller} />
           {!facedown && (
-            <button type="button" className={`arrange-toggle${auto ? ' is-on' : ''}`} aria-pressed={auto} onClick={toggleAuto} title="Susun tile otomatis; matikan untuk geser tile sendiri">
+            <button type="button" className={`arrange-toggle${auto ? ' is-on' : ''}`} aria-pressed={auto} onClick={toggleAuto} title="Tile diurutkan otomatis; matikan buat geser tile manual">
               Susun otomatis: {auto ? 'ON' : 'OFF'}
             </button>
           )}
@@ -422,7 +422,7 @@ export function ActionHud({
   const huTitle = huScore
     ? huScore.isValidHu
       ? `${huScore.totalTay} Tay — Hu sah`
-      : `Hand lengkap, tetapi ${huScore.totalTay} Tay < minimum ${huScore.minHuTay} (Lew Fit)`
+      : `Hand lengkap, tapi ${huScore.totalTay} Tay < minimum ${huScore.minHuTay} (Lew Fit)`
     : 'Hand belum lengkap';
   const selectedOk = !!selectedId && actions.discardableTileIds.includes(selectedId);
 
@@ -436,7 +436,7 @@ export function ActionHud({
       {actions.canReplaceFlowers && (
         <HudButton coached={coached('flowers')} label="Ganti Bunga" tone="gold" enabled onClick={() => controller.humanReplaceFlowers()} icon={<Flower2 size={14} />} />
       )}
-      {actions.canDraw && <HudButton coached={coached('tarik')} label="Tarik" enabled={actions.canDraw} onClick={() => controller.humanDraw()} icon={<ArrowDownToLine size={14} />} title="Tarik tile dari tembok (otomatis setelah semua Lew)" />}
+      {actions.canDraw && <HudButton coached={coached('tarik')} label="Tarik" enabled={actions.canDraw} onClick={() => controller.humanDraw()} icon={<ArrowDownToLine size={14} />} title="Tarik tile dari tembok (jalan sendiri setelah semua Lew)" />}
       {actions.canDiscard && <HudButton coached={coached('buang')}
         label="Buang"
         tone="primary"
@@ -476,7 +476,7 @@ export function ActionHud({
           ))}
         </>
       )}
-      {actions.canPaoChin && <HudButton coached={coached('pao-chin')} label="Pao Chin" enabled={actions.canPaoChin} onClick={() => controller.humanPaoChin()} icon={<Hand size={14} />} title="Hand langsung Cin pada pembagian pertama" />}
+      {actions.canPaoChin && <HudButton coached={coached('pao-chin')} label="Pao Chin" enabled={actions.canPaoChin} onClick={() => controller.humanPaoChin()} icon={<Hand size={14} />} title="Hand langsung Cin di pembagian pertama" />}
       {canHu && <HudButton coached={coached('hu')}
         label={huScore ? `Hu (${huScore.totalTay} Tay)` : 'Hu'}
         tone="gold"

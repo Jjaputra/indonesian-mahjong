@@ -60,19 +60,19 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
   return <div className={`mp-account ${account ? 'is-in' : 'is-out'}`} role="group" aria-label="Akun pemain">
     {account ? <>
       <span className="mp-account-who"><Avatar name={account.name} picture={account.picture} /><span className="mp-account-name" title={account.name}>{account.name}</span></span>
-      <span className="mp-pill">{account.premium ? 'Tanpa batas' : `Sisa ${account.remainingMatches} dari ${config.dailyMatchLimit} match hari ini`}</span>
+      <span className="mp-pill">{account.premium ? 'Jatah host: tanpa batas' : `Jatah host hari ini: sisa ${account.remainingMatches} dari ${config.dailyMatchLimit} match`}</span>
       <AllowanceReset remaining={account.remainingMatches ?? Infinity} />
-      <label><input type="checkbox" checked={account.newsOptIn === true} onChange={e => { void setNewsOptIn(e.target.checked).catch(error => onError(error.message)); }} /> Kabari saya lewat email soal Premium dan update maciokYU!</label>
+      <label><input type="checkbox" checked={account.newsOptIn === true} onChange={e => { void setNewsOptIn(e.target.checked).catch(error => onError(error.message)); }} /> Kabari lewat email soal Premium dan update maciokYU!</label>
       <span className="mp-account-actions">
         <button type="button" className="mp-link" onClick={attempt(() => { void signOut().catch(error => onError(error.message)); })}>Keluar</button>
         <button type="button" className="mp-link mp-link-quiet" onClick={attempt(() => {
-          if (window.confirm('Hapus akun beserta semua sesi dan hitungan match?')) void signOut(true).catch(error => onError(error.message));
+          if (window.confirm('Hapus akun, semua sesi, dan hitungan match?')) void signOut(true).catch(error => onError(error.message));
         })}>Hapus akun</button>
       </span>
     </> : <>
-      <p className="mp-account-note">Semua pemain online perlu masuk dengan Google.</p>
+      <p className="mp-account-note">Main bareng harus masuk pakai Google.</p>
       <div className="mp-google" ref={button} />
-      {config.facebookEnabled && <button type="button" className="btn" onClick={attempt(() => { void facebookLogin().catch(error => onError(error.message)); })}>Masuk dengan Facebook</button>}
+      {config.facebookEnabled && <button type="button" className="btn" onClick={attempt(() => { void facebookLogin().catch(error => onError(error.message)); })}>Masuk pakai Facebook</button>}
     </>}
     {error && <p className="mp-account-error" role="alert">{error}</p>}
   </div>;
@@ -86,14 +86,14 @@ export function SeatRolls({ table }: { table: RemoteTable }) {
   const done = dice.settledAt !== null;
   const seconds = Math.max(0, Math.ceil((dice.deadline - table.serverNow()) / 1000));
   const canRoll = state.seat && !dice.dice[state.seat] && !done;
-  return <main className="main-menu"><section className="menu-card mp-card online-seating"><ConnectionIndicator {...state} /><h2>Kocok posisi duduk</h2>
-    <p>{done ? 'Posisi ditentukan. Permainan segera dimulai...' : `Total tertinggi menjadi Dong; kalau seri, kocok ulang. Sisa ${seconds} detik`}</p>
+  return <main className="main-menu"><section className="menu-card mp-card online-seating"><ConnectionIndicator {...state} /><h2>Kocok kursi</h2>
+    <p>{done ? 'Kursi udah ditentukan. Match mulai bentar lagi.' : `Total tertinggi jadi Dong, kalau seri kocok ulang. Sisa ${seconds} detik`}</p>
     <ul>{(done ? dice.groups.flat() : state.room!.seats.map(s => s.seat)).map((seat, i) => {
       const person = state.room!.seats.find(s => s.seat === seat);
       const roll = dice.dice[seat];
-      return <li key={seat} className={seat === state.seat ? 'is-self' : undefined}><strong>{person?.name ?? 'Bot'}{seat === state.seat && ' (Anda)'}</strong><span>{roll ? roll.map(n => '⚀⚁⚂⚃⚄⚅'[n - 1]).join(' ') : 'Menunggu...'}</span><b>{roll ? roll.reduce((a, b) => a + b, 0) : '-'}</b>{done && <em>{['Dong', 'Nan', 'Xi', 'Bei'][i]}</em>}</li>;
+      return <li key={seat} className={seat === state.seat ? 'is-self' : undefined}><strong>{person?.name ?? 'Bot'}{seat === state.seat && ' (kamu)'}</strong><span>{roll ? roll.map(n => '⚀⚁⚂⚃⚄⚅'[n - 1]).join(' ') : 'Nunggu…'}</span><b>{roll ? roll.reduce((a, b) => a + b, 0) : '-'}</b>{done && <em>{['Dong', 'Nan', 'Xi', 'Bei'][i]}</em>}</li>;
     })}</ul>
-    {canRoll && <button type="button" className="btn btn-gold online-roll" onClick={() => table.rollSeats()}>🎲 Kocok dadu</button>}
+    {canRoll && <button type="button" className="btn btn-gold online-roll" onClick={() => table.rollSeats()}>Kocok dadu</button>}
   </section></main>;
 }
 
@@ -121,10 +121,10 @@ function RoomScreen({ table, optionsOpen, onOptionsOpenChange, onLeave, toast }:
     return (
       <main className="main-menu">
         <section className="menu-card mp-card" role="alert">
-          <h2>{state.ended === 'replaced' ? 'Room ini dibuka di perangkat lain' : 'Room ditutup'}</h2>
-          <p className="muted">{state.ended === 'replaced' ? 'Kursi Anda sekarang dipakai di perangkat itu. Tutup tab ini atau kembali ke menu.' : 'Host menutup room ini.'}</p>
-          {state.ended === 'replaced' && <button type="button" className="btn btn-gold" onClick={() => table.reclaim()}>Ambil kembali kursi</button>}
-          <div className="menu-choices"><button type="button" className="btn btn-primary menu-choice" onClick={onLeave}><strong>Kembali ke menu</strong></button></div>
+          <h2>{state.ended === 'replaced' ? 'Room ini dibuka di tab atau HP lain' : 'Room ditutup'}</h2>
+          <p className="muted">{state.ended === 'replaced' ? 'Kursi kamu sekarang dipakai di sana. Tutup tab ini atau balik ke menu.' : 'Room ini ditutup host.'}</p>
+          {state.ended === 'replaced' && <button type="button" className="btn btn-gold" onClick={() => table.reclaim()}>Ambil lagi kursi</button>}
+          <div className="menu-choices"><button type="button" className="btn btn-primary menu-choice" onClick={onLeave}><strong>Ke menu</strong></button></div>
         </section>
       </main>
     );
@@ -160,7 +160,7 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
   const [error, setError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const clearAuthError = useCallback(() => setAuthError(null), []);
-  useEffect(() => { void openAuth(server).catch(() => setAuthError('Gagal masuk, coba lagi.')).finally(() => setAuthReady(true)); }, [server]);
+  useEffect(() => { void openAuth(server).catch(() => setAuthError('Gagal masuk. Coba lagi.')).finally(() => setAuthReady(true)); }, [server]);
   const [toastText, setToastText] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastRoom, setLastRoom] = useState(() => loadLastRoom());
@@ -217,7 +217,7 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
     forgetRoom(table.code);
     setTable(null);
     setLastRoom(loadLastRoom());
-    setError('Room tidak ditemukan. Periksa kode atau minta tautan baru.');
+    setError('Room nggak ketemu. Cek lagi kodenya atau minta link baru.');
   }, [ended, table]);
 
   const state = useSyncExternalStore(table?.subscribe ?? emptyStore, () => table?.getState() ?? null, () => null);
@@ -238,7 +238,7 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
 
   const resumeRoom = account?.currentRoom ? { code: account.currentRoom.code, name: account.name, token: loadRoom(account.currentRoom.code)?.token ?? '' } : account ? null : lastRoom;
   const create = async (config: RoomConfig, name: string, replace = false) => {
-    if (!account && onlineLoginRequired()) { setError('Masuk dengan Google untuk membuat room.'); return; }
+    if (!account && onlineLoginRequired()) { setError('Masuk pakai Google dulu, baru buat room.'); return; }
     await refreshAccount().catch(() => {});
     if (!replace && authStore.get()?.currentRoom) { setPendingCreate({ config, name }); return; }
     setBusy(true);
@@ -250,7 +250,7 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
       await refreshAccount().catch(() => {});
       join({ code, name, config, switchRoom: replace || undefined });
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Gagal membuat room.');
+      setError(error instanceof Error ? error.message : 'Room belum jadi. Coba lagi.');
     } finally {
       setBusy(false);
     }
@@ -258,14 +258,14 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
 
   return (
     <>
-      {switchJoin && account?.currentRoom && <div className="main-menu"><section className="menu-card mp-card" role="dialog" aria-modal="true" aria-label="Kursi masih aktif"><p>Kamu masih duduk di room {account.currentRoom.code}</p><button type="button" onClick={() => { setSwitchJoin(null); join({ code: account.currentRoom!.code, name: account.name }); }}>Lanjutkan {account.currentRoom.code}</button><button type="button" onClick={() => { const next = switchJoin; setSwitchJoin(null); join({ ...next, switchRoom: true }); }}>Gabung {switchJoin.code}</button></section></div>}
-      {pendingCreate && <div className="main-menu"><section className="menu-card mp-card" role="dialog" aria-modal="true" aria-label="Room masih aktif"><p>Kamu masih punya room {resumeRoom?.code}</p><button type="button" onClick={() => { setPendingCreate(null); if (resumeRoom) join(resumeRoom); }}>Lanjutkan</button><button type="button" disabled={busy} onClick={() => { void create(pendingCreate.config, pendingCreate.name, true); }}>Buat room baru</button></section></div>}
+      {switchJoin && account?.currentRoom && <div className="main-menu"><section className="menu-card mp-card" role="dialog" aria-modal="true" aria-label="Kursi masih aktif"><p>Kamu masih duduk di room {account.currentRoom.code}.</p><button type="button" onClick={() => { setSwitchJoin(null); join({ code: account.currentRoom!.code, name: account.name }); }}>Lanjut {account.currentRoom.code}</button><button type="button" onClick={() => { const next = switchJoin; setSwitchJoin(null); join({ ...next, switchRoom: true }); }}>Gabung {switchJoin.code}</button></section></div>}
+      {pendingCreate && <div className="main-menu"><section className="menu-card mp-card" role="dialog" aria-modal="true" aria-label="Room masih aktif"><p>Kamu masih punya room {resumeRoom?.code}.</p><button type="button" onClick={() => { setPendingCreate(null); if (resumeRoom) join(resumeRoom); }}>Lanjut</button><button type="button" disabled={busy} onClick={() => { void create(pendingCreate.config, pendingCreate.name, true); }}>Buat room baru</button></section></div>}
       {table && (state?.room?.phase === 'lobby' || state?.room?.phase === 'finished') && <div className="mp-account-standalone"><AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></div>}
       {table && error && <p className="mp-error" role="alert">{error}</p>}
       {table
         ? <RoomScreen table={table} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} onLeave={leave} toast={toast} />
         : <OnlineMenu inviteCode={inviteCode} lastRoom={resumeRoom} busy={busy} error={error}
-            account={<>{!account && (inviteCode || pendingJoin) && <p>Masuk dengan Google untuk gabung ke room {inviteCode ?? pendingJoin?.code}</p>}<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></>}
+            account={<>{!account && (inviteCode || pendingJoin) && <p>Masuk pakai Google dulu buat gabung ke room {inviteCode ?? pendingJoin?.code}</p>}<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></>}
             onCreate={create} onJoin={(code, name) => join({ code, name, token: loadRoom(code)?.token })}
             onResume={() => resumeRoom && join(resumeRoom)} onBack={onExit} />}
       {toastText && <div className="mp-toast-wrap"><p className="mp-toast" role="status">{toastText}</p></div>}

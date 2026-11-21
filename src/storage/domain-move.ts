@@ -154,7 +154,7 @@ function showNotice(browser: Window): void {
     note.className = 'mp-toast';
     note.setAttribute('role', 'status');
     note.style.cssText = 'max-width:520px;border-radius:12px;pointer-events:auto;cursor:pointer';
-    note.textContent = 'Data Anda dari alamat lama sudah dipindahkan ke maciokyu.com. Kalau sebelumnya memasang aplikasi, pasang ulang dari alamat ini.';
+    note.textContent = 'Data kamu dari alamat lama udah dipindah ke maciokyu.com. Kalau sebelumnya udah pasang aplikasi, pasang ulang dari alamat ini.';
     note.onclick = () => wrap.remove();
     wrap.append(note);
     browser.document.body.append(wrap);
