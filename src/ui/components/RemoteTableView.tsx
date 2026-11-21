@@ -1,7 +1,7 @@
 import { deviceLimitFallback, useAccount } from '../../net/auth';
 import { ConnectionIndicator } from './RoomLobby';
 import '../online.css';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import type { RemoteState, RemoteTable } from '../../net/remote-table';
 import { SEAT_ORDER } from '../../core/tiles';
@@ -11,7 +11,7 @@ import { SEAT_SHORT, tileText } from '../labels';
 import { seatWindOf } from '../../session/win-context';
 import { ActionHud, CenterArea, HumanArea, OpponentPanel, seatPositions } from './GameTable';
 import { ContactLine } from './ContactLine';
-import { MatchScoreboard, TableInfo } from './MatchBoard';
+import { MatchScoreboard, MatchStandingsModal, TableInfo } from './MatchBoard';
 import { Modal } from './Modal';
 import { MeldView, TileRow } from './TileView';
 import { RemoteController, asGameController, seatName, seatNames, spectatorBottomNames } from './remote-adapter';
@@ -91,11 +91,34 @@ export function ReadyStrip({ seats, self, nameOf }: { seats: RoomSeat[]; self: S
   );
 }
 
-export function HandResult({ table, state, onClose, onLeave }: { table: RemoteTable; state: RemoteState; onClose: () => void; onLeave: () => void }) {
+export function FinishedMatchActions({ table, state, onLeave }: { table: RemoteTable; state: RemoteState; onLeave: () => void }) {
   const account = useAccount();
   const loginBlocked = !account && !deviceLimitFallback();
   const { dailyMatchLimit } = useConfig();
   const remaining = useDailyRemaining(table.dailyLimitStorage);
+  return <>
+        {state.host
+          ? <div className="online-daily-limit">
+              <button type="button" className="btn btn-primary" disabled={remaining === 0 || loginBlocked} onClick={() => table.rematch()}>Main lagi</button>
+              <div role="status"><p>{Number.isFinite(remaining) ? `Sisa ${remaining} dari ${dailyMatchLimit} match hari ini` : account ? 'Match tanpa batas' : 'Host perlu masuk.'}</p>
+                {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE()}</p>}<AllowanceReset remaining={remaining} /></div>
+            </div>
+          : <span className="muted" role="status">Menunggu host memulai lagi</span>}
+        <button type="button" className="btn" onClick={onLeave}>Keluar room</button>
+  </>;
+}
+
+export function OnlineStandings({ table, state, onClose, onLeave, onLastHand }: {
+  table: RemoteTable; state: RemoteState; onClose: () => void; onLeave: () => void; onLastHand: () => void;
+}) {
+  return <MatchStandingsModal match={state.view!.match} names={seatNames(table)} human={state.seat}
+    onMenu={onClose} onLastHand={onLastHand} footer={<>
+      <FinishedMatchActions table={table} state={state} onLeave={onLeave} />
+      <button type="button" className="btn" onClick={onClose}>Lihat meja</button>
+    </>} />;
+}
+
+export function HandResult({ table, state, onClose, onLeave, onStandings }: { table: RemoteTable; state: RemoteState; onClose: () => void; onLeave: () => void; onStandings?: () => void }) {
   const view = state.view!;
   const last = view.lastHand ?? null;
   const [, tick] = useState(0);
@@ -115,14 +138,10 @@ export function HandResult({ table, state, onClose, onLeave }: { table: RemoteTa
   return (
     <Modal title={title} onClose={onClose} wide footer={
       <>
-        {view.matchOver && (state.host
-          ? <div className="online-daily-limit">
-              <button type="button" className="btn btn-primary" disabled={remaining === 0 || loginBlocked} onClick={() => table.rematch()}>Main lagi</button>
-              <div role="status"><p>{Number.isFinite(remaining) ? `Sisa ${remaining} dari ${dailyMatchLimit} match hari ini` : account ? 'Match tanpa batas' : 'Host perlu masuk.'}</p>
-                {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE()}</p>}<AllowanceReset remaining={remaining} /></div>
-            </div>
-          : <span className="muted" role="status">Menunggu host memulai lagi</span>)}
-        {view.matchOver && <button type="button" className="btn" onClick={onLeave}>Keluar room</button>}
+        {view.matchOver && <>
+          <button type="button" className="btn btn-primary" onClick={onStandings}>Lihat klasemen akhir</button>
+          <FinishedMatchActions table={table} state={state} onLeave={onLeave} />
+        </>}
         {canContinue && <button type="button" className="btn btn-primary" disabled={ready} onClick={() => table.ready()}>{ready ? 'Siap ✓' : 'Lanjut'}</button>}
         <button type="button" className="btn" onClick={onClose}>Lihat meja</button>
       </>
@@ -192,9 +211,13 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
   const remote = useMemo(() => new RemoteController(table), [table]);
   const controller = asGameController(remote);
   const view = state.view!;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [resultOpen, setResultOpen] = useState(false);
   const finished = view.phase === 'DRAW_SERI' || view.phase === 'RESOLVED_HU';
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // A mounted finished view is a rejoin; a live transition reviews the last hand first.
+  const [resultOpen, setResultOpen] = useState(finished && !view.matchOver);
+  const [standingsOpen, setStandingsOpen] = useState(view.matchOver);
+  const resultKey = `${view.match.startedAt}:${view.match.hands.length}:${finished}:${view.matchOver}`;
+  const presented = useRef(resultKey);
   const handNo = view.match.hands.length + (finished ? 0 : 1);
   remote.sync();
   const actions = remote.getHumanActions();
@@ -202,7 +225,13 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
   const names = seatNames(table);
   const spectator = remote.spectator;
 
-  useEffect(() => { setResultOpen(finished); }, [finished, view.match.hands.length]);
+  useEffect(() => {
+    if (presented.current === resultKey) return;
+    presented.current = resultKey;
+    setResultOpen(finished);
+    setStandingsOpen(false);
+  }, [finished, resultKey]);
+  const showStandings = () => { setResultOpen(false); setStandingsOpen(true); };
   useEffect(() => {
     if (selectedId && !actions.discardableTileIds.includes(selectedId)) setSelectedId(null);
   }, [actions.discardableTileIds, selectedId]);
@@ -251,13 +280,14 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
           <HumanArea controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId}
             names={spectator ? spectatorBottomNames(table) : names} facedown={spectator}
             hud={spectator ? undefined : <ActionHud controller={controller} actions={actions} selectedId={selectedId} onSelect={setSelectedId} names={names} />} />
-          {finished && !resultOpen && (
-            <button type="button" className="btn btn-gold result-reopen" onClick={() => setResultOpen(true)}>Lihat hasil permainan</button>
+          {finished && !resultOpen && !standingsOpen && (
+            <button type="button" className="btn btn-gold result-reopen" onClick={() => view.matchOver ? showStandings() : setResultOpen(true)}>{view.matchOver ? 'Lihat klasemen akhir' : 'Lihat hasil permainan'}</button>
           )}
         </div>
       </main>
-      {!(finished && resultOpen) && <Reactions table={table} state={state} />}
-      {finished && resultOpen && <HandResult table={table} state={state} onClose={() => setResultOpen(false)} onLeave={onLeave} />}
+      {!standingsOpen && !(finished && resultOpen) && <Reactions table={table} state={state} />}
+      {finished && resultOpen && <HandResult table={table} state={state} onClose={() => setResultOpen(false)} onStandings={showStandings} onLeave={onLeave} />}
+      {view.matchOver && standingsOpen && <OnlineStandings table={table} state={state} onClose={() => setStandingsOpen(false)} onLeave={onLeave} onLastHand={() => { setStandingsOpen(false); setResultOpen(true); }} />}
     </>
   );
 }

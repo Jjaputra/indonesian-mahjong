@@ -185,10 +185,13 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
   // Explicit leave releases the account's seat.
   const leave = useCallback(() => {
     const seated = table?.getState().joined && table.getState().seat && !table.getState().ended;
-    if (table?.getState().ended !== 'replaced') { table?.leave(); if (account && table) forgetRoom(table.code); }
+    if (table?.getState().ended !== 'replaced') {
+      table?.leave();
+      if (account && table) forgetRoom(table.code);
+    }
+    if (account && seated && table) void leaveCurrentRoom(table.code).catch(() => {});
     setTable(null);
     setLastRoom(loadLastRoom());
-    if (account && seated && table) void leaveCurrentRoom(table.code).catch(() => {});
     try { window.history.replaceState(null, '', window.location.pathname); } catch { /* sandboxed frame */ }
   }, [table, account]);
 

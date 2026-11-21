@@ -27,6 +27,36 @@ function harness(authorize?: RoomIO['authorize'], loginRequired = false, joinAcc
   };
 }
 const errors = (h: ReturnType<typeof harness>, s: Socket) => h.frames.get(s.id)!.filter(m => m.type === 'error');
+it.each([false, true])('uses the 24-hour idle deadline with only a spectator remaining (finished=%s)', async finished => {
+  const h = harness(); await h.create();
+  const host = h.connect(); host.userId = 'host'; await h.send(host, { type: 'hello', name: 'Host' });
+  const spectator = await h.join('Watcher'); await h.send(spectator, { type: 'stand' });
+  if (finished) {
+    await h.send(host, { type: 'start' }); await finishSeating(h);
+    const snapshot = h.room.session!.serialize(); snapshot.match.endedBy = 'hands'; snapshot.match.finishedAt = h.now;
+    h.room.session = TableSession.deserialize(snapshot, () => h.now);
+  }
+  await h.room.leaveAccount('host');
+  expect(h.room.info().spectators).toBe(1);
+  expect(h.room.data!.host).toBeNull();
+  h.now += 2 * 3600000; await h.room.alarm(); expect(h.room.data).not.toBeNull();
+  await h.send(spectator, { type: 'ping' });
+  const lastActivity = h.now;
+  h.now = lastActivity + 86400000 - 1; await h.room.alarm(); expect(h.room.data).not.toBeNull();
+  h.now++; await h.room.alarm(); expect(h.room.data).toBeNull();
+});
+
+it('keeps an empty finished match for 24 hours but expires a never-started room after one hour', async () => {
+  const h = harness(); await h.create(); const host = await h.join('Host');
+  await h.send(host, { type: 'start' }); await finishSeating(h);
+  const snapshot = h.room.session!.serialize(); snapshot.match.endedBy = 'hands'; snapshot.match.finishedAt = h.now;
+  h.room.session = TableSession.deserialize(snapshot, () => h.now);
+  await h.send(host, { type: 'leave' });
+  h.now += 2 * 3600000; await h.room.alarm(); expect(h.room.data).not.toBeNull();
+  h.now = h.room.data!.lastActivity + 86400000; await h.room.alarm(); expect(h.room.data).toBeNull();
+  const empty = harness(); await empty.create(); empty.now += 3600000;
+  await empty.room.alarm(); expect(empty.room.data).toBeNull();
+});
 async function botRoom() {
   const h = harness(); await h.create(); const host = await h.join();
   await h.send(host, { type: 'stand' }); await h.send(host, { type: 'start' }); await finishSeating(h); return { h, host };
@@ -37,6 +67,26 @@ async function finishSeating(h: ReturnType<typeof harness>) {
   h.room.data.seatDice = { groups: SEAT_ORDER.map(s => [s]), dice: { dong: [6,6,6], nan: [5,5,5], xi: [4,4,4], bei: [3,3,3] }, deadline: h.now + 15000, botAt: {}, settledAt: h.now };
   h.now += 3000; await h.room.alarm();
 }
+
+it.each([false, true])('finished-match leave removes the player before rematch (account=%s)', async account => {
+  const h = harness(); await h.create();
+  const host = await h.join('Host'), staying = await h.join('Staying');
+  const leaving = h.connect(); if (account) leaving.userId = 'leaving';
+  await h.send(leaving, { type: 'hello', name: 'Leaving' });
+  await h.send(host, { type: 'start' }); await finishSeating(h);
+  const snapshot = h.room.session!.serialize(); snapshot.match.endedBy = 'hands'; snapshot.match.finishedAt = h.now;
+  h.room.session = TableSession.deserialize(snapshot, () => h.now);
+  if (account) await h.room.leaveAccount('leaving'); else await h.send(leaving, { type: 'leave' });
+  expect(h.blob.people[leaving.token!]).toBeUndefined();
+  expect(h.room.info().seats.find(s => s.seat === leaving.seat)?.name).toBe('Leaving');
+  h.rebuild();
+  expect(h.room.info().seats.find(s => s.seat === leaving.seat)?.name).toBe('Leaving');
+  await h.send(host, { type: 'rematch' }); await finishSeating(h);
+  expect(h.room.info().phase).toBe('playing');
+  expect(Object.values(h.blob.people).map(p => p.name)).toEqual(['Host', 'Staying']);
+  expect(h.room.info().seats.find(s => s.name === 'Staying')?.connected).toBe(true);
+  expect(h.blob.people[staying.token!]).toBeDefined();
+});
 
 describe('room', () => {
   it('creates, rejects collisions, joins and restores a trimmed name and token seat', async () => {

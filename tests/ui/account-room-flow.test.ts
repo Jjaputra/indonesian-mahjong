@@ -112,3 +112,30 @@ it('opens the new room after Buat room baru succeeds instead of offering the old
   expect(h.tables[0]!.options.switchRoom).toBe(true);
   expect(find(render(null), e => e.props.role === 'dialog')).toBeUndefined();
 });
+
+it('stops the socket before account leave and shows the menu immediately for a completed match', async () => {
+  h.account = { id: 'u', name: 'Jason', currentRoom: null };
+  render(); await effects(); render(); await effects();
+  Object.assign(h.tables[0]!.state, { joined: true, seat: 'dong', ended: null, view: { matchOver: true } });
+  let complete!: () => void;
+  h.leaveRoom.mockImplementationOnce(() => new Promise<void>(resolve => { complete = resolve; }));
+  const element = find(render(), e => !!e.props.table && typeof e.props.onLeave === 'function')!;
+  const leaving = (element.props.onLeave as () => Promise<void>)();
+  expect(h.tables[0]!.leave).toHaveBeenCalledOnce();
+  expect(h.tables[0]!.leave.mock.invocationCallOrder[0]).toBeLessThan(h.leaveRoom.mock.invocationCallOrder[0]!);
+  expect(find(render(), e => !!e.props.table)).toBeUndefined();
+  complete(); await leaving;
+  expect(h.tables[0]!.leave).toHaveBeenCalledOnce();
+  expect(find(render(), e => !!e.props.table)).toBeUndefined();
+});
+
+it('still returns to the menu if account leave fails', async () => {
+  h.account = { id: 'u', name: 'Jason', currentRoom: null };
+  render(); await effects(); render(); await effects();
+  Object.assign(h.tables[0]!.state, { joined: true, seat: 'dong', ended: null, view: { matchOver: true } });
+  h.leaveRoom.mockRejectedValueOnce(new Error('offline'));
+  const element = find(render(), e => !!e.props.table && typeof e.props.onLeave === 'function')!;
+  await (element.props.onLeave as () => Promise<void>)();
+  expect(h.tables[0]!.leave).toHaveBeenCalledOnce();
+  expect(find(render(), e => !!e.props.table)).toBeUndefined();
+});

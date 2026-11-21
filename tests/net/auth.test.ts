@@ -1,10 +1,30 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { authHeaders, authStore, deviceLimitFallback, openAuth, refreshAccount, signIn, signOut } from '../../src/net/auth';
+import { authHeaders, authStore, deviceLimitFallback, leaveCurrentRoom, openAuth, refreshAccount, signIn, signOut } from '../../src/net/auth';
 import { AccountPanel } from '../../src/ui/components/OnlineScreen';
 
 afterEach(() => vi.unstubAllGlobals());
+it.each(['leave', 'refresh'])('hides a left room after %s failure and retries leave once on the next /me', async failure => {
+  const account = { id: `leaver-${failure}`, name: 'Jason', currentRoom: { code: 'ABCDEF', phase: 'finished' } };
+  let deletes = 0, failRefresh = false;
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.endsWith('/config')) return Response.json({ loginRequired: true });
+    if (url.endsWith('/me/room')) { deletes++; if (failure === 'leave' && deletes === 1) return new Response(null, { status: 503 }); }
+    if (url.endsWith('/me')) { if (failRefresh) { failRefresh = false; throw new Error('offline'); } return Response.json(account); }
+    return Response.json({ ok: true });
+  }));
+  await openAuth('http://localhost:8787');
+  failRefresh = failure === 'refresh';
+  await expect(leaveCurrentRoom('ABCDEF')).rejects.toThrow();
+  expect(authStore.get()?.currentRoom).toBeNull();
+  await refreshAccount(); expect(deletes).toBe(2);
+  expect(authStore.get()?.currentRoom).toBeNull();
+  await refreshAccount(); expect(deletes).toBe(2);
+  account.currentRoom.code = 'GHJKLM';
+  await refreshAccount(); expect(authStore.get()?.currentRoom?.code).toBe('GHJKLM');
+  await signOut();
+});
 it('loads server policy, signs in with credentials, shows account UI and clears the store on logout/deletion', async () => {
   const account = { id: 'u', name: 'Jason', picture: 'https://example.com/avatar', premium: false, remainingMatches: 3 };
   const fetcher = vi.fn(async (url: string) => {

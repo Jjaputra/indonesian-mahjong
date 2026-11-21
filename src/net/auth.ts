@@ -13,6 +13,8 @@ export const authStore = {
   get: () => me,
   subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; },
 };
+// Keep explicit leaves hidden even when /me is stale or temporarily unavailable.
+const leftRooms = new Map<string, { userId: string; retry: boolean }>();
 let revision = 0;
 const update = (value: Account | null) => { me = value; revision++; for (const fn of listeners) fn(); };
 export function useAccount(): Account | null { useSyncExternalStore(authStore.subscribe, () => revision, () => revision); return me; }
@@ -21,11 +23,16 @@ export const onlineLoginRequired = () => getConfig().loginRequired;
 export function authHeaders(): Record<string, string> { return bearer ? { Authorization: `Bearer ${bearer}` } : {}; }
 export function authSocket(url: string): WebSocket { return bearer && new URL(url).hostname === 'localhost' ? new WebSocket(url, ['maciokyu-auth', bearer]) : new WebSocket(url); }
 export async function refreshAccount(): Promise<void> {
+  for (const [code, leave] of leftRooms) if (leave.retry && leave.userId === me?.id) {
+    leave.retry = false;
+    await deleteAccountRoom(code).catch(() => {});
+  }
   const response = await fetch(`${server}/me`, { credentials: 'include', headers: authHeaders() });
   if (response.status === 401) { update(null); return; }
   if (!response.ok) throw new Error('Gagal memuat akun.');
   const value = await response.json();
   if (value.resetAt !== undefined) acceptConfig({ resetAt: value.resetAt, serverNow: value.serverNow, dailyMatchLimit: value.dailyMatchLimit });
+  if (value.currentRoom && leftRooms.get(value.currentRoom.code)?.userId === value.id) value.currentRoom = null;
   update(value);
 }
 export async function openAuth(base: string): Promise<void> {
@@ -48,10 +55,17 @@ export async function setNewsOptIn(newsOptIn: boolean): Promise<void> {
   if (!response.ok) throw new Error('Gagal menyimpan pilihan email.');
   await refreshAccount();
 }
-export async function leaveCurrentRoom(code: string): Promise<void> {
+async function deleteAccountRoom(code: string): Promise<void> {
   const response = await fetch(`${server}/me/room`, { method: 'DELETE', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
   if (!response.ok) throw new Error('Gagal meninggalkan room.');
-  await refreshAccount();
+}
+export async function leaveCurrentRoom(code: string): Promise<void> {
+  if (!me) return;
+  const leave = { userId: me.id, retry: false };
+  leftRooms.set(code, leave);
+  if (me.currentRoom?.code === code) update({ ...me, currentRoom: null });
+  try { await deleteAccountRoom(code); await refreshAccount(); }
+  catch (error) { leave.retry = true; throw error; }
 }
 export async function signOut(remove = false): Promise<void> {
   const response = await fetch(`${server}${remove ? '/me' : '/auth/logout'}`, { method: remove ? 'DELETE' : 'POST', credentials: 'include', headers: authHeaders() });
