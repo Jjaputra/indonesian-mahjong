@@ -1,3 +1,4 @@
+import { fetchConfig, getConfig } from '../net/config';
 /**
  * UI-side game loop around the core GameEngine: drives AI seats step by step, exposes the
  * human's legal actions (with the minimum-Tay Hu gate), scores the final hand with the 44-Tay
@@ -159,7 +160,7 @@ export class GameController {
   private gameIndex = 0;
   private rng: () => number = Math.random;
   private startedAt = 0;
-  private readonly discardRevealMs: number;
+  private discardRevealMs: number;
   private claimRevealAt = 0;
   private aiClaimsFor = '';
   private bufferedAIClaims: { declaration?: ClaimDeclaration; text: string; seat: Seat }[] = [];
@@ -213,6 +214,10 @@ export class GameController {
     this.saveHistory = options.saveHistory ?? true;
     this.now = options.now ?? Date.now;
     this.discardRevealMs = options.discardRevealMs ?? DISCARD_REVEAL_MS;
+    if (options.discardRevealMs === undefined && !import.meta.env.TEST) {
+      const server = (import.meta.env.VITE_MP_SERVER as string | undefined)?.replace(/\/+$/, '');
+      if (server) void fetchConfig(server).then(() => { this.discardRevealMs = getConfig().discardRevealMs; }).catch(() => {});
+    }
     this.baseSeed = options.seed;
     if (options.autoStart === false) this.engine = new GameEngine(this.rules);
     else this.newGame();

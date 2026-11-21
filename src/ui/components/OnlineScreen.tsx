@@ -1,3 +1,5 @@
+import { AllowanceReset } from './AllowanceReset';
+import { useConfig } from '../../net/config';
 import { openAuth, refreshAccount, renderGoogle, signOut, useAccount, facebookLogin, onlineLoginRequired, setNewsOptIn, leaveCurrentRoom, authStore } from '../../net/auth';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoom, RemoteTable } from '../../net/remote-table';
@@ -35,6 +37,7 @@ function Avatar({ name, picture }: { name: string; picture: string | null }) {
 
 export function AccountPanel({ onError, onClear, error }: { onError: (message: string) => void; onClear?: () => void; error?: string | null }) {
   const account = useAccount();
+  const config = useConfig();
   const button = useRef<HTMLDivElement>(null);
   // A new attempt (login, Keluar, Hapus akun) wipes the last error; so does a successful login.
   const attempt = <A extends unknown[]>(run: (...args: A) => void) => (...args: A) => { onClear?.(); run(...args); };
@@ -57,7 +60,8 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
   return <div className={`mp-account ${account ? 'is-in' : 'is-out'}`} role="group" aria-label="Akun pemain">
     {account ? <>
       <span className="mp-account-who"><Avatar name={account.name} picture={account.picture} /><span className="mp-account-name" title={account.name}>{account.name}</span></span>
-      <span className="mp-pill">{account.premium ? 'Tanpa batas' : `Sisa ${account.remainingMatches} dari 5 match hari ini`}</span>
+      <span className="mp-pill">{account.premium ? 'Tanpa batas' : `Sisa ${account.remainingMatches} dari ${config.dailyMatchLimit} match hari ini`}</span>
+      <AllowanceReset remaining={account.remainingMatches ?? Infinity} />
       <label><input type="checkbox" checked={account.newsOptIn === true} onChange={e => { void setNewsOptIn(e.target.checked).catch(error => onError(error.message)); }} /> Kabari saya lewat email soal Premium dan update maciokYU!</label>
       <span className="mp-account-actions">
         <button type="button" className="mp-link" onClick={attempt(() => { void signOut().catch(error => onError(error.message)); })}>Keluar</button>
@@ -68,7 +72,7 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
     </> : <>
       <p className="mp-account-note">Semua pemain online perlu masuk dengan Google.</p>
       <div className="mp-google" ref={button} />
-      {import.meta.env.VITE_FACEBOOK_LOGIN === '1' && <button type="button" className="btn" onClick={attempt(() => { void facebookLogin().catch(error => onError(error.message)); })}>Masuk dengan Facebook</button>}
+      {config.facebookEnabled && <button type="button" className="btn" onClick={attempt(() => { void facebookLogin().catch(error => onError(error.message)); })}>Masuk dengan Facebook</button>}
     </>}
     {error && <p className="mp-account-error" role="alert">{error}</p>}
   </div>;

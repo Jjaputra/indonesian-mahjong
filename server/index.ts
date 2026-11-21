@@ -1,3 +1,4 @@
+import { readSettings } from './settings';
 import { countMatch, remaining, type User } from './auth';
 import type { Env } from './router';
 import { Room, type RoomData, type Socket } from './room';
@@ -14,7 +15,9 @@ export class RoomDO implements DurableObject {
         const socket = ws.deserializeAttachment() as Socket;
         if (socket) { sockets.push(socket); this.peers.set(socket.id, ws); }
       }
+      const settings = await readSettings(env);
       this.room = new Room({
+        settings: () => readSettings(env),
         joinAccount: async (userId, code, confirmed) => {
           const row = await env.DB?.prepare('SELECT code FROM account_rooms WHERE user_id=?').bind(userId).first<{ code: string }>();
           if (!row || row.code === code) return null;
@@ -28,13 +31,14 @@ export class RoomDO implements DurableObject {
           if (!leave.ok) throw new Error('Room leave failed');
           return null;
         },
-        loginRequired: env.LOGIN_REQUIRED === 'true',
+        loginRequired: settings.loginRequired,
         authorize: async (socket, key) => {
+          const settings = await readSettings(env);
           let user: User | null = null;
           if (socket?.sessionHash && env.DB) user = await env.DB.prepare('SELECT u.id,u.name,u.picture,u.premium FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(socket.sessionHash, Date.now()).first<User>();
-          if (!user) return env.LOGIN_REQUIRED === 'true' || socket?.userId ? 'login_required' : null;
+          if (!user) return settings.loginRequired || socket?.userId ? 'login_required' : null;
           if (key) return countMatch(env, user.id, key);
-          return await remaining(env.DB!, user) === 0 ? 'daily_limit' : null;
+          return await remaining(env.DB!, user, Date.now(), settings.dailyMatchLimit) === 0 ? 'daily_limit' : null;
         }, now: () => Date.now(), token: () => crypto.randomUUID(),
         seed: () => Array.from(crypto.getRandomValues(new Uint32Array(148))), log: message => console.warn(message),
         put: async data => {

@@ -1,4 +1,5 @@
 import { authHeaders, authSocket, deviceLimitFallback, refreshAccount } from './auth';
+import { configNow } from './config';
 // Client-side room state: lobby info, the latest personal SeatView, and the actions that go back to the server.
 import type { Seat } from '../core/types';
 import type { SeatView, SessionAction } from '../session';
@@ -130,8 +131,8 @@ export class RemoteTable {
   ready(): void { this.conn.send({ type: 'ready' }); }
   rollSeats(): void { this.conn.send({ type: 'rollSeats' }); }
   replaceBot(seat: Seat): void { this.conn.send({ type: 'replaceBot', seat }); }
-  start(): void { if (!deviceLimitFallback() || remainingMatches(this.now(), this.options.storage) > 0) this.conn.send({ type: 'start' }); }
-  rematch(): void { if (!deviceLimitFallback() || remainingMatches(this.now(), this.options.storage) > 0) this.conn.send({ type: 'rematch' }); }
+  start(): void { if (!deviceLimitFallback() || remainingMatches(configNow(), this.options.storage) > 0) this.conn.send({ type: 'start' }); }
+  rematch(): void { if (!deviceLimitFallback() || remainingMatches(configNow(), this.options.storage) > 0) this.conn.send({ type: 'rematch' }); }
 
   /** Send a game action stamped with the version of the view the player is looking at. */
   act(action: ActionInput): boolean {
@@ -177,11 +178,11 @@ export class RemoteTable {
         if (boundary && this.state.host && identity !== undefined &&
           (this.state.room?.phase === 'playing' || this.state.room?.phase === 'seating')) {
           if (identity >= boundary.observedAt && identity !== boundary.previousMatch) {
-            if (deviceLimitFallback()) countHostedMatch(this.code, identity, this.now(), this.options.storage);
+            if (deviceLimitFallback()) countHostedMatch(this.code, identity, configNow(), this.options.storage);
           }
           this.setHostBoundary(null);
         }
-        if (deviceLimitFallback() && message.view.match) identifyHostedMatch(this.code, message.view.match.startedAt, this.now(), this.options.storage);
+        if (deviceLimitFallback() && message.view.match) identifyHostedMatch(this.code, message.view.match.startedAt, configNow(), this.options.storage);
         if (this.state.host && this.state.room?.phase === 'finished' && identity !== undefined && this.token) {
           this.setHostBoundary({ token: this.token, observedAt: this.serverNow(), previousMatch: identity });
         }
@@ -255,7 +256,7 @@ export class RemoteTable {
     this.hostBoundary = boundary?.token === this.token ? boundary : null;
     const deadline = room.seatDice?.deadline;
     if (this.hostBoundary && room.phase === 'seating' && deadline !== undefined && deadline > this.hostBoundary.observedAt) {
-      if (deviceLimitFallback()) countHostedMatch(this.code, `seating:${deadline}`, this.now(), this.options.storage);
+      if (deviceLimitFallback()) countHostedMatch(this.code, `seating:${deadline}`, configNow(), this.options.storage);
       this.setHostBoundary(null);
     }
   }

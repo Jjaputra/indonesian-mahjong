@@ -18,7 +18,7 @@ it('returns CORS headers for both new domain origins', async () => {
 });
 it('creates with collision retry, forwards known WS routes and returns unknown rooms', async () => {
   let creates = 0;
-  const env: Env = { ROOM_CREATION_LIMITER: { limit: async () => ({ success: true }) }, ROOMS: { idFromName: n => n, get: () => ({ fetch: async req => {
+  const env: Env = { LOGIN_REQUIRED: 'false', ROOM_CREATION_LIMITER: { limit: async () => ({ success: true }) }, ROOMS: { idFromName: n => n, get: () => ({ fetch: async req => {
     if (new URL(req.url).pathname.startsWith('/create/')) return new Response(null, { status: ++creates === 1 ? 409 : 201 });
     return Response.json({ code: 'room_not_found', message: 'Room tidak ditemukan.' }, { status: 404 });
   } }) } };

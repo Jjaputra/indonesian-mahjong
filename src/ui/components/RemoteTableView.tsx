@@ -15,7 +15,9 @@ import { MatchScoreboard, TableInfo } from './MatchBoard';
 import { Modal } from './Modal';
 import { MeldView, TileRow } from './TileView';
 import { RemoteController, asGameController, seatName, seatNames, spectatorBottomNames } from './remote-adapter';
-import { DAILY_LIMIT_MESSAGE, DAILY_MATCH_LIMIT, useDailyRemaining } from '../../net/daily-limit';
+import { AllowanceReset } from './AllowanceReset';
+import { useConfig } from '../../net/config';
+import { DAILY_LIMIT_MESSAGE, useDailyRemaining } from '../../net/daily-limit';
 
 /** Maximum score review window, enforced by the room alarm. */
 export const NEXT_HAND_GRACE_MS = 120000;
@@ -92,6 +94,7 @@ export function ReadyStrip({ seats, self, nameOf }: { seats: RoomSeat[]; self: S
 export function HandResult({ table, state, onClose, onLeave }: { table: RemoteTable; state: RemoteState; onClose: () => void; onLeave: () => void }) {
   const account = useAccount();
   const loginBlocked = !account && !deviceLimitFallback();
+  const { dailyMatchLimit } = useConfig();
   const remaining = useDailyRemaining(table.dailyLimitStorage);
   const view = state.view!;
   const last = view.lastHand ?? null;
@@ -115,8 +118,8 @@ export function HandResult({ table, state, onClose, onLeave }: { table: RemoteTa
         {view.matchOver && (state.host
           ? <div className="online-daily-limit">
               <button type="button" className="btn btn-primary" disabled={remaining === 0 || loginBlocked} onClick={() => table.rematch()}>Main lagi</button>
-              <div role="status"><p>{Number.isFinite(remaining) ? `Sisa ${remaining} dari ${DAILY_MATCH_LIMIT} match hari ini` : account ? 'Match tanpa batas' : 'Host perlu masuk.'}</p>
-                {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE}</p>}</div>
+              <div role="status"><p>{Number.isFinite(remaining) ? `Sisa ${remaining} dari ${dailyMatchLimit} match hari ini` : account ? 'Match tanpa batas' : 'Host perlu masuk.'}</p>
+                {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE()}</p>}<AllowanceReset remaining={remaining} /></div>
             </div>
           : <span className="muted" role="status">Menunggu host memulai lagi</span>)}
         {view.matchOver && <button type="button" className="btn" onClick={onLeave}>Keluar room</button>}

@@ -1,3 +1,5 @@
+import { acceptConfig } from '../../src/net/config';
+acceptConfig({ loginRequired: false });
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -36,23 +38,23 @@ function result(used: number, host = true) {
 }
 describe('host daily limit UI', () => {
   it('shows the host remaining count in lobby and result', () => {
-    expect(lobby(2)).toContain('Sisa 3 dari 5 match hari ini');
-    expect(result(2)).toContain('Sisa 3 dari 5 match hari ini');
+    expect(lobby(2)).toContain('Sisa 1 dari 3 match hari ini');
+    expect(result(2)).toContain('Sisa 1 dari 3 match hari ini');
   });
   it('disables Mulai at zero and explains the limit', () => {
     const html = lobby(5);
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*><strong>Mulai/);
-    expect(html).toContain(DAILY_LIMIT_MESSAGE);
+    expect(html).toContain(DAILY_LIMIT_MESSAGE());
   });
   it('disables Main lagi at zero and explains the limit', () => {
     const html = result(5);
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Main lagi/);
-    expect(html).toContain(DAILY_LIMIT_MESSAGE);
+    expect(html).toContain(DAILY_LIMIT_MESSAGE());
   });
   it('shows joiners no limit text', () => {
     for (const html of [lobby(5, false), result(5, false)]) {
       expect(html).not.toContain('match hari ini');
-      expect(html).not.toContain(DAILY_LIMIT_MESSAGE);
+      expect(html).not.toContain(DAILY_LIMIT_MESSAGE());
     }
   });
 });

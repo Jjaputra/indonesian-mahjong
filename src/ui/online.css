@@ -102,3 +102,11 @@
   .mp-account.is-out { grid-template-columns: minmax(0, 1fr); }
   .mp-google { min-width: 0; justify-content: flex-start; }
 }
+
+.allowance-reset { display: inline-block; margin-top: .4rem; font-variant-numeric: tabular-nums; }
+.allowance-reset.is-exhausted { color: var(--gold, #d8b568); border-color: currentColor; font-weight: 700; }
+
+.admin-settings form { display: grid; gap: .65rem; margin: 1rem 0; }
+.admin-settings label { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .5rem 0; }
+.admin-settings p { font-size: .85rem; }
+.admin-settings input:not([type="checkbox"]) { min-width: 0; max-width: 100%; }

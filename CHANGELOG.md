@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-21
+### Changed
+- Online: a host can start 3 matches a day (was 5). Joining someone else's room is still free.
+- The allowance text shows when it resets: "Reset 00.00 WIB · 5 jam 12 menit lagi". When the matches are used up, a live countdown "Jatah hari ini habis. Reset dalam 05:12:33" shows in the lobby, on the result screen and in the account panel. It follows the server clock.
+- The Terms page no longer names a fixed number of matches.
+### Added
+- An admin page for the owner (`?admin=1`). It can change the daily match limit, the discard pause, the login requirement, the Facebook button and a short announcement on the front menu without a new release. It can also turn Premium on for a player and copy the emails of players who asked for news.
+- An announcement banner on the front menu when the admin sets one.
+
 ## [1.4.0] - 2026-11-21
 ### Changed
 - Online: every player now logs in with Google, including friends who join with a code or link and spectators. An invite link opened while logged out asks for login and then joins that room. Single player still needs no login. Rooms already running keep their players.
