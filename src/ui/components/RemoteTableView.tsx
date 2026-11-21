@@ -1,3 +1,4 @@
+import { deviceLimitFallback, useAccount } from '../../net/auth';
 import { ConnectionIndicator } from './RoomLobby';
 import '../online.css';
 import { useEffect, useMemo, useState } from 'react';
@@ -89,6 +90,8 @@ export function ReadyStrip({ seats, self, nameOf }: { seats: RoomSeat[]; self: S
 }
 
 export function HandResult({ table, state, onClose, onLeave }: { table: RemoteTable; state: RemoteState; onClose: () => void; onLeave: () => void }) {
+  const account = useAccount();
+  const loginBlocked = !account && !deviceLimitFallback();
   const remaining = useDailyRemaining(table.dailyLimitStorage);
   const view = state.view!;
   const last = view.lastHand ?? null;
@@ -111,8 +114,8 @@ export function HandResult({ table, state, onClose, onLeave }: { table: RemoteTa
       <>
         {view.matchOver && (state.host
           ? <div className="online-daily-limit">
-              <button type="button" className="btn btn-primary" disabled={remaining === 0} onClick={() => table.rematch()}>Main lagi</button>
-              <div role="status"><p>Sisa {remaining} dari {DAILY_MATCH_LIMIT} match hari ini</p>
+              <button type="button" className="btn btn-primary" disabled={remaining === 0 || loginBlocked} onClick={() => table.rematch()}>Main lagi</button>
+              <div role="status"><p>{Number.isFinite(remaining) ? `Sisa ${remaining} dari ${DAILY_MATCH_LIMIT} match hari ini` : account ? 'Match tanpa batas' : 'Host perlu masuk.'}</p>
                 {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE}</p>}</div>
             </div>
           : <span className="muted" role="status">Menunggu host memulai lagi</span>)}

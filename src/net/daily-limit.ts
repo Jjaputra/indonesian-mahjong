@@ -1,3 +1,4 @@
+import { deviceLimitFallback, useAccount } from './auth';
 import { useEffect, useState } from 'react';
 import type { StorageLike } from '../storage';
 
@@ -95,6 +96,7 @@ export function saveHostBoundary(room: string, value: HostBoundary | null, stora
 
 /** Refresh an open lobby/result at WIB midnight and when another tab uses a match. */
 export function useDailyRemaining(storage?: StorageLike): number {
+  const account = useAccount();
   const [, tick] = useState(0);
   useEffect(() => {
     const refresh = () => tick(n => n + 1);
@@ -102,5 +104,5 @@ export function useDailyRemaining(storage?: StorageLike): number {
     globalThis.addEventListener?.('storage', refresh);
     return () => { clearInterval(timer); globalThis.removeEventListener?.('storage', refresh); };
   }, []);
-  return remainingMatches(Date.now(), storage);
+  return account ? account.remainingMatches ?? Infinity : deviceLimitFallback() ? remainingMatches(Date.now(), storage) : Infinity;
 }

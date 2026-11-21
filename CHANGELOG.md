@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-21
+### Added
+- Online: "Masuk dengan Google" on the online screen. A logged-in host's 5 matches a day are counted on the server, so they hold across devices. The panel shows your name and photo, "Keluar" and "Hapus akun".
+- Logging in is optional for now; friends who join a room never need to log in.
+
 ## [1.2.0] - 2026-11-21
 ### Changed
 - The game moved to **https://maciokyu.com**. Old links (GitHub Pages and indomahjong.pages.dev) open maciokyu.com and bring your history, settings, name and room seats along. Invite links with a room code keep working.

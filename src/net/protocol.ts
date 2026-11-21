@@ -93,7 +93,7 @@ export type ClientMessage =
   | { type: 'ping' };
 
 export type ErrorCode =
-  | 'bad_message' | 'room_not_found' | 'room_full' | 'seat_taken' | 'not_host'
+  | 'login_required' | 'daily_limit' | 'bad_message' | 'room_not_found' | 'room_full' | 'seat_taken' | 'not_host'
   | 'not_seated' | 'wrong_phase' | 'stale_version' | 'illegal_action' | 'rate_limited' | 'server_busy';
 
 /** Server → client. */
