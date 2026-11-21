@@ -15,7 +15,7 @@ function inventory(c: GameController) {
   const tiles = [...w.tiles.slice(w.headIndex, w.tailIndex + 1), ...SEAT_ORDER.flatMap(seat => { const p = s.players[seat]; return [...p.hand, ...p.flowers, ...p.discards, ...p.melds.flatMap(m => m.tiles)]; }), ...(s.discardPending ? [s.discardPending.tile] : [])];
   return tiles.map(t => `${t.id}:${t.type}:${t.value}:${!!t.isKim}`).sort();
 }
-function controller(seed = 1) { return new GameController({ settings, seed, devMode: true, storage: new MemoryStorage() }); }
+function controller(seed = 1) { return new GameController({ discardRevealMs: 0, settings, seed, devMode: true, storage: new MemoryStorage() }); }
 function setFixture(c: GameController, code: string) {
   const hand = parse(code), s = c.getState() as GameEngineState;
   let id = 0; const tile = (f: TileFace): Tile => ({ ...f, id: `fixture-${id++}`, isKim: f.type === 'kim' || (!!hand.kimFace && f.type === hand.kimFace.type && f.value === hand.kimFace.value) });
@@ -53,7 +53,7 @@ describe('live outcome sandbox parity', () => {
   ];
   for (const [name, code] of fixtures) it(`${name}: real controller outcome round trips with identical scoring and Round Score`, () => {
     const cfg = name === 'Kim pair' ? { ...settings, kimEnabled: true, kimMode: 'dedicated' as const } : name === 'natural Kim' ? { ...settings, kimEnabled: true, kimMode: 'natural' as const } : settings;
-    const c = new GameController({ settings: cfg, seed: 1, devMode: true, storage: new MemoryStorage() });
+    const c = new GameController({ discardRevealMs: 0, settings: cfg, seed: 1, devMode: true, storage: new MemoryStorage() });
     setFixture(c, code!);
     if (c.getState().phase === 'CLAIM_WINDOW') { c.humanClaim('hu'); c.runUntilHuman(); }
     else c.humanSelfDrawHu();
@@ -68,10 +68,10 @@ describe('live outcome sandbox parity', () => {
   });
 });
 describe('developer rig and records', () => {
-  it('persists independently of settings and defaults off', () => { const storage = new MemoryStorage(); expect(loadDevMode(storage)).toBe(false); expect(saveDevMode(true, storage)).toBe(true); expect(loadDevMode(storage)).toBe(true); const c = new GameController({ settings, storage }); expect(c.devMode).toBe(true); c.setDevMode(false); expect(loadDevMode(storage)).toBe(false); });
-  it('refuses both rigs when disabled', () => { const c = new GameController({ settings, devMode: false }); expect(() => c.devSetHand([])).toThrow(/developer/); expect(() => c.devSetNextDraw({ type: 'ban', value: 1 })).toThrow(/developer/); });
+  it('persists independently of settings and defaults off', () => { const storage = new MemoryStorage(); expect(loadDevMode(storage)).toBe(false); expect(saveDevMode(true, storage)).toBe(true); expect(loadDevMode(storage)).toBe(true); const c = new GameController({ discardRevealMs: 0, settings, storage }); expect(c.devMode).toBe(true); c.setDevMode(false); expect(loadDevMode(storage)).toBe(false); });
+  it('refuses both rigs when disabled', () => { const c = new GameController({ discardRevealMs: 0, settings, devMode: false }); expect(() => c.devSetHand([])).toThrow(/developer/); expect(() => c.devSetNextDraw({ type: 'ban', value: 1 })).toThrow(/developer/); });
   for (const mode of ['off','dedicated','natural'] as const) it(`${mode}: preserves every physical tile and wall/indicator metadata`, () => {
-    const c = new GameController({ settings: { ...settings, kimEnabled: mode !== 'off', kimMode: mode }, seed: 10, devMode: true, storage: new MemoryStorage() });
+    const c = new GameController({ discardRevealMs: 0, settings: { ...settings, kimEnabled: mode !== 'off', kimMode: mode }, seed: 10, devMode: true, storage: new MemoryStorage() });
     const before = inventory(c), w = c.getState().wall.serialize();
     const pool = [...c.getState().players.dong.hand, ...w.tiles.slice(w.headIndex, w.tailIndex + 1)].filter(t => t.type !== 'flower' && t.type !== 'season');
     c.devSetHand(pool.slice(-c.getState().players.dong.hand.length).map(face));
@@ -85,7 +85,7 @@ describe('developer rig and records', () => {
   });
   it('rejects impossible hand atomically', () => { const c = controller(); const before = inventory(c); expect(() => c.devSetHand(Array.from({ length: c.getState().players.dong.hand.length }, () => ({ type: 'ban', value: 1 })))).toThrow(/salinan/); expect(inventory(c)).toEqual(before); });
   it('marks matches dev, retains standings and suppresses history even after switching off', () => {
-    const storage = new MemoryStorage(); const c = new GameController({ settings, seed: 1, devMode: true, storage }); c.startMatch();
+    const storage = new MemoryStorage(); const c = new GameController({ discardRevealMs: 0, settings, seed: 1, devMode: true, storage }); c.startMatch();
     expect(c.match?.dev).toBe(true);
     const s = c.getState() as GameEngineState; s.dealerSeat = 'dong'; s.currentTurn = 'dong';
     setFixture(c, base); c.devSetHand(s.players.dong.hand.map(face)); c.setDevMode(false); c.humanSelfDrawHu();
@@ -99,7 +99,7 @@ describe('developer exports from seeded live games', () => {
     const cfg = { ...settings, kimEnabled: mode !== 'off', kimMode: mode, startingSeatWind: 'nan' as const };
     for (let seed = 1; seed <= 4; seed++) {
       const storage = new MemoryStorage();
-      const c = new GameController({ settings: cfg, seed, devMode: true, storage });
+      const c = new GameController({ discardRevealMs: 0, settings: cfg, seed, devMode: true, storage });
       for (let n = 0; n < 3000 && !c.outcome; n++) {
         c.runUntilHuman(); if (c.outcome) break;
         const a = c.getHumanActions();
@@ -129,7 +129,7 @@ describe('developer exports from seeded live games', () => {
     expect(hu).toBeGreaterThan(0);
   });
   it('allows the human starting hand before a different dealer plays, then restricts rigging to their turn', () => {
-    const c = new GameController({ settings: { ...settings, startingSeatWind: 'nan' }, seed: 1, devMode: true, storage: new MemoryStorage() });
+    const c = new GameController({ discardRevealMs: 0, settings: { ...settings, startingSeatWind: 'nan' }, seed: 1, devMode: true, storage: new MemoryStorage() });
     c.devSetHand(c.getState().players.dong.hand.map(face));
     const state = c.getState() as GameEngineState; state.turnCount = 2;
     expect(() => c.devSetHand(state.players.dong.hand.map(face))).toThrow(/giliran/);

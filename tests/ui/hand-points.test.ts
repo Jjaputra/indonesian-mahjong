@@ -11,7 +11,7 @@ const ankong: Meld = { type: 'ankong', tiles: parseTileHand('1T 1T 1T 1T') };
 
 function controller(winner: Seat, melds: Meld[], minHuTay = 5) {
   const storage = new MemoryStorage();
-  const c = new GameController({ settings: { ...getPreset('tournament'), minHuTay, kimEnabled: false, kimMode: 'off', animationSpeed: 'off', soundEnabled: false }, seed: 4, autoStart: false, storage });
+  const c = new GameController({ discardRevealMs: 0, settings: { ...getPreset('tournament'), minHuTay, kimEnabled: false, kimMode: 'off', animationSpeed: 'off', soundEnabled: false }, seed: 4, autoStart: false, storage });
   c.startMatch();
   c.match!.seating.dealer = 'dong';
   c.newGame();

@@ -91,7 +91,7 @@ export function driveDemo(controller: GameController, mode: DemoMode, maxHands =
   for (let hand = 0; hand < maxHands; hand++) {
     if (hand > 0 && !controller.nextHand()) return;
     for (let guard = 0; guard < 400; guard++) {
-      controller.runUntilHuman();
+      controller.runUntilHuman(2000, true);
       if (controller.outcome) break;
       const a = controller.getHumanActions();
       const discards = controller.discardCount;

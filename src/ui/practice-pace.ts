@@ -48,6 +48,7 @@ export interface AutomationTarget {
   outcome: unknown;
   isWaitingForHuman(): boolean;
   step(): boolean;
+  automationDelay?(): number | null;
 }
 /** Rechecks at execution, including manual stepping: a human decision is never automated. */
 export function singleAutomationStep(target: AutomationTarget, blocked = false): boolean {
@@ -57,7 +58,7 @@ export function singleAutomationStep(target: AutomationTarget, blocked = false):
 /** The returned disposer cancels pending work on every view/dialog/game transition. */
 export function scheduleAutomation(target: AutomationTarget, delay: number, blocked: boolean): () => void {
   if (blocked || target.outcome || target.isWaitingForHuman()) return () => {};
-  const timer = setTimeout(() => singleAutomationStep(target), delay);
+  const timer = setTimeout(() => singleAutomationStep(target), target.automationDelay?.() ?? delay);
   return () => clearTimeout(timer);
 }
 

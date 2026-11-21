@@ -4,7 +4,7 @@ import { getPreset } from '@/storage';
 import { holdPresentation, motionTiming, publicMotion } from '@/ui/table-transition';
 import { scheduleAutomation } from '@/ui/practice-pace';
 
-function game() { return new GameController({ settings: getPreset('tournament'), seed: 10, saveHistory: false }); }
+function game() { return new GameController({ discardRevealMs: 0, settings: getPreset('tournament'), seed: 10, saveHistory: false }); }
 describe('committed table transition leases', () => {
   it('does not lock headless games; only an attached event presenter holds a public discard', () => {
     const c = game();

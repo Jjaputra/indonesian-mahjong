@@ -169,7 +169,7 @@ describe('Tier 4 · Full simulated 4-player matches', () => {
       const storage = new MemoryStorage();
       let hu = 0;
       for (let seed = 1; seed <= 12; seed++) {
-        const c = new GameController({ settings: TOURNAMENT({ aiDifficulty: difficulty }), seed: seed * 977 + difficulty.length, storage, now: fakeClock() });
+        const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT({ aiDifficulty: difficulty }), seed: seed * 977 + difficulty.length, storage, now: fakeClock() });
         playMatch(c, { checkEvery: seed <= 3 });
         const o = c.outcome!;
         if (o.kind === 'hu') {
@@ -191,7 +191,7 @@ describe('Tier 4 · Full simulated 4-player matches', () => {
 
   it('casual preset matches also finish with Tay-gated Hu only', () => {
     for (let seed = 1; seed <= 6; seed++) {
-      const c = new GameController({ settings: CASUAL({ aiDifficulty: 'hard' }), seed: 5000 + seed, saveHistory: false });
+      const c = new GameController({ discardRevealMs: 0, settings: CASUAL({ aiDifficulty: 'hard' }), seed: 5000 + seed, saveHistory: false });
       playMatch(c, { checkEvery: seed === 1 });
       const o = c.outcome!;
       if (o.kind === 'hu') expect(o.scoring.totalTay).toBeGreaterThanOrEqual(c.getSettings().minHuTay);
@@ -200,7 +200,7 @@ describe('Tier 4 · Full simulated 4-player matches', () => {
 
   it('same seed + same settings replays the identical match (determinism)', () => {
     const run = () => {
-      const c = new GameController({ settings: TOURNAMENT({ aiDifficulty: 'normal' }), seed: 31337, saveHistory: false });
+      const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT({ aiDifficulty: 'normal' }), seed: 31337, saveHistory: false });
       playMatch(c);
       return { log: c.log.map((l) => l.text), outcome: JSON.stringify(c.outcome && { ...c.outcome, durationSeconds: 0 }) };
     };
@@ -210,7 +210,7 @@ describe('Tier 4 · Full simulated 4-player matches', () => {
   it('every claim the human sees is legal for the current discard', () => {
     let claimsSeen = 0;
     for (let seed = 1; seed <= 8; seed++) {
-      const c = new GameController({ settings: TOURNAMENT(), seed: 700 + seed, saveHistory: false });
+      const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT(), seed: 700 + seed, saveHistory: false });
       while (!c.outcome) {
         if (!c.isWaitingForHuman()) {
           if (!c.step()) break;
@@ -240,7 +240,7 @@ describe('Tier 4 · Full simulated 4-player matches', () => {
 describe('Tier 4 · Multi-round progressions', () => {
   it('plays a full 4-wind × 4-dealer session (16 hands) with rotating dealer and prevailing wind', () => {
     const storage = new MemoryStorage();
-    const c = new GameController({ settings: TOURNAMENT({ aiDifficulty: 'normal' }), seed: 4242, storage, now: fakeClock() });
+    const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT({ aiDifficulty: 'normal' }), seed: 4242, storage, now: fakeClock() });
     let hands = 0;
     for (const roundWind of SEAT_ORDER) {
       for (const dealer of SEAT_ORDER) {
@@ -268,7 +268,7 @@ describe('Tier 4 · Multi-round progressions', () => {
   });
 
   it('new game fully resets the table between rounds', () => {
-    const c = new GameController({ settings: TOURNAMENT(), seed: 99, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT(), seed: 99, saveHistory: false });
     playMatch(c);
     c.newGame();
     const s = c.getState();
@@ -528,7 +528,7 @@ describe('Tier 4 · Wall exhaustion draw games', () => {
   it('a table where nobody wins ends in Seri with an empty wall and a draw record', () => {
     const storage = new MemoryStorage();
     for (let seed = 1; seed <= 3; seed++) {
-      const c = new GameController({ settings: TOURNAMENT(), seed, strategy: stallingStrategy, storage, now: fakeClock(1000) });
+      const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT(), seed, strategy: stallingStrategy, storage, now: fakeClock(1000) });
       playMatch(c, { takeHu: false, checkEvery: seed === 1 });
       expect(c.outcome!.kind).toBe('seri');
       expect(c.getState().phase).toBe('DRAW_SERI');
@@ -545,7 +545,7 @@ describe('Tier 4 · Wall exhaustion draw games', () => {
   });
 
   it('every non-flower tile is drawn: discards + hands + melds account for the whole wall', () => {
-    const c = new GameController({ settings: TOURNAMENT(), seed: 12, strategy: stallingStrategy, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT(), seed: 12, strategy: stallingStrategy, saveHistory: false });
     playMatch(c, { takeHu: false });
     const s = c.getState();
     const flowers = SEAT_ORDER.reduce((n, seat) => n + s.players[seat].flowers.length, 0);
@@ -554,7 +554,7 @@ describe('Tier 4 · Wall exhaustion draw games', () => {
   });
 
   it('an unreachable minimum Tay leaves the AI table without a Hu', () => {
-    const c = new GameController({ settings: TOURNAMENT({ minHuTay: 100 }), seed: 3, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT({ minHuTay: 100 }), seed: 3, saveHistory: false });
     playMatch(c, { takeHu: true });
     // With an unreachable minimum nobody may Hu (instant/limit hands aside), so the hand is a draw.
     const o = c.outcome!;
@@ -587,7 +587,7 @@ describe('Tier 4 · Tournament ↔ Casual transitions', () => {
   });
 
   it('switching preset mid-match changes rules only from the next hand; AI difficulty applies at once', () => {
-    const c = new GameController({ settings: TOURNAMENT({ aiDifficulty: 'easy' }), seed: 21, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT({ aiDifficulty: 'easy' }), seed: 21, saveHistory: false });
     for (let i = 0; i < 20 && !c.outcome; i++) c.isWaitingForHuman() ? autoplayHuman(c) : c.step();
     c.setSettings(CASUAL({ aiDifficulty: 'hard', minHuTay: 8 }));
     expect(c.getState().rules.allowKimInMeldClaim).toBe(false);
@@ -731,7 +731,7 @@ describe('Tier 4 · Match history persistence', () => {
     const storage = new MemoryStorage();
     const outcomes = [];
     for (let seed = 1; seed <= 6; seed++) {
-      const c = new GameController({ settings: TOURNAMENT({ aiDifficulty: 'hard' }), seed: 300 + seed, storage, now: fakeClock(2000) });
+      const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT({ aiDifficulty: 'hard' }), seed: 300 + seed, storage, now: fakeClock(2000) });
       playMatch(c);
       outcomes.push(c.outcome!);
     }
@@ -778,7 +778,7 @@ describe('Tier 4 · Match history persistence', () => {
     const storage = new MemoryStorage();
     storage.setItem(HISTORY_STORAGE_KEY, '{not json');
     expect(loadGameHistory(storage)).toEqual([]);
-    const c = new GameController({ settings: TOURNAMENT(), seed: 8, storage });
+    const c = new GameController({ discardRevealMs: 0, settings: TOURNAMENT(), seed: 8, storage });
     playMatch(c);
     expect(loadGameHistory(storage)).toHaveLength(1);
   });

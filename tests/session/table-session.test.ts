@@ -11,7 +11,7 @@ const bots = { dong: 'bot', nan: 'bot', xi: 'bot', bei: 'bot' } as const;
 let clock = 1000;
 const now = () => clock;
 function session(seed = 1, seats: Record<Seat, 'human' | 'bot'> = humans) {
-  return new TableSession({ settings: getPreset('tournament'), seats, seed, now });
+  return new TableSession({ settings: getPreset('tournament'), seats, seed, now, discardRevealMs: 0 });
 }
 const tile = (value: number, id = `test-${value}`, type: Tile['type'] = 'tong'): Tile => ({ id, type, value });
 function rig(edit: (data: SerializedSession) => void): TableSession {
@@ -19,8 +19,9 @@ function rig(edit: (data: SerializedSession) => void): TableSession {
   edit(data);
   return TableSession.deserialize(data, now);
 }
-function claimSession(claimants: Seat[] = ['nan']): TableSession {
+function claimSession(claimants: Seat[] = ['nan'], discardRevealMs = 0): TableSession {
   const s = rig(d => {
+    d.options.discardRevealMs = discardRevealMs;
     d.state.players.dong.hand[13] = tile(3, 'private-claim-discard');
     for (const seat of ['nan', 'xi', 'bei'] as const) {
       d.state.players[seat].hand = Array.from({ length: 13 }, (_, i) => tile(i % 9 + 1, `${seat}-${i}`, 'sok'));
@@ -415,5 +416,67 @@ describe('multiplayer timeouts', () => {
     expect(s.viewFor('nan').players.nan.afk).toBe(true);
     expect(s.viewFor(null).phase).not.toBe('RESOLVED_HU');
     expect(s.pendingDecisions().some(d => d.seat === 'nan' && d.kind === 'claim')).toBe(false);
+  });
+});
+
+
+describe('uniform discard reveal', () => {
+  it('holds an unclaimable discard through 999 ms and resolves after reload at 1000 ms', () => {
+    clock = 1000;
+    let s = claimSession([], 1000);
+    expect(s.pendingDecisions()).toEqual([]);
+    expect(s.viewFor(null).phase).toBe('CLAIM_WINDOW');
+    clock += 999;
+    expect(s.resolveReveal()).toBe(false);
+    s = TableSession.deserialize(s.serialize(), now);
+    expect(s.serialize().claimRevealAt).toBe(2000);
+    expect(s.resolveReveal()).toBe(false);
+    clock++;
+    expect(s.resolveReveal()).toBe(true);
+    expect(s.viewFor(null).phase).toBe('ACTION_DECISION');
+    expect(s.resolveReveal()).toBe(false);
+  });
+
+  it.each([200, 3000])('resolves a last pass at +%i ms at the later of pass and reveal', answerMs => {
+    clock = 1000;
+    const s = claimSession(['nan'], 1000);
+    clock += answerMs;
+    expect(s.apply('nan', { type: 'pass', version: s.version }).ok).toBe(true);
+    if (answerMs < 1000) {
+      expect(s.viewFor(null).phase).toBe('CLAIM_WINDOW');
+      clock = 2000;
+      expect(s.resolveReveal()).toBe(true);
+    }
+    expect(s.viewFor(null).phase).toBe('ACTION_DECISION');
+  });
+
+  it('keeps observer views identical regardless of other seats eligibility or early answers', () => {
+    clock = 1000;
+    const none = claimSession([], 1000), one = claimSession(['nan'], 1000);
+    for (const seat of [null, 'dong'] as const) expect(none.viewFor(seat)).toEqual(one.viewFor(seat));
+    clock += 200;
+    one.apply('nan', { type: 'pass', version: one.version });
+    for (const seat of [null, 'dong'] as const) {
+      const a = none.viewFor(seat), b = one.viewFor(seat);
+      expect(a).toEqual(b);
+      expect(a.pendingDecisions).toEqual([]);
+      expect(Object.values(a.players).some(p => 'waiting' in p)).toBe(false);
+    }
+  });
+
+  it('holds a promoted Kong through the same reveal before drawing its replacement', () => {
+    clock = 1000;
+    const s = rig(d => {
+      delete d.options.discardRevealMs;
+      d.state.players.dong.melds = [{ type: 'pung', tiles: [0, 1, 2].map(i => tile(3, `meld-${i}`)), claimedFrom: 'nan' }];
+      d.state.players.dong.hand = [tile(3, 'promote'), ...Array.from({ length: 10 }, (_, i) => tile(9, `filler-${i}`, 'ban'))];
+      for (const seat of ['nan', 'xi', 'bei'] as const) d.state.players[seat].hand = Array.from({ length: 13 }, (_, i) => tile(9, `${seat}-${i}`, 'sok'));
+    });
+    expect(s.apply('dong', { type: 'kakan', meldIndex: 0, tileId: 'promote', version: s.version }).ok).toBe(true);
+    expect(s.viewFor(null).pendingDiscard?.isPromotedKong).toBe(true);
+    expect(s.viewFor(null).phase).toBe('CLAIM_WINDOW');
+    clock += 999; expect(s.resolveReveal()).toBe(false);
+    clock++; expect(s.resolveReveal()).toBe(true);
+    expect(s.viewFor(null).phase).toBe('ACTION_DECISION');
   });
 });

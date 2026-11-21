@@ -157,7 +157,7 @@ describe('match scoring and end', () => {
 
 describe('GameController continuous match', () => {
   it('plays hands back to back with fresh walls until the match ends', () => {
-    const c = new GameController({ settings: settings(), seed: 31, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), seed: 31, saveHistory: false, autoStart: false });
     c.startMatch();
     for (let hand = 1; hand <= 16; hand++) {
       const s = c.getState();
@@ -186,7 +186,7 @@ describe('GameController continuous match', () => {
   });
 
   it('nextHand is a no-op mid-hand', () => {
-    const c = new GameController({ settings: settings(), seed: 3, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), seed: 3, saveHistory: false, autoStart: false });
     c.startMatch();
     const serial = c.gameSerial;
     expect(c.nextHand()).toBe(false);
@@ -194,7 +194,7 @@ describe('GameController continuous match', () => {
   });
 
   it('keeps the match Kim mode for every hand even if settings change mid-match', () => {
-    const c = new GameController({ settings: settings({ kimEnabled: false, kimMode: 'off' }), seed: 8, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ kimEnabled: false, kimMode: 'off' }), seed: 8, saveHistory: false, autoStart: false });
     c.startMatch();
     c.setSettings(settings({ kimEnabled: true, kimMode: 'dedicated' }));
     playHand(c);
@@ -205,7 +205,7 @@ describe('GameController continuous match', () => {
 
   it('passes the rotated seat wind to the scorer', () => {
     // Dealer on the nan chair: the human (dong chair) sits Utara (Bei) this hand.
-    const c = new GameController({ settings: settings({ kimEnabled: false, kimMode: 'off', startingSeatWind: 'nan' }), seed: 5, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ kimEnabled: false, kimMode: 'off', startingSeatWind: 'nan' }), seed: 5, saveHistory: false, autoStart: false });
     c.startMatch();
     const s = mutable(c);
     s.dealerSeat = 'nan'; // Fixture for rotated-seat scoring, independent of opening dice.
@@ -230,7 +230,7 @@ describe('GameController continuous match', () => {
   });
 
   it('records the winner seat wind on the outcome', () => {
-    const c = new GameController({ settings: settings(), seed: 77, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), seed: 77, saveHistory: false, autoStart: false });
     c.startMatch();
     for (let i = 0; i < 6; i++) {
       playHand(c);
@@ -285,7 +285,7 @@ describe('match review regressions', () => {
   });
 
   it('keeps the chosen match minimum through nextHand, then applies a new choice to a new match', () => {
-    const c = new GameController({ settings: settings({ minHuTay: 3 }), seed: 74, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ minHuTay: 3 }), seed: 74, saveHistory: false, autoStart: false });
     c.startMatch();
     expect(c.match!.minHuTay).toBe(3);
     c.setSettings(settings({ minHuTay: 9 }));
@@ -299,7 +299,7 @@ describe('match review regressions', () => {
   });
 
   it('a legal below-five training Hu still agrees with the modal, match credit and rotation', () => {
-    const c = new GameController({ settings: settings({ minHuTay: 3, kimEnabled: false, kimMode: 'off', startingSeatWind: 'nan' }), seed: 4, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ minHuTay: 3, kimEnabled: false, kimMode: 'off', startingSeatWind: 'nan' }), seed: 4, saveHistory: false, autoStart: false });
     c.startMatch();
     const s = mutable(c);
     s.phase = 'ACTION_DECISION'; s.currentTurn = 'dong'; s.selfDrawSeat = 'dong';
@@ -318,7 +318,7 @@ describe('match review regressions', () => {
   });
 
   it('a controller wall-out draw counts exactly once and rotates seating', () => {
-    const c = new GameController({ settings: settings({ kimEnabled: false, kimMode: 'off', startingSeatWind: 'xi', roundWind: 'nan' }), seed: 5, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ kimEnabled: false, kimMode: 'off', startingSeatWind: 'xi', roundWind: 'nan' }), seed: 5, saveHistory: false, autoStart: false });
     c.startMatch();
     const seating = { ...c.match!.seating };
     const state = mutable(c);
@@ -339,7 +339,7 @@ describe('match review regressions', () => {
   });
 
   it('fresh natural walls and Kim faces use the next seed, while pace and bot difficulty persist', () => {
-    const c = new GameController({ settings: settings({ kimMode: 'natural', animationSpeed: 'off', aiDifficulty: 'easy' }), seed: 92, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ kimMode: 'natural', animationSpeed: 'off', aiDifficulty: 'easy' }), seed: 92, saveHistory: false, autoStart: false });
     c.startMatch();
     expect(c.getState().kimFace).toMatchObject(createGameWall('natural', 92).kimFace!);
     expect(c.getState().wall.serialize().tiles).toEqual(createGameWall('natural', 92).wall.serialize().tiles);
@@ -353,7 +353,7 @@ describe('match review regressions', () => {
   });
 
   it('coaches continuation between match hands and standings at the end', () => {
-    const c = new GameController({ settings: settings(), seed: 24, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), seed: 24, saveHistory: false, autoStart: false });
     c.startMatch();
     playHand(c);
     const line = () => renderToStaticMarkup(createElement(PracticeCoach, { controller: c, actions: c.getHumanActions(), selectedId: null }));
@@ -366,7 +366,7 @@ describe('match review regressions', () => {
   });
 
   function rotatedScore(hand: string, flowers: string = '', roundWind: 'dong' | 'xi' = 'dong') {
-    const c = new GameController({ settings: settings({ kimMode: 'off', kimEnabled: false, startingSeatWind: 'nan', roundWind }), seed: 7, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ kimMode: 'off', kimEnabled: false, startingSeatWind: 'nan', roundWind }), seed: 7, saveHistory: false, autoStart: false });
     c.startMatch();
     const s = mutable(c);
     s.phase = 'ACTION_DECISION'; s.currentTurn = 'dong'; s.selfDrawSeat = 'dong';
@@ -406,7 +406,7 @@ describe('match review regressions', () => {
   });
 
   it('a dealer on another chair receives Thien Fu on the untouched deal, for AI and human', () => {
-    const c = new GameController({ settings: settings({ kimMode: 'off', kimEnabled: false, startingSeatWind: 'nan' }), humanSeat: 'nan', seed: 10, saveHistory: false, autoStart: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ kimMode: 'off', kimEnabled: false, startingSeatWind: 'nan' }), humanSeat: 'nan', seed: 10, saveHistory: false, autoStart: false });
     c.startMatch();
     c.match!.seating.dealer = 'nan';
     c.newGame();

@@ -142,6 +142,7 @@ export class Room {
   private async save(): Promise<void> {
     const d = this.data!;
     if (this.session) {
+      this.session.resolveReveal();
       const view = this.session.viewFor(null);
       if (['RESOLVED_HU', 'DRAW_SERI'].includes(view.phase)) d.handEndedAt ??= this.io.now();
       else { d.handEndedAt = null; d.ready = []; }
@@ -159,13 +160,15 @@ export class Room {
     await this.scheduleAlarm();
   }
   private async scheduleAlarm(): Promise<void> {
+    // Storage may have crossed the reveal deadline since save() took its snapshot.
+    if (this.session?.resolveReveal()) { await this.save(); this.broadcast(true); return; }
     const d = this.data!;
     const dice = d.seatDice;
     const diceTimes = dice && !this.session ? dice.settledAt !== null ? [dice.settledAt + 3000] : [dice.deadline, ...Object.values(dice.botAt)] : [];
     const waiting = Object.entries(d.people).some(([token, p]) => p.seat && this.connected(token) && !d.ready?.includes(token));
     const continueAt = d.handEndedAt !== null && !this.session?.viewFor(null).matchOver ? d.handEndedAt + (waiting ? 120000 : 1) : null;
     const hostAt = !d.hostTransferPending && d.host && !this.connected(d.host) && d.hostOfflineAt != null ? d.hostOfflineAt + 60001 : null;
-    const candidates = [hostAt !== null && hostAt > this.io.now() ? hostAt : null, ...diceTimes, continueAt, d.schedule?.deadline, d.schedule?.botAt, this.cleanupAt(), ...[...this.sockets.values()].map(s => (s.lastActivity ?? d.lastActivity) + DAY)].filter((n): n is number => n != null);
+    const candidates = [hostAt !== null && hostAt > this.io.now() ? hostAt : null, ...diceTimes, continueAt, this.session?.revealResolutionAt(), d.schedule?.deadline, d.schedule?.botAt, this.cleanupAt(), ...[...this.sockets.values()].map(s => (s.lastActivity ?? d.lastActivity) + DAY)].filter((n): n is number => n != null);
     const earliest = Math.min(...candidates);
     if (earliest <= this.io.now()) {
       this.io.log(`Room ${d.code}: alarm overdue at version ${this.session?.version ?? 0}; retry in 5000ms`);
@@ -448,13 +451,18 @@ export class Room {
         }
       }
       if (this.continueIfReady()) changed = true;
+      if (this.session?.resolveReveal()) changed = true;
       const schedule = d.schedule;
       if (this.session && schedule?.version === this.session.version) {
         if (d.config.turnSeconds !== null && schedule.deadline !== null && schedule.deadline <= this.io.now()) {
           const due = this.session.pendingDecisions().find(p => p.deadline === schedule.deadline && this.session!.serialize().options.seats[p.seat] === 'human');
           if (due) changed = this.session.timeout(due.seat).ok;
         }
-        if (!changed && schedule.botAt !== null && schedule.botAt <= this.io.now()) changed = this.session.stepBots();
+        if (!changed && schedule.botAt !== null && schedule.botAt <= this.io.now()) {
+          changed = this.session.stepBots();
+          // Private claim answers keep the public version; the next bot still gets its own delay.
+          if (changed) d.schedule = null;
+        }
       }
       if (changed || presenceChanged) { await this.save(); this.broadcast(true); }
       else await this.scheduleAlarm();

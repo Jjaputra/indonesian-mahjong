@@ -81,7 +81,7 @@ describe('three-dice flow', () => {
   });
 
   it('rolls only at match start; the next hand deals without another roll', () => {
-    const c = new GameController({ settings: getPreset('tournament'), autoStart: false, seed: 7, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: getPreset('tournament'), autoStart: false, seed: 7, saveHistory: false });
     c.startMatch();
     const opening = c.match?.openingRoll;
     expect(opening?.rounds[0]).toHaveLength(4);

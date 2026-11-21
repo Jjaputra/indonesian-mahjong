@@ -66,8 +66,13 @@ describe('House rules, players 2026-11-16', () => {
       ...filler(9), ...[1, 2, 3].map(i => ({ id: `ban-${i}`, type: 'ban' as const, value: 1 })),
       { id: 'pair-wait', type: 'tong', value: 3 },
     ];
-    const session = TableSession.deserialize(data, () => 100);
+    let now = 100;
+    const session = TableSession.deserialize(data, () => now);
     expect(session.apply('dong', { type: 'discard', tileId: 'discarded-kim', version: session.version })).toMatchObject({ ok: true });
+    expect(session.viewFor('nan')).toMatchObject({ phase: 'CLAIM_WINDOW' });
+    expect(session.pendingDecisions()).toEqual([]);
+    now += 1000;
+    expect(session.resolveReveal()).toBe(true);
     expect(session.viewFor('nan')).toMatchObject({ phase: 'ACTION_DECISION', claimWindow: null });
     expect(session.pendingDecisions().every(d => d.kind !== 'claim')).toBe(true);
     expect(session.serialize().state.players.dong.discards).toContainEqual(kim(mode));

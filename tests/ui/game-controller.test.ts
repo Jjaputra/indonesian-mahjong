@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { SEAT_ORDER } from '@/core/tiles';
 import { isKim } from '@/kim/wildcard-solver';
 import { MemoryStorage, getPreset, loadGameHistory, type AIDifficulty, type GameSettings } from '@/storage';
@@ -39,7 +39,7 @@ describe('GameController full-game loop', () => {
     it(`plays seeded games to completion with ${difficulty} AI and records history`, () => {
       const storage = new MemoryStorage();
       for (let seed = 1; seed <= 4; seed++) {
-        const c = new GameController({ settings: settings({ aiDifficulty: difficulty }), seed: seed * 101, storage });
+        const c = new GameController({ discardRevealMs: 0, settings: settings({ aiDifficulty: difficulty }), seed: seed * 101, storage });
         playToEnd(c);
         const outcome = c.outcome!;
         expect(outcome).not.toBeNull();
@@ -54,7 +54,7 @@ describe('GameController full-game loop', () => {
   }
 
   it('tile conservation: 148 tiles are always accounted for', () => {
-    const c = new GameController({ settings: settings({ kimMode: 'dedicated' }), seed: 7, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ kimMode: 'dedicated' }), seed: 7, saveHistory: false });
     let checks = 0;
     while (!c.outcome && checks < 3000) {
       const s = c.getState();
@@ -72,7 +72,7 @@ describe('GameController full-game loop', () => {
 
   it('never discards Kim when Kim discard is disallowed', () => {
     for (let seed = 1; seed <= 3; seed++) {
-      const c = new GameController({ settings: settings({ aiDifficulty: 'hard' }), seed, saveHistory: false });
+      const c = new GameController({ discardRevealMs: 0, settings: settings({ aiDifficulty: 'hard' }), seed, saveHistory: false });
       playToEnd(c);
       const s = c.getState();
       for (const seat of SEAT_ORDER) expect(s.players[seat].discards.some(isKim)).toBe(false);
@@ -81,7 +81,7 @@ describe('GameController full-game loop', () => {
   });
 
   it('waits for the dealer human before any AI moves and exposes only legal discards', () => {
-    const c = new GameController({ settings: settings({ startingSeatWind: 'dong' }), seed: 42, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ startingSeatWind: 'dong' }), seed: 42, saveHistory: false });
     expect(c.isWaitingForHuman()).toBe(true);
     expect(c.step()).toBe(false);
     const a = c.getHumanActions();
@@ -93,7 +93,7 @@ describe('GameController full-game loop', () => {
   });
 
   it('manual flower replacement waits for the human button', () => {
-    const c = new GameController({ settings: settings({ flowerReplacementMode: 'manual' }), seed: 3, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ flowerReplacementMode: 'manual' }), seed: 3, saveHistory: false });
     expect(c.getState().phase).toBe('FLOWER_REPLACEMENT');
     expect(c.getHumanActions().canReplaceFlowers).toBe(true);
     expect(c.step()).toBe(false);
@@ -108,7 +108,7 @@ describe('GameController full-game loop', () => {
     const storage = new MemoryStorage();
     let found = false;
     for (let seed = 1; seed <= 12 && !found; seed++) {
-      const c = new GameController({ settings: settings(), seed, storage });
+      const c = new GameController({ discardRevealMs: 0, settings: settings(), seed, storage });
       playToEnd(c);
       const outcome = c.outcome;
       const saved = loadGameHistory(storage)[0]!;
@@ -131,7 +131,7 @@ describe('GameController full-game loop', () => {
   });
 
   it('ignores illegal human actions', () => {
-    const c = new GameController({ settings: settings({ startingSeatWind: 'nan' }), seed: 5, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings({ startingSeatWind: 'nan' }), seed: 5, saveHistory: false });
     const before = c.version;
     c.humanDiscard('tong-1-1');
     c.humanClaim('pung');
@@ -142,7 +142,7 @@ describe('GameController full-game loop', () => {
 
 describe('practice automation boundaries and public activity', () => {
   it('single automation steps stop at every human choice and reset public progress for a new game', () => {
-    const c = new GameController({ settings: settings(), seed: 42, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), seed: 42, saveHistory: false });
     expect(c.discardCount).toBe(0);
     expect(c.initialWallCount).toBe(c.getState().wall.remainingCount);
     let automated = 0;
@@ -168,7 +168,7 @@ describe('practice automation boundaries and public activity', () => {
     expect(c.discardTrail).toEqual([]);
   });
   it('latest-discard highlight ends on the next emitted game event', () => {
-    const c = new GameController({ settings: settings(), seed: 10, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), seed: 10, saveHistory: false });
     const a = c.getHumanActions();
     c.humanDiscard(a.discardableTileIds[0]!);
     expect(c.lastDiscard).not.toBeNull();
@@ -188,4 +188,107 @@ describe('practice automation boundaries and public activity', () => {
     expect(nextEvent).toBe(true);
     expect(c.discardTrail.some(d => d.tile.id === discarded) || c.getState().players.dong.discards.some(t => t.id === discarded)).toBe(true);
   });
+});
+
+
+it.each(['discard', 'kakan'] as const)('keeps an unclaimable %s visible for one second even at zero practice delay', async kind => {
+  vi.useFakeTimers();
+  try {
+    const { scheduleAutomation } = await import('@/ui/practice-pace');
+    const c = new GameController({ settings: settings({ animationSpeed: 'off' }), seed: 42, saveHistory: false });
+    const s = c.getState();
+    s.players.dong.hand[13] = { type: 'tong', value: 3, id: 'reveal' };
+    for (const seat of ['nan', 'xi', 'bei'] as const) s.players[seat].hand = Array.from({ length: 13 }, (_, i) => ({ type: 'sok', value: i % 9 + 1, id: `${seat}-${i}` }));
+    if (kind === 'kakan') {
+      s.players.dong.melds = [{ type: 'pung', tiles: [0, 1, 2].map(i => ({ type: 'tong', value: 3, id: `meld-${i}` })), claimedFrom: 'nan' }];
+      s.players.dong.hand.splice(0, 3);
+      c.humanKakan(0);
+    } else c.humanDiscard('reveal');
+    const pending = s.discardPending;
+    expect(pending).not.toBeNull();
+    expect(c.getHumanActions().claim).toBeNull();
+    expect(c.step()).toBe(true); // collect bot answers privately
+    expect(c.step()).toBe(false);
+    scheduleAutomation(c, 0, false);
+    vi.advanceTimersByTime(999);
+    expect(c.getState().discardPending).toEqual(pending);
+    expect(c.getState().phase).toBe('CLAIM_WINDOW');
+    vi.advanceTimersByTime(1);
+    expect(c.getState().discardPending).toBeNull();
+    expect(c.getState().phase).toBe('ACTION_DECISION');
+  } finally { vi.useRealTimers(); }
+});
+
+
+it('offers the human their own claim immediately during the reveal', () => {
+  let now = 1000;
+  const c = new GameController({ settings: settings(), humanSeat: 'nan', seed: 42, now: () => now, saveHistory: false,
+    strategy: { decideTurnAction: () => ({ type: 'discard', tileId: 'reveal' }), decideClaim: o => ({ seat: o.seat, action: 'pass' }) } });
+  const s = c.getState();
+  s.players.dong.hand[13] = { type: 'tong', value: 3, id: 'reveal' };
+  s.players.nan.hand = Array.from({ length: 13 }, (_, i) => i < 2 ? { type: 'tong', value: 3, id: `pair-${i}` } : { type: 'sok', value: i % 9 + 1, id: `rest-${i}` });
+  expect(c.step()).toBe(true);
+  expect(c.getHumanActions().claim?.canPung).toBe(true);
+  expect(c.isWaitingForHuman()).toBe(true);
+  now += 200;
+  c.humanClaim('pass');
+  c.step();
+  expect(c.step()).toBe(false);
+  expect(c.getState().phase).toBe('CLAIM_WINDOW');
+  now += 800;
+  expect(c.step()).toBe(true);
+  expect(c.getState().phase).toBe('ACTION_DECISION');
+});
+
+it('keeps bot answers, activity, events and view versions private until the reveal resolves', async () => {
+  vi.useFakeTimers();
+  try {
+    const { scheduleAutomation } = await import('@/ui/practice-pace');
+    const make = (claimable: boolean) => {
+      const c = new GameController({ settings: settings(), seed: 42, saveHistory: false,
+        strategy: { decideTurnAction: () => { throw new Error('Unexpected bot turn'); },
+          decideClaim: o => claimable && o.seat === 'nan'
+            ? { seat: o.seat, action: 'pung', meldTiles: o.hand.slice(0, 2) }
+            : { seat: o.seat, action: 'pass' } } });
+      const s = c.getState();
+      s.players.dong.hand[13] = { type: 'tong', value: 3, id: 'reveal' };
+      for (const seat of ['nan', 'xi', 'bei'] as const) s.players[seat].hand = Array.from({ length: 13 }, (_, i) => ({ type: 'sok', value: i % 9 + 1, id: `${seat}-${i}` }));
+      if (claimable) s.players.nan.hand.splice(0, 2, ...[0, 1].map(i => ({ type: 'tong' as const, value: 3, id: `pair-${i}` })));
+      c.humanDiscard('reveal');
+      const events: unknown[] = [];
+      c.onEvent(e => events.push(e));
+      const updates = vi.fn(); c.subscribe(updates);
+      return { c, events, updates };
+    };
+    const dead = make(false), live = make(true);
+    const visible = (c: GameController) => ({ version: c.version, log: c.log, phase: c.getState().phase,
+      pending: c.getState().discardPending, claims: c.getState().pendingClaims, actions: c.getHumanActions(),
+      explanation: c.botExplanation, trail: c.discardTrail });
+    const before = visible(dead.c);
+    expect(visible(live.c)).toEqual(before);
+    for (const { c } of [dead, live]) scheduleAutomation(c, 0, false);
+    vi.advanceTimersByTime(0);
+    const collected = visible(dead.c);
+    expect(collected).toEqual({ ...before, version: before.version + 1 });
+    expect(visible(live.c)).toEqual(collected);
+    for (const { c, updates } of [dead, live]) {
+      expect(updates).toHaveBeenCalledTimes(1);
+      updates.mockClear();
+      scheduleAutomation(c, 0, false);
+    }
+    vi.advanceTimersByTime(999);
+    for (const { c, events, updates } of [dead, live]) {
+      expect(c.step()).toBe(false);
+      expect(visible(c)).toEqual(collected);
+      expect(events).toEqual([]); expect(updates).not.toHaveBeenCalled();
+    }
+    vi.advanceTimersByTime(1);
+    for (const { c, updates } of [dead, live]) {
+      expect(c.getState().phase).toBe('ACTION_DECISION');
+      expect(c.log.length).toBeGreaterThan(before.log.length);
+      expect(updates).toHaveBeenCalledTimes(1);
+    }
+    expect(dead.c.getState().players.nan.melds).toHaveLength(0);
+    expect(live.c.getState().players.nan.melds[0]?.type).toBe('pung');
+  } finally { vi.useRealTimers(); }
 });
