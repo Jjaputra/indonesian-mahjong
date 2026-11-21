@@ -194,7 +194,7 @@ describe('Public preferences preserve advanced scoring configuration', () => {
   it('pregame offers only the Kim choice and game start', () => {
     const html = renderToStaticMarkup(createElement(MainMenu, {
       difficultyLabel: 'Normal', lastResult: null, onPractice: noop,
-      kimEnabled: true, onKimChange: noop,
+      kimEnabled: true, onKimChange: noop, initialStep: 'solo',
     }));
     expect(html).toContain('Kim dari tile');
     expect(html).toContain('Tanpa Kim');

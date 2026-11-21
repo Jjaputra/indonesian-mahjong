@@ -245,7 +245,7 @@ describe('GameController continuous match', () => {
 describe('match UI wiring', () => {
   const noop = () => {};
   it('menu describes 16 games without a length choice', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop }));
+    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, initialStep: 'solo' }));
     expect(html).toContain('16 game');
     expect(html).not.toContain('Panjang pertandingan');
     for (const label of ['8 game', '16 game ++', 'Tanpa batas']) expect(html).not.toContain(label);
@@ -435,7 +435,7 @@ describe('legacy dealer-win migration', () => {
     expect(match.seating).toEqual({ dealer: 'dong', prevailingWind: 'nan', dealerPasses: 0 });
   });
   it('does not render the removed dealer control', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: () => {}, dealerWinRule: 'stay', onDealerWinRuleChange: () => {} }));
+    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: () => {}, dealerWinRule: 'stay', onDealerWinRuleChange: () => {}, initialStep: 'solo' }));
     expect(html).not.toContain('Dealer menang');
   });
 });

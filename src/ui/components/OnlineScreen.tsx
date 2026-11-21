@@ -84,7 +84,7 @@ function RoomScreen({ table, optionsOpen, onOptionsOpenChange, onLeave, toast }:
     <>
       {state.room.phase === 'seating' && state.room.seatDice ? <SeatRolls table={table} /> : state.view && state.room.phase !== 'lobby'
         ? <RemoteTableView table={table} state={state} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} onLeave={onLeave} />
-        : <RoomLobby connection={state} room={state.room} seat={state.seat} isHost={table.isHost} onSit={seat => table.sit(seat)} onStand={() => table.stand()} onStart={() => table.start()} onConfig={config => table.setConfig(config)} onLeave={onLeave} onToast={toast} />}
+        : <RoomLobby connection={state} room={state.room} seat={state.seat} isHost={table.isHost} dailyLimitStorage={table.dailyLimitStorage} onSit={seat => table.sit(seat)} onStand={() => table.stand()} onStart={() => table.start()} onConfig={config => table.setConfig(config)} onLeave={onLeave} onToast={toast} />}
     </>
   );
 }

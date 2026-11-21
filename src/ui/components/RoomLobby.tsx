@@ -8,6 +8,8 @@ import { buildShareText, inviteLink, whatsAppUrl } from '../../net/room-store';
 import { DIFFICULTY_LABEL, SEAT_LABEL } from '../labels';
 import { InviteHelp } from './InviteHelp';
 import { RoomConfigFields } from './RoomConfigFields';
+import { DAILY_LIMIT_MESSAGE, DAILY_MATCH_LIMIT, useDailyRemaining } from '../../net/daily-limit';
+import type { StorageLike } from '../../storage';
 
 export function ConnectionIndicator({ status, latencyMs = null, pongLate = false }: { status: ConnectionStatus; latencyMs?: number | null; pongLate?: boolean }) {
   const indicator = connectionIndicator(status, latencyMs, pongLate);
@@ -29,6 +31,7 @@ export interface RoomLobbyProps {
   connection?: { status: ConnectionStatus; latencyMs?: number | null; pongLate?: boolean };
   seat: Seat | null;
   isHost: boolean;
+  dailyLimitStorage?: StorageLike;
   onSit: (seat: Seat) => void;
   onStand: () => void;
   onStart: () => void;
@@ -37,8 +40,9 @@ export interface RoomLobbyProps {
   onToast: (text: string) => void;
 }
 
-export function RoomLobby({ room, connection, seat, isHost, onSit, onStand, onStart, onConfig, onLeave, onToast }: RoomLobbyProps) {
+export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, onSit, onStand, onStart, onConfig, onLeave, onToast }: RoomLobbyProps) {
   const [help, setHelp] = useState(false);
+  const remaining = useDailyRemaining(dailyLimitStorage);
   const { config } = room;
   const blocker = startBlocker(room);
   const text = buildShareText(room.code, inviteLink(room.code, window.location));
@@ -108,13 +112,17 @@ export function RoomLobby({ room, connection, seat, isHost, onSit, onStand, onSt
 
         <div className="menu-choices">
           {isHost ? (
-            <button type="button" className="btn btn-primary menu-choice" disabled={blocker !== null} onClick={onStart}>
+            <button type="button" className="btn btn-primary menu-choice" disabled={blocker !== null || remaining === 0} onClick={onStart}>
               <strong>Mulai</strong><span>{blocker ?? (config.fillWithBots ? 'Kursi kosong diisi bot' : 'Keempat kursi sudah terisi')}</span>
             </button>
           ) : (
             <p className="muted mp-note" role="status">{seat === null ? 'Tekan Duduk di kursi kosong untuk ikut bermain.' : 'Menunggu host menekan Mulai…'}</p>
           )}
         </div>
+        {isHost && <div className="online-daily-limit" role="status">
+          <p>Sisa {remaining} dari {DAILY_MATCH_LIMIT} match hari ini</p>
+          {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE}</p>}
+        </div>}
       </section>
       {help && <InviteHelp onClose={() => setHelp(false)} />}
     </main>

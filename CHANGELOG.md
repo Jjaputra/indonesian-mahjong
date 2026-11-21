@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-21
+### Changed
+- The front menu has three choices: "Main sendiri", "Main bareng teman" and "Premium · segera hadir". The Kim, bot level, Akhir tembok and Waktu options moved to the Main sendiri screen, which has a "Kembali" button.
+- Phones in landscape show the two main choices side by side.
+### Added
+- Online: a host can start 5 matches a day, counted from 00:00 WIB. Joining someone else's room is always free. The lobby and the result screen show the host "Sisa N dari 5 match hari ini". For now the count is kept on the device.
+- A "maciokYU! Premium" window that says Premium is coming soon. There are no payments yet.
+
 ## [1.0.0] - 2026-11-20
 ### Changed
 - The game is now **maciokYU!**: a new logo on the menu and header, new app icons, and a black, cream and red theme. The green table and the tiles stay the same.

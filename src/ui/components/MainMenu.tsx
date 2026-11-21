@@ -1,7 +1,9 @@
-import { ArrowRight, Users } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, ArrowRight, Sparkles, Users } from 'lucide-react';
 import type { AIDifficulty } from '../../storage';
 import logo from '../../assets/brand/maciokyu-logo.png';
 import { DIFFICULTY_LABEL } from '../labels';
+import { PremiumModal } from './PremiumModal';
 import { type DeadWallOption, type DealerWinRule, type MatchTimeLimit } from '../match';
 
 export interface MainMenuProps {
@@ -25,7 +27,13 @@ export interface MainMenuProps {
   /** A room this browser can rejoin ("Lanjutkan room CODE"). */
   resumeRoomCode?: string | null;
   onResumeRoom?: () => void;
+  /** Which screen opens first; the front screen unless a test or demo asks for the options. */
+  initialStep?: MenuStep;
+  /** Open with the Premium modal showing (tests). */
+  initialPremiumOpen?: boolean;
 }
+
+export type MenuStep = 'front' | 'solo';
 
 interface ChoiceOption<T> { value: T; label: string; note: string }
 
@@ -74,24 +82,8 @@ const TIME_OPTIONS: readonly ChoiceOption<MatchTimeLimit>[] = [
   { value: 90, label: '90 menit', note: 'Waktu tetap berjalan saat jeda atau dialog terbuka. Setelah waktu habis, selesaikan game yang sedang berjalan.' },
 ];
 
-export function MainMenu({
-  difficulty,
-  onDifficultyChange,
-  difficultyLabel,
-  lastResult,
-  onPractice,
-  kimEnabled,
-  onKimChange,
-  kimMode,
-  onKimModeChange,
-  deadWall,
-  onDeadWallChange,
-  timeLimitMinutes,
-  onTimeLimitChange,
-  onOnline,
-  resumeRoomCode,
-  onResumeRoom,
-}: MainMenuProps) {
+function SoloChoices(props: MainMenuProps & { onBack: () => void }) {
+  const { difficulty, onDifficultyChange, difficultyLabel, onPractice, kimEnabled, onKimChange, kimMode, onKimModeChange, deadWall, onDeadWallChange, timeLimitMinutes, onTimeLimitChange, onBack } = props;
   const activeDifficulty: AIDifficulty =
     difficulty ??
     (difficultyLabel ? ((Object.keys(DIFFICULTY_LABEL) as AIDifficulty[]).find((k) => DIFFICULTY_LABEL[k] === difficultyLabel)) : undefined) ??
@@ -99,33 +91,65 @@ export function MainMenu({
   const activeDifficultyLabel = difficulty ? DIFFICULTY_LABEL[difficulty] : (difficultyLabel ?? DIFFICULTY_LABEL[activeDifficulty]);
 
   return (
+    <section className="menu-card" aria-label="Main sendiri">
+      <button type="button" className="menu-back" onClick={onBack}><ArrowLeft size={18} aria-hidden="true" /> Kembali</button>
+      <div className="menu-logo"><img src={logo} alt="maciokYU!" width={1277} height={407} /></div>
+      <h2>Main sendiri</h2>
+      <p className="muted">Anda dan tiga lawan. Satu meja.</p>
+      {(onKimModeChange || onKimChange) && <MenuChoice label="Pilihan Kim" value={kimMode ?? (kimEnabled ? 'natural' : 'off')} options={KIM_OPTIONS}
+        onChange={(mode) => { if (onKimModeChange) onKimModeChange(mode, mode === 'off' ? 3 : 5); else onKimChange?.(mode !== 'off'); }} />}
+      {onDifficultyChange && <MenuChoice label="Tingkat kesulitan bot" value={activeDifficulty} options={DIFFICULTY_OPTIONS} onChange={onDifficultyChange} />}
+      {onDeadWallChange && <MenuChoice label="Akhir tembok" value={deadWall ?? 'none'} options={DEAD_WALL_OPTIONS} onChange={onDeadWallChange} />}
+      {timeLimitMinutes !== undefined && onTimeLimitChange && <MenuChoice label="Waktu" value={timeLimitMinutes} options={TIME_OPTIONS} onChange={onTimeLimitChange} />}
+      <div className="menu-choices">
+        <button type="button" className="btn btn-primary menu-choice" onClick={onPractice}>
+          <strong>Mulai bermain <ArrowRight size={20} aria-hidden="true" /></strong>
+          <span>Tiga bot · {activeDifficultyLabel} · 16 game</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function FrontChoices({ lastResult, onSolo, onOnline, resumeRoomCode, onResumeRoom, onPremium }: Pick<MainMenuProps, 'lastResult' | 'onOnline' | 'resumeRoomCode' | 'onResumeRoom'> & { onSolo: () => void; onPremium: () => void }) {
+  return (
+    <section className="menu-card" aria-label="Menu utama">
+      <div className="menu-logo"><img src={logo} alt="maciokYU!" width={1277} height={407} /></div>
+      <p className="menu-eyebrow">Mahjong Indonesia · main bareng teman</p>
+      {lastResult !== null && <p className="menu-last">Terakhir: {lastResult}</p>}
+      <div className="menu-choices menu-front">
+        <button type="button" className="btn btn-primary menu-choice" onClick={onSolo}>
+          <strong>Main sendiri <ArrowRight size={20} aria-hidden="true" /></strong>
+          <span>Lawan tiga bot</span>
+        </button>
+        {resumeRoomCode && onResumeRoom && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onResumeRoom}>
+          <strong>Lanjutkan room {resumeRoomCode}</strong>
+          <span>Kursi Anda masih disimpan</span>
+        </button>}
+        {onOnline && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onOnline}>
+          <strong><Users size={20} aria-hidden="true" /> Main bareng teman</strong>
+          <span>Room pribadi · undang lewat tautan</span>
+        </button>}
+        <button type="button" className="menu-premium" onClick={onPremium}>
+          <Sparkles size={16} aria-hidden="true" /> Premium · segera hadir
+        </button>
+      </div>
+    </section>
+  );
+}
+
+export function MainMenu(props: MainMenuProps) {
+  const [step, setStep] = useState<MenuStep>(props.initialStep ?? 'front');
+  const [premiumOpen, setPremiumOpen] = useState(props.initialPremiumOpen ?? false);
+  return (
     <main className="main-menu">
-      <section className="menu-card" aria-label="Menu utama">
-        <div className="menu-logo"><img src={logo} alt="maciokYU!" width={1277} height={407} /></div>
-        <p className="menu-eyebrow">Mahjong Indonesia · main bareng teman</p>
-        <h2>Waktunya bermain.</h2>
-        <p className="muted">Anda dan tiga lawan. Satu meja.</p>
-        {lastResult !== null && <p className="menu-last">Terakhir: {lastResult}</p>}
-        {(onKimModeChange || onKimChange) && <MenuChoice label="Pilihan Kim" value={kimMode ?? (kimEnabled ? 'natural' : 'off')} options={KIM_OPTIONS}
-          onChange={(mode) => { if (onKimModeChange) onKimModeChange(mode, mode === 'off' ? 3 : 5); else onKimChange?.(mode !== 'off'); }} />}
-        {onDifficultyChange && <MenuChoice label="Tingkat kesulitan bot" value={activeDifficulty} options={DIFFICULTY_OPTIONS} onChange={onDifficultyChange} />}
-        {onDeadWallChange && <MenuChoice label="Akhir tembok" value={deadWall ?? 'none'} options={DEAD_WALL_OPTIONS} onChange={onDeadWallChange} />}
-        {timeLimitMinutes !== undefined && onTimeLimitChange && <MenuChoice label="Waktu" value={timeLimitMinutes} options={TIME_OPTIONS} onChange={onTimeLimitChange} />}
-        <div className="menu-choices">
-          <button type="button" className="btn btn-primary menu-choice" onClick={onPractice}>
-            <strong>Mulai bermain <ArrowRight size={20} aria-hidden="true" /></strong>
-            <span>Tiga bot · {activeDifficultyLabel} · 16 game</span>
-          </button>
-          {resumeRoomCode && onResumeRoom && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onResumeRoom}>
-            <strong>Lanjutkan room {resumeRoomCode}</strong>
-            <span>Kursi Anda masih disimpan</span>
-          </button>}
-          {onOnline && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onOnline}>
-            <strong><Users size={20} aria-hidden="true" /> Main bareng teman</strong>
-            <span>Room pribadi · undang lewat tautan</span>
-          </button>}
-        </div>
-      </section>
+      {step === 'solo'
+        ? <SoloChoices {...props} onBack={() => setStep('front')} />
+        : <FrontChoices lastResult={props.lastResult} onOnline={props.onOnline} resumeRoomCode={props.resumeRoomCode} onResumeRoom={props.onResumeRoom}
+          onSolo={() => setStep('solo')} onPremium={() => setPremiumOpen(true)} />}
+      {premiumOpen && <PremiumModal onClose={() => setPremiumOpen(false)} />}
     </main>
   );
 }
+
+export { FrontChoices as MenuFront, SoloChoices as MenuSolo };
