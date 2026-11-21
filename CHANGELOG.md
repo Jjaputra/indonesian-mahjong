@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-11-21
+### Changed
+- The Privacy, Terms and Delete Account pages are shorter and describe exactly what the game does. Room data is deleted about 24 hours after a room goes idle, and "Hapus akun" in the game deletes the account immediately.
+
 ## [1.3.1] - 2026-11-21
 ### Changed
 - Online: the host now logs in with Google to create a room and to press Mulai or Main lagi. Friends who join with a code or link still don't need to log in.
