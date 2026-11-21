@@ -1,3 +1,4 @@
+import type { ScoringResult } from '../scoring';
 import { DISCARD_REVEAL_MS } from '../core/claim-timing';
 import { GameEngine, canFormWinningHand, type GameEngineState } from '../core/game-engine';
 import { SEAT_ORDER, sortTiles, createCompleteTileSet } from '../core/tiles';
@@ -49,6 +50,10 @@ export interface PublicSessionPlayer {
   afk: boolean;
 }
 export interface LastHand {
+  flowers?: Tile[];
+  scoring?: ScoringResult | null;
+  endedAt?: number;
+  durationSeconds?: number;
   winningTileId?: string | null;
   winner: Seat | null;
   winMethod: 'tsumo' | 'ron' | 'chiong_kong' | 'draw';
@@ -62,6 +67,7 @@ export interface SerializedSession {
   discardTrail?: { seat: Seat; tile: Tile }[];
   lastHand?: LastHand | null;
   handSeed?: HandSeed;
+  handStartedAt?: number;
   schema: 1;
   options: Omit<SessionOptions, 'now' | 'handSeed'>;
   state: Omit<GameEngineState, 'wall'> & { wall: SerializedWall };
@@ -91,6 +97,7 @@ export class TableSession {
   private claimRevealAt: number | null = null;
   private rngState: number;
   private handIndex = 0;
+  private handStartedAt = 0;
   private handSeed?: HandSeed;
   private handSeedSource?: () => HandSeed;
   private presence = Object.fromEntries(SEAT_ORDER.map(seat => [seat, { connected: true, afk: false }])) as SerializedSession['presence'];
@@ -118,6 +125,7 @@ export class TableSession {
   };
 
   private deal(): void {
+    this.handStartedAt = this.now();
     this.lastHand = null;
     this.discardTrail = [];
     const rules = toFullRules(this.options.settings);
@@ -179,7 +187,7 @@ export class TableSession {
         const scores = new Map(SEAT_ORDER.map(seat => [seat, this.state.pendingClaims[seat]?.action === 'hu' ? evaluateDiscardHu(this.observation(seat)) : null]));
         const result = this.engine.resolveClaimWindow();
         if (result.winningAction === 'hu') {
-          this.settle(result.winnerSeat!, scores.get(result.winnerSeat!)!.totalTay, pending.isPromotedKong ? 'chiong_kong' : 'ron', pending.discarder, scores.get(result.winnerSeat!)?.patterns);
+          this.settle(result.winnerSeat!, scores.get(result.winnerSeat!)!.totalTay, pending.isPromotedKong ? 'chiong_kong' : 'ron', pending.discarder, scores.get(result.winnerSeat!) ?? undefined);
         } else if (result.winningAction === 'kong' || pending.isPromotedKong) {
           this.payments.push(kongPayment(result.winningAction === 'kong' ? result.nextTurn : pending.discarder, pending.tile, false));
         }
@@ -200,12 +208,12 @@ export class TableSession {
     this.decisions = waiting.map(d => ({ ...d, deadline: d.kind === 'claim' ? this.claimDeadline! : this.decisions.find(old => old.seat === d.seat && old.kind === d.kind)?.deadline ?? deadline }));
   }
 
-  private settle(winner: Seat | null, tay: number, winMethod?: 'tsumo' | 'ron' | 'chiong_kong', discarder?: Seat, patterns: { id: number; name: string; tay: number }[] = []): void {
-    this.match = recordHand(this.match, winner, winner !== null, tay, this.now(), winMethod ? { winMethod, discarder } : undefined, this.payments);
+  private settle(winner: Seat | null, tay: number, winMethod?: 'tsumo' | 'ron' | 'chiong_kong', discarder?: Seat, scoring?: ScoringResult): void {
+    this.match = recordHand(this.match, winner, scoring?.isValidHu ?? false, tay, this.now(), winMethod ? { winMethod, discarder } : undefined, this.payments);
     const player = winner ? this.state.players[winner] : null;
-    this.lastHand = { winningTileId: this.state.winningTile?.id ?? null, winner, winMethod: winMethod ?? 'draw', discarder: discarder ?? null,
+    this.lastHand = { flowers: copy(player?.flowers ?? []), scoring: copy(scoring ?? null), endedAt: this.now(), durationSeconds: Math.max(0, Math.round((this.now() - this.handStartedAt) / 1000)), winningTileId: this.state.winningTile?.id ?? null, winner, winMethod: winMethod ?? 'draw', discarder: discarder ?? null,
       hand: copy(player?.hand ?? []), melds: copy(player?.melds ?? []),
-      breakdown: patterns.map(p => ({ id: p.id, pattern: p.name, tay: p.tay })), payments: copy(this.match.hands.at(-1)!) };
+      breakdown: (scoring?.patterns ?? []).map(p => ({ id: p.id, pattern: p.name, tay: p.tay })), payments: copy(this.match.hands.at(-1)!) };
 
   }
 
@@ -235,7 +243,7 @@ export class TableSession {
           this.engine.declareKakan(seat, action.tileId, action.meldIndex); break;
         case 'selfHu':
           if (!legal.canSelfDrawHu) throw new Error('Hu tidak valid.');
-          this.engine.declareSelfDrawHu(seat); this.settle(seat, legal.selfHuScore!.totalTay, 'tsumo', undefined, legal.selfHuScore!.patterns); break;
+          this.engine.declareSelfDrawHu(seat); this.settle(seat, legal.selfHuScore!.totalTay, 'tsumo', undefined, legal.selfHuScore!); break;
         case 'paoChin': if (!legal.canPaoChin || !this.engine.declarePaoChin(seat)) throw new Error('Pao Chin tidak valid.'); break;
         case 'claim': case 'pass': {
           if (!this.decisions.some(d => d.seat === seat && d.kind === 'claim')) throw new Error('Tidak ada klaim.');
@@ -355,6 +363,7 @@ export class TableSession {
   viewFor(seat: Seat | null) {
     const s = this.state;
     return copy({
+      settings: copy(this.options.settings), liveKong: copy(this.payments),
       version: this.version, turnCount: s.turnCount, phase: s.phase, currentTurn: s.currentTurn, dealer: s.dealerSeat, roundWind: s.roundWind,
       kimFace: s.kimFace ? { type: s.kimFace.type, value: s.kimFace.value } : null, indicator: s.kimIndicator,
       discardTrail: this.discardTrail.filter(d => s.players[d.seat].discards.some(t => t.id === d.tile.id)),
@@ -370,12 +379,13 @@ export class TableSession {
   }
 
   serialize(): SerializedSession {
-    return copy({ discardTrail: this.discardTrail, handSeed: this.handSeed, lastHand: this.lastHand, schema: 1, options: this.options, state: { ...this.state, wall: this.state.wall.serialize() }, match: this.match, payments: this.payments, version: this.version, rngState: this.rngState, handIndex: this.handIndex, decisions: this.decisions, claimDeadline: this.claimDeadline, claimRevealAt: this.claimRevealAt, presence: this.presence });
+    return copy({ handStartedAt: this.handStartedAt, discardTrail: this.discardTrail, handSeed: this.handSeed, lastHand: this.lastHand, schema: 1, options: this.options, state: { ...this.state, wall: this.state.wall.serialize() }, match: this.match, payments: this.payments, version: this.version, rngState: this.rngState, handIndex: this.handIndex, decisions: this.decisions, claimDeadline: this.claimDeadline, claimRevealAt: this.claimRevealAt, presence: this.presence });
   }
 
   private restore(data: SerializedSession): void {
     Object.assign(this.engine.getState(), copy(data.state), { wall: Wall.deserialize(copy(data.state.wall)) });
     this.discardTrail = copy(data.discardTrail ?? SEAT_ORDER.flatMap(seat => data.state.players[seat].discards.map(tile => ({ seat, tile }))));
+    this.handStartedAt = data.handStartedAt ?? data.match.startedAt;
     this.handSeed = data.handSeed;
     this.lastHand = copy(data.lastHand ?? null);
     this.match = copy(data.match); this.payments = copy(data.payments); this.version = data.version;

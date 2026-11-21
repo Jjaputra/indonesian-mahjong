@@ -296,3 +296,23 @@ it('preserves the stored token when a different device replaces the seat', () =>
   expect(loadRoom('ABC234', storage)?.token).toBe('old-device');
   expect(table.getState()).toMatchObject({ ended: 'replaced', status: 'stopped' });
 });
+
+
+it('saves every online hand with column, flowers, nicknames and duration, deduping after reconnect', () => {
+  const storage = new MemoryStorage();
+  const net = fakeNetwork();
+  const table = new RemoteTable({ server: 'https://mp.example', code: 'ABC234', name: 'Jason', storage, socketFactory: net.factory });
+  table.connect(); net.last.open(); net.last.receive({ type: 'welcome', token: 't', seat: 'dong', host: true, serverNow: 0, room: roomInfo() });
+  const view = oneHumanSession().viewFor('dong');
+  view.phase = 'DRAW_SERI';
+  const payments = { hand: 1, dealer: 'dong' as const, prevailingWind: 'dong' as const, winner: null, totalTay: 0, roundScore: null, kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 } };
+  view.lastHand = { winner: null, winMethod: 'draw', discarder: null, hand: [], melds: [], flowers: [], durationSeconds: 42, endedAt: 42000, breakdown: [], payments };
+  net.last.receive({ type: 'view', view, serverNow: 42000 });
+  net.last.receive({ type: 'view', view, serverNow: 42000 });
+  expect(loadGameHistory(storage)).toHaveLength(1);
+  expect(loadGameHistory(storage)[0]).toMatchObject({ online: true, names: { dong: roomInfo().seats[0]!.name }, durationSeconds: 42, flowers: [] });
+  view.lastHand.payments = { ...payments, hand: 2 };
+  net.last.receive({ type: 'view', view, serverNow: 42000 });
+  expect(loadGameHistory(storage)).toHaveLength(2);
+  table.disconnect();
+});

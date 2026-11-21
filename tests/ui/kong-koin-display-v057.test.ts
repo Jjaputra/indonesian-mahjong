@@ -31,6 +31,7 @@ describe('v0.5.7 Kong koin display', () => {
     expect(KONG_KIND_LABEL).toEqual({ ankong: 'Kong di dalam', kong: 'Kong makan dari orang', ankong_zhong: 'Kong Zhong di dalam', kong_zhong: 'Kong Zhong makan dari orang' });
     expect(kongToastText(zhong)).toBe('Kong 中! tiap pemain bayar 4 koin ke Bot Kanan');
     expect(kongToastText(fiveTong)).toBe('Kong 5 Tong! tiap pemain bayar 1 koin ke Anda');
+    expect(kongToastText(zhong, () => 'A Liong')).toBe('Kong 中! tiap pemain bayar 4 koin ke A Liong');
     expect(kongNote(kongs)).toBe(`Kong Anda ${MINUS}1, Bot Kanan +11`);
     expect(kongNote([])).toBe('');
   });

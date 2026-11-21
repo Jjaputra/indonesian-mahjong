@@ -11,7 +11,10 @@ import { SEAT_SHORT, tileText } from '../labels';
 import { seatWindOf } from '../../session/win-context';
 import { ActionHud, CenterArea, HumanArea, OpponentPanel, seatPositions } from './GameTable';
 import { ContactLine } from './ContactLine';
-import { MatchScoreboard, MatchStandingsModal, TableInfo } from './MatchBoard';
+import { MatchScoreboard, MatchStandingsModal, StandingsTable, TableInfo } from './MatchBoard';
+import { WinningHandReceipt, RoundScoreBlock } from './HuResultModal';
+import { KongToast } from './CallToast';
+import { modeLabel } from '../tay-calculator';
 import { Modal } from './Modal';
 import { MeldView, TileRow } from './TileView';
 import { RemoteController, asGameController, seatName, seatNames, spectatorBottomNames } from './remote-adapter';
@@ -134,7 +137,7 @@ export function HandResult({ table, state, onClose, onLeave, onStandings }: { ta
   const banner = lewFit ? 'LEW FIT' : winner ? 'HU' : 'SERI';
   const title = winner ? `${seatName(table, winner)} ${lewFit ? 'Lew Fit' : 'Hu'}` : lewFit ? 'Lew Fit' : 'Seri';
   const winKoin = winner && deltas ? deltas[winner] : null;
-  const rows = last?.breakdown.filter(b => b.tay !== 0) ?? [];
+  const rows = last?.breakdown ?? [];
   return (
     <Modal title={title} onClose={onClose} wide footer={
       <>
@@ -160,6 +163,10 @@ export function HandResult({ table, state, onClose, onLeave, onStandings }: { ta
         )}
         {winner && last && (
           <>
+            {last.scoring ? <>
+              <p>Tabel <span className={`badge ${last.scoring.mode === 'K' ? 'badge-kim' : 'badge-seat'}`}>{modeLabel(last.scoring.mode)}</span></p>
+              <WinningHandReceipt hand={last.hand} melds={last.melds} flowers={last.flowers ?? []} scoring={last.scoring} winningTileId={last.winningTileId ?? undefined} />
+            </> : <>
             <div className="mp-result-hand">
               <TileRow tiles={last.hand} size="md" highlightId={last.winningTileId ?? undefined} />
               {last.melds.map((m, i) => <MeldView key={i} meld={m} size="md" owner={winner} />)}
@@ -169,23 +176,15 @@ export function HandResult({ table, state, onClose, onLeave, onStandings }: { ta
                 <tbody>{rows.map((b, i) => <tr key={i}><td>{b.pattern}</td><td className="num">{b.tay}</td></tr>)}</tbody>
                 <tfoot><tr className="total-row"><td>Total Tay</td><td className="num">{record?.totalTay ?? 0}</td></tr></tfoot>
               </table>
-            )}
+            )}</>}
+
           </>
         )}
-        {!winner && <p className="mp-result-note">{lewFit ? 'Hu di bawah minimum Tay: tidak dihitung.' : 'Tembok habis. Tidak ada pemenang.'}</p>}
-        {deltas && (
-          <table className="mp-deltas" aria-label="Perubahan koin">
-            <tbody>
-              {SEAT_ORDER.map((seat: Seat) => (
-                <tr key={seat} className={seat === winner ? 'is-winner' : undefined}>
-                  <td className="wind">{SEAT_SHORT[seatWindOf({ dealerSeat: view.dealer }, seat)]}</td>
-                  <td>{seatName(table, seat)}</td>
-                  <td className={`num ${deltas[seat] > 0 ? 'is-up' : deltas[seat] < 0 ? 'is-down' : ''}`}>{signed(deltas[seat])}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        {!winner && !lewFit && <p className="mp-result-note">Tembok habis. Tidak ada pemenang.</p>}
+        {lewFit && <p className="mp-result-note">Hu di bawah minimum Tay: tidak dihitung.</p>}
+        <RoundScoreBlock outcome={winner && record ? { winner, seatWind: seatWindOf({ dealerSeat: view.dealer }, winner), roundScore: lewFit ? null : record.roundScore } : null} kongPayments={record?.kongPayments ?? []} nameOf={seat => seatName(table, seat)} />
+        <p className="muted">Game {view.match.hands.length}/16 selesai · Koin game ini sudah masuk klasemen berjalan.</p>
+        <StandingsTable match={view.match} gained={deltas} names={seatNames(table)} human={state.seat ?? undefined} />
         {!view.matchOver && state.room && (
           <div className="online-ready" role="status">
             <ReadyStrip seats={state.room.seats} self={state.seat} nameOf={seat => seatName(table, seat)} />
@@ -241,6 +240,7 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
   const kimEnabled = config ? config.kimMode !== 'off' : !!view.kimFace;
   return (
     <>
+      <KongToast key={`${view.match.startedAt}:${handNo}`} payments={view.liveKong ?? []} nameOf={seat => seatName(table, seat)} skipExisting />
       <main className="table-felt is-online">
         <div className="online-table-connection"><ConnectionIndicator {...state} /></div>
         <Countdown table={table} state={state} />
@@ -264,7 +264,7 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
                 </button>
               </header>
               <div className="options-panel-body">
-                <MatchScoreboard match={view.match} hand={handNo} prevailingWind={view.roundWind} dealer={view.dealer} human={spectator ? undefined : remote.humanSeat} names={names} />
+                <MatchScoreboard liveKong={finished ? [] : view.liveKong ?? []} match={view.match} hand={handNo} prevailingWind={view.roundWind} dealer={view.dealer} human={spectator ? undefined : remote.humanSeat} names={names} />
                 {state.host && state.room?.seats.filter(s => s.name && !s.bot && !s.connected && !s.takeover).map(s => <button key={s.seat} type="button" className="btn" onClick={() => table.replaceBot(s.seat)}>Ganti bot - {s.name}</button>)}
                 <details className="table-tools">
                   <summary>Aktivitas terbaru</summary>

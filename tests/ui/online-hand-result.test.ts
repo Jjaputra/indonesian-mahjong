@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { HandResult, ReadyStrip } from '../../src/ui/components/RemoteTableView';
 import type { RemoteState, RemoteTable } from '../../src/net/remote-table';
 import { parseTileHand } from '../../src/core/tiles';
+import { createMatch, recordHand } from '../../src/session/match';
+import { roundScore } from '../../src/core/round-score';
 import { roomInfo } from '../net/fake-transport';
 
 function fixture(patch: { winner?: 'dong' | null; lewFit?: boolean; ready?: boolean; dealer?: 'dong' | 'nan' } = {}) {
@@ -14,10 +16,11 @@ function fixture(patch: { winner?: 'dong' | null; lewFit?: boolean; ready?: bool
     room: roomInfo({ phase: 'playing', seats, continueAt: 60000 }),
     view: {
       matchOver: false,
+      match: recordHand(createMatch(), winner, !patch.lewFit, 6, 1000, { winMethod: 'tsumo' }),
       dealer: patch.dealer ?? 'dong',
       lastHand: { winner, winMethod: winner ? 'tsumo' : 'draw', discarder: null, hand: parseTileHand('1T 2T 3T 5S 5S'), melds: [],
         breakdown: [{ pattern: 'Tile Bunga 2', tay: 0 }, { pattern: 'Tan Tiau', tay: 5 }, { pattern: 'Ce Mo', tay: 1 }],
-        payments: { totalTay: 6, lewFit: !!patch.lewFit, gameDeltas: { dong: 57, nan: -19, xi: -19, bei: -19 } } },
+        payments: { roundScore: winner ? roundScore(winner, 6, { winMethod: 'tsumo' }) : null, kongPayments: [], totalTay: 6, lewFit: !!patch.lewFit, gameDeltas: { dong: 57, nan: -19, xi: -19, bei: -19 } } },
     },
   } as unknown as RemoteState;
   const table = { getState: () => state, serverNow: () => 0, ready: () => {}, rematch: () => {} } as unknown as RemoteTable;
@@ -31,18 +34,18 @@ describe('online hand result', () => {
     // Dealer on chair nan: nan is Timur and chair dong ends up Utara.
     const html = render(fixture({ dealer: 'nan' }));
     expect(html).toContain('A Liong · Utara · 6 Tay');
-    expect(html).toContain('<td class="wind">Timur</td><td>Disa</td>');
+    expect(html).toContain('Disa</span><span class="rs-wind">Timur</span>');
   });
 
-  it('shows banner, win chip, tay table without 0 rows, koin table and ready strip', () => {
+  it('shows banner, win chip, tay table including 0 rows, koin table and ready strip', () => {
     const html = render(fixture());
     console.log(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
     expect(html).toContain('hu-banner'); expect(html).toContain('>HU<');
     expect(html).toContain('Ce Mo · tarik sendiri');
     expect(html).toContain('A Liong · Timur · 6 Tay · +57 koin');
-    expect(html).not.toContain('Tile Bunga 2');
+    expect(html).toContain('Tile Bunga 2');
     expect(html).toContain('Total Tay');
-    expect(html).toContain('is-winner'); expect(html).toContain('is-up'); expect(html).toContain('is-down');
+    expect(html).toContain('is-winner'); expect(html).toContain('is-plus'); expect(html).toContain('is-minus');
     expect(html).toContain('mp-ready-strip'); expect(html).toContain('offline'); expect(html).toContain('mp-next-bar');
     expect(html).toContain('>Lanjut<'); expect(html).toContain('Lihat meja');
   });

@@ -3,7 +3,7 @@ import { configNow } from './config';
 // Client-side room state: lobby info, the latest personal SeatView, and the actions that go back to the server.
 import type { Seat } from '../core/types';
 import type { SeatView, SessionAction } from '../session';
-import { saveGameRecord, type StorageLike } from '../storage';
+import { historyScoringFields, saveGameRecord, type StorageLike } from '../storage';
 import { Connection, type ConnectionStatus, type SocketLike, type Timers } from './connection';
 import type { ReactionId, ErrorCode, RoomConfig, RoomInfo, ServerMessage } from './protocol';
 import { forgetRoom, roomSocketUrl, saveRoom } from './room-store';
@@ -195,14 +195,16 @@ export class RemoteTable {
         if (matchChanged) next.log = [];
         if (key !== this.endedKey || matchChanged) { this.endedKey = key; next.handEndedAt = key === null ? null : this.now(); }
         const v = message.view, last = v.lastHand;
-        if (v.matchOver && this.state.seat && last) {
-          saveGameRecord({ id: `online-${this.code}-${v.match.startedAt}`, timestamp: v.match.finishedAt ?? this.now(), online: true, roomCode: this.code,
+        if ((finished || v.matchOver) && this.state.seat && last) {
+          saveGameRecord({ id: `online-${this.code}-${v.match.startedAt}-${last.payments.hand}`, timestamp: last.endedAt ?? v.match.finishedAt ?? this.now(), online: true, roomCode: this.code,
+            names: Object.fromEntries((this.state.room?.seats ?? []).map(s => [s.seat, s.name ?? (s.bot ? `Bot ${['dong', 'nan', 'xi', 'bei'].indexOf(s.seat) + 1}` : s.seat)])),
+            flowers: last.flowers ?? [], ...(last.scoring ? historyScoringFields(last.scoring) : {}),
             winner: last.payments.winner, winningHand: last.hand, winningTile: last.hand.find(t => t.id === last.winningTileId) ?? null,
             melds: last.melds, scoringBreakdown: last.breakdown.flatMap(b => b.id === undefined ? [] : [{ id: b.id, name: b.pattern, tay: b.tay }]),
-            matchSummary: { seat: this.state.seat, koinTotal: v.match.koinTotal, tayTotal: v.match.tayTotal, handsPlayed: v.match.hands.length, huCount: v.match.huCount[this.state.seat] },
+            ...(v.matchOver ? { matchSummary: { seat: this.state.seat, koinTotal: v.match.koinTotal, tayTotal: v.match.tayTotal, handsPlayed: v.match.hands.length, huCount: v.match.huCount[this.state.seat] } } : {}),
             totalTay: last.payments.totalTay, roundScore: last.payments.roundScore, kongPayments: last.payments.kongPayments,
-            isWithKim: last.hand.some(t => t.isKim), winMethod: last.winMethod, ...(last.discarder ? { discarder: last.discarder } : {}),
-            durationSeconds: Math.max(0, Math.round(((v.match.finishedAt ?? this.now()) - v.match.startedAt) / 1000)),
+            isWithKim: last.scoring?.isWithKim ?? [...last.hand, ...last.melds.flatMap(m => m.tiles)].some(t => t.isKim), winMethod: last.winMethod, ...(last.discarder ? { discarder: last.discarder } : {}),
+            durationSeconds: last.durationSeconds ?? 0,
           }, this.options.storage);
         }
         this.patch(next);

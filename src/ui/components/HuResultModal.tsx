@@ -264,26 +264,33 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
           </dd>
         </dl>
 
-        <div className="receipt-hand">
-          {scoredHandGroups(outcome.hand, r).map((group, i) => (
-            <span key={i} className="receipt-set">
-              <TileRow tiles={group} size="md" highlightId={outcome.winningTile.id} />
-            </span>
-          ))}
-          {outcome.melds.map((m, i) => (
-            <MeldView key={i} meld={m} size="md" />
-          ))}
-          {outcome.flowers.length > 0 && (
-            <span className="rack">
-              <TileRow tiles={outcome.flowers} size="sm" />
-            </span>
-          )}
-        </div>
-
-        <TayBreakdown scoring={r} />
-
+        <WinningHandReceipt hand={outcome.hand} melds={outcome.melds} flowers={outcome.flowers} scoring={r} winningTileId={outcome.winningTile.id} />
         <RoundScoreBlock outcome={valid ? outcome : null} kongPayments={kongs} />
       </div>
     </Modal>
   );
+}
+
+export function WinningHandReceipt({ hand, melds, flowers, scoring: r, winningTileId }: {
+  hand: Tile[]; melds: import('../../core/types').Meld[]; flowers: Tile[]; scoring: ScoringResult; winningTileId?: string;
+}) {
+  return <>
+    <div className="receipt-hand">
+      {scoredHandGroups(hand, r).map((group, i) => (
+        <span key={i} className="receipt-set">
+          <TileRow tiles={group} size="md" highlightId={winningTileId} />
+        </span>
+      ))}
+      {melds.map((m, i) => (
+        <MeldView key={i} meld={m} size="md" />
+      ))}
+      {flowers.length > 0 && (
+        <span className="rack">
+          <TileRow tiles={flowers} size="sm" />
+        </span>
+      )}
+    </div>
+
+    <TayBreakdown scoring={r} />
+  </>;
 }

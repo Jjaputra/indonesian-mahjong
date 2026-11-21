@@ -49,9 +49,10 @@ export function CallToast({ event }: { event: CallEvent }) {
  * ("Kong 中! tiap pemain bayar 4 koin ke Bot Kanan") for a few seconds. A robbed Kong tambahan never
  * reaches the list, so it never toasts.
  */
-export function KongToast({ payments, ms = 3200 }: { payments: readonly KongPaymentView[]; ms?: number }) {
-  // Starts at 0: the table mounts with a new match, so any payment already listed is fresh.
-  const seen = useRef(0);
+export function KongToast({ payments, ms = 3200, nameOf, skipExisting = false }: { payments: readonly KongPaymentView[]; ms?: number; nameOf?: (seat: Seat) => string; skipExisting?: boolean }) {
+  // Solo starts at 0: the table mounts with a new match, so any payment already listed is fresh.
+  // Online can remount mid-hand after a refresh, so it skips payments that are already listed.
+  const seen = useRef(skipExisting ? payments.length : 0);
   const [shown, setShown] = useState<KongPaymentView | null>(null);
   useEffect(() => {
     if (payments.length < seen.current) { seen.current = payments.length; setShown(null); return; }
@@ -65,7 +66,7 @@ export function KongToast({ payments, ms = 3200 }: { payments: readonly KongPaym
     return () => clearTimeout(timer);
   }, [shown, ms]);
   if (!shown) return null;
-  return <div className="kong-toast-wrap" role="status" aria-live="polite"><p className="call-toast kong-toast">{kongToastText(shown)}</p></div>;
+  return <div className="kong-toast-wrap" role="status" aria-live="polite"><p className="call-toast kong-toast">{kongToastText(shown, nameOf)}</p></div>;
 }
 
 // ---------------------------------------------------------------------------

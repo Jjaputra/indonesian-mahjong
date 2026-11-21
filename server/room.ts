@@ -1,7 +1,7 @@
 import { SEAT_ORDER } from '../src/core/tiles';
 import type { Seat } from '../src/core/types';
 import { TableSession, type SerializedSession, type HandSeed } from '../src/session';
-import { DEFAULT_SETTINGS } from '../src/storage';
+import { DEFAULT_SETTINGS, practiceScoringSettings } from '../src/storage';
 import { DEFAULT_ROOM_CONFIG, REACTIONS, MAX_SPECTATORS, NAME_MAX_LENGTH, normalizeName, type SeatDice, type RoomConfig, type RoomInfo, type ServerMessage, type ErrorCode, type ClientMessage } from '../src/net/protocol';
 
 const RATE_BURST = 10;
@@ -462,7 +462,7 @@ export class Room {
     this.captureMatchNames();
     const occupied = Object.values(d.people).filter(p => p.seat);
     const seats = Object.fromEntries(SEAT_ORDER.map(s => [s, occupied.some(p => p.seat === s) ? 'human' : 'bot'])) as Record<Seat, 'human' | 'bot'>;
-    this.session = new TableSession({ settings: { ...DEFAULT_SETTINGS, kimMode: d.config.kimMode, kimEnabled: d.config.kimMode !== 'off', minHuTay: d.config.minHuTay }, seats,
+    this.session = new TableSession({ settings: { ...practiceScoringSettings({ ...DEFAULT_SETTINGS }), kimMode: d.config.kimMode, kimEnabled: d.config.kimMode !== 'off', minHuTay: d.config.minHuTay }, seats,
       discardRevealMs: (await this.io.settings?.())?.discardRevealMs ?? 1000, seed: 0, handSeed: this.io.seed, now: this.io.now, botLevel: d.config.botLevel, hostSeat: d.people[d.host!]?.seat ?? 'dong', turnTimeMs: d.config.turnSeconds === null ? 1e12 : d.config.turnSeconds * 1000 });
     const snapshot = this.session.serialize(); snapshot.match.timeLimitMinutes = d.config.timeLimitMinutes;
     this.session = TableSession.deserialize(snapshot, this.io.now, this.io.seed);
