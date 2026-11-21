@@ -13,10 +13,10 @@ describe('daily online match limit', () => {
     ['2026-11-21T17:00:00Z', '2026-11-22'],
   ])('uses WIB day for %s', (time, day) => expect(wibDay(Date.parse(time))).toBe(day));
 
-  it('allows five starts and never returns a negative remaining count', () => {
+  it('allows three starts and never returns a negative remaining count', () => {
     const storage = new MemoryStorage();
     for (let i = 0; i < 6; i++) {
-      expect(remainingMatches(now, storage)).toBe(Math.max(0, 5 - i));
+      expect(remainingMatches(now, storage)).toBe(Math.max(0, 3 - i));
       countHostedMatch('ABC234', i, now, storage);
     }
     expect(remainingMatches(now, storage)).toBe(0);
@@ -27,17 +27,17 @@ describe('daily online match limit', () => {
     countHostedMatch('ABC234', 'seating:15000', now, storage);
     identifyHostedMatch('ABC234', 123, now, storage);
     countHostedMatch('ABC234', 123, now, storage);
-    expect(remainingMatches(now, storage)).toBe(4);
+    expect(remainingMatches(now, storage)).toBe(2);
     countHostedMatch('XYZ234', 123, now, storage);
-    expect(remainingMatches(now, storage)).toBe(3);
+    expect(remainingMatches(now, storage)).toBe(1);
   });
   it('expires old days, including a seating identity resolved the following day', () => {
     const storage = new MemoryStorage();
     const before = Date.parse('2026-11-21T16:59:00Z'), after = Date.parse('2026-11-21T17:00:00Z');
     countHostedMatch('ABC234', 'seating:1', before, storage);
-    expect(remainingMatches(before, storage)).toBe(4);
+    expect(remainingMatches(before, storage)).toBe(2);
     identifyHostedMatch('ABC234', 123, after, storage);
-    expect(remainingMatches(after, storage)).toBe(5);
+    expect(remainingMatches(after, storage)).toBe(3);
     countHostedMatch('ABC234', 456, after, storage);
     expect(storage.getItem('itm.mp.daily-matches.v1')).not.toContain('seating:1');
   });
@@ -47,7 +47,7 @@ describe('daily online match limit', () => {
       getItem: () => JSON.stringify({ day, matches: ['old'] }),
       setItem: () => { writes++; }, removeItem: () => { writes++; },
     };
-    for (let i = 0; i < 10; i++) expect(remainingMatches(now, storage)).toBe(day === '2026-11-20' ? 5 : 4);
+    for (let i = 0; i < 10; i++) expect(remainingMatches(now, storage)).toBe(day === '2026-11-20' ? 3 : 2);
     expect(writes).toBe(0);
   });
   it.each(['count', 'identify'])('merges a competing tab update immediately before %s writes', operation => {
@@ -64,7 +64,7 @@ describe('daily online match limit', () => {
     };
     if (operation === 'count') countHostedMatch('DEF234', 456, now, storage);
     else identifyHostedMatch('ABC234', 123, now, storage);
-    expect(remainingMatches(now, base)).toBe(operation === 'count' ? 2 : 3);
+    expect(remainingMatches(now, base)).toBe(operation === 'count' ? 0 : 1);
     expect(base.getItem('itm.mp.daily-matches.v1')).toContain('XYZ234');
   });
   it('keeps provisional aliases while merging counts and identifies later rematches', () => {
@@ -75,7 +75,7 @@ describe('daily online match limit', () => {
     countHostedMatch('ABC234', 'seating:2', now, storage);
     identifyHostedMatch('ABC234', 456, now, storage);
     countHostedMatch('ABC234', 456, now, storage);
-    expect(remainingMatches(now, storage)).toBe(3);
+    expect(remainingMatches(now, storage)).toBe(1);
   });
   it.each(['read', 'write', 'malformed'])('allows play with %s storage failure', failure => {
     const storage: StorageLike = {
@@ -83,6 +83,6 @@ describe('daily online match limit', () => {
       setItem: () => { throw new Error('blocked'); }, removeItem: () => {},
     };
     expect(() => countHostedMatch('ABC234', 1, now, storage)).not.toThrow();
-    expect(remainingMatches(now, storage)).toBe(5);
+    expect(remainingMatches(now, storage)).toBe(3);
   });
 });

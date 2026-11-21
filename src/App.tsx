@@ -17,6 +17,7 @@ import { HandSandbox } from './ui/components/HandSandbox';
 import { DevTools } from './ui/components/DevTools';
 import { devHandFromOutcome, type DevHand } from './dev/hand-code';
 import { SettingsModal } from './ui/components/SettingsModal';
+import { AdminPage } from './ui/components/AdminPage';
 import { MainMenu } from './ui/components/MainMenu';
 import { OnlineScreen } from './ui/components/OnlineScreen';
 import { openAuth, useAccount } from './net/auth';
@@ -322,6 +323,7 @@ export function App() {
   useScreenWakeLock(settings.keepScreenOn && (view === 'table' || (view === 'online' && onlineTable)));
 
   const pos = seatPositions(controller.humanSeat);
+  if (mpServer && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === '1') return <AdminPage server={mpServer} />;
   return (
     <div className={appClass(view === 'online' && onlineTable ? 'table' : view === 'online' ? 'menu' : view, optionsOpen)}>
       <header className="app-header" inert={dice !== null || undefined}>

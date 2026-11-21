@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Sparkles, Users } from 'lucide-react';
 import type { AIDifficulty } from '../../storage';
 import logo from '../../assets/brand/maciokyu-logo.png';
 import { DIFFICULTY_LABEL } from '../labels';
+import { useConfig } from '../../net/config';
 import { PremiumModal } from './PremiumModal';
 import { type DeadWallOption, type DealerWinRule, type MatchTimeLimit } from '../match';
 
@@ -139,10 +140,12 @@ function FrontChoices({ lastResult, onSolo, onOnline, resumeRoomCode, onResumeRo
 }
 
 export function MainMenu(props: MainMenuProps) {
+  const { announcement } = useConfig();
   const [step, setStep] = useState<MenuStep>(props.initialStep ?? 'front');
   const [premiumOpen, setPremiumOpen] = useState(props.initialPremiumOpen ?? false);
   return (
     <main className="main-menu">
+      {announcement && <p className="mp-pill" role="status">{announcement}</p>}
       {step === 'solo'
         ? <SoloChoices {...props} onBack={() => setStep('front')} />
         : <FrontChoices lastResult={props.lastResult} onOnline={props.onOnline} resumeRoomCode={props.resumeRoomCode} onResumeRoom={props.onResumeRoom}

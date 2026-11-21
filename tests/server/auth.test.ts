@@ -91,7 +91,7 @@ it('creates hashed sessions, upserts users, logs out, expires sessions and delet
   const login = async () => authRoute(request('/auth/google', 'POST', undefined, { credential: await credential() }), { DB: db }, {});
   const response = await login(); expect(response.status).toBe(200);
   expect(response.headers.get('Set-Cookie')).toContain('HttpOnly; Secure; SameSite=Lax');
-  const account = await response.json(); expect(account.remainingMatches).toBe(5);
+  const account = await response.json(); expect(account.remainingMatches).toBe(3);
   expect(sqlite.prepare('SELECT token_hash FROM sessions').get()!.token_hash).toBe(await tokenHash(account.token));
   expect(await resolveUser(request('/me', 'GET', account.token), { DB: db })).toMatchObject({ id: account.id });
   const cookieRequest = new Request('https://api.maciokyu.com/me', { headers: { Cookie: `__Host-maciokyu_session=${account.token}` } });
@@ -112,12 +112,12 @@ it('enforces atomic per-account daily counts, dedupes matches and exempts premiu
   sqlite.exec("INSERT INTO users (id,provider,provider_sub,name,email,picture,premium,created_at,last_seen_at) VALUES ('u','google','s','Name',NULL,NULL,0,0,0)");
   const day = Date.parse('2026-11-21T16:59:59Z');
   expect(wibDay(day)).toBe('2026-11-21');
-  for (let i = 0; i < 5; i++) expect(await countMatch({ DB: db }, 'u', `m${i}`, day)).toBeNull();
+  for (let i = 0; i < 3; i++) expect(await countMatch({ DB: db }, 'u', `m${i}`, day)).toBeNull();
   expect(await countMatch({ DB: db }, 'u', 'm0', day)).toBeNull();
-  expect(await countMatch({ DB: db }, 'u', 'sixth', day)).toBe('daily_limit');
-  expect(await countMatch({ DB: db }, 'u', 'sixth', day + 1000)).toBeNull();
+  expect(await countMatch({ DB: db }, 'u', 'fourth', day)).toBe('daily_limit');
+  expect(await countMatch({ DB: db }, 'u', 'fourth', day + 1000)).toBeNull();
   sqlite.exec('UPDATE users SET premium=1');
-  expect(await countMatch({ DB: db }, 'u', 'seventh', day)).toBeNull();
+  expect(await countMatch({ DB: db }, 'u', 'fifth', day)).toBeNull();
   expect(await remaining(db, { id: 'u', name: 'Name', picture: null, premium: 1 })).toBeNull();
   expect(await countMatch({ LOGIN_REQUIRED: 'true' }, undefined, 'm')).toBe('login_required');
   expect(await countMatch({ LOGIN_REQUIRED: 'false' }, undefined, 'm')).toBeNull();

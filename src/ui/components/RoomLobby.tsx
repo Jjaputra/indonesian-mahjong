@@ -9,7 +9,9 @@ import { buildShareText, inviteLink, whatsAppUrl } from '../../net/room-store';
 import { DIFFICULTY_LABEL, SEAT_LABEL } from '../labels';
 import { InviteHelp } from './InviteHelp';
 import { RoomConfigFields } from './RoomConfigFields';
-import { DAILY_LIMIT_MESSAGE, DAILY_MATCH_LIMIT, useDailyRemaining } from '../../net/daily-limit';
+import { AllowanceReset } from './AllowanceReset';
+import { useConfig } from '../../net/config';
+import { DAILY_LIMIT_MESSAGE, useDailyRemaining } from '../../net/daily-limit';
 import type { StorageLike } from '../../storage';
 
 export function ConnectionIndicator({ status, latencyMs = null, pongLate = false }: { status: ConnectionStatus; latencyMs?: number | null; pongLate?: boolean }) {
@@ -45,6 +47,7 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
   const [help, setHelp] = useState(false);
   const account = useAccount();
   const loginBlocked = !account && !deviceLimitFallback();
+  const { dailyMatchLimit } = useConfig();
   const remaining = useDailyRemaining(dailyLimitStorage);
   const { config } = room;
   const blocker = startBlocker(room);
@@ -123,8 +126,8 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
           )}
         </div>
         {isHost && <div className="online-daily-limit" role="status">
-          <p>{Number.isFinite(remaining) ? `Sisa ${remaining} dari ${DAILY_MATCH_LIMIT} match hari ini` : account ? 'Match tanpa batas' : 'Host perlu masuk.'}</p>
-          {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE}</p>}
+          <p>{Number.isFinite(remaining) ? `Sisa ${remaining} dari ${dailyMatchLimit} match hari ini` : account ? 'Match tanpa batas' : 'Host perlu masuk.'}</p>
+          {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE()}</p>}<AllowanceReset remaining={remaining} />
         </div>}
       </section>
       {help && <InviteHelp onClose={() => setHelp(false)} />}

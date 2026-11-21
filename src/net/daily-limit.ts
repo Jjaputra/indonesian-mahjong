@@ -1,18 +1,18 @@
+import { configNow, getConfig } from './config';
 import { deviceLimitFallback, useAccount } from './auth';
 import { useEffect, useState } from 'react';
 import type { StorageLike } from '../storage';
 
-export const DAILY_MATCH_LIMIT = 5;
-export const DAILY_LIMIT_MESSAGE = 'Jatah 5 match hari ini sudah habis. Besok bisa main lagi, atau tunggu Premium (segera hadir).';
+export const DAILY_LIMIT_MESSAGE = () => `Jatah ${getConfig().dailyMatchLimit} match hari ini sudah habis. Tunggu reset 00.00 WIB, atau Premium (segera hadir).`;
 export const isPremium = (): boolean => false;
 const KEY = 'itm.mp.daily-matches.v1';
 const WIB_OFFSET = 7 * 60 * 60 * 1000;
 interface Usage { day: string; matches: string[]; aliases?: Record<string, string> }
 const failedWrites = new WeakSet<StorageLike>();
 
-export const wibDay = (now = Date.now()): string => new Date(now + WIB_OFFSET).toISOString().slice(0, 10);
+export const wibDay = (now = configNow()): string => new Date(now + WIB_OFFSET).toISOString().slice(0, 10);
 
-// Device-side only, like room-store seats. Move the real check to the server once login exists.
+// Device fallback for servers that permit anonymous hosts; account limits are authoritative.
 function read(now: number, storage?: StorageLike): { storage: StorageLike; usage: Usage } | null {
   try {
     const s = storage ?? globalThis.localStorage;
@@ -26,12 +26,12 @@ function read(now: number, storage?: StorageLike): { storage: StorageLike; usage
   } catch { return null; }
 }
 
-export function remainingMatches(now = Date.now(), storage?: StorageLike): number {
-  if (isPremium()) return DAILY_MATCH_LIMIT;
+export function remainingMatches(now = configNow(), storage?: StorageLike): number {
+  if (isPremium()) return getConfig().dailyMatchLimit;
   const data = read(now, storage);
-  if (!data || failedWrites.has(data.storage)) return DAILY_MATCH_LIMIT;
+  if (!data || failedWrites.has(data.storage)) return getConfig().dailyMatchLimit;
   const identities = data.usage.matches.map(key => data.usage.aliases?.[key] ?? key);
-  return Math.max(0, DAILY_MATCH_LIMIT - new Set(identities).size);
+  return Math.max(0, getConfig().dailyMatchLimit - new Set(identities).size);
 }
 
 /** Merge against a fresh read immediately before writing; display reads never write a snapshot back. */
@@ -48,7 +48,7 @@ function merge(usage: Usage, storage: StorageLike, now: number): void {
 }
 
 /** Called only on a confirmed start, never on a button press. */
-export function countHostedMatch(room: string, identity: string | number, now = Date.now(), storage?: StorageLike): void {
+export function countHostedMatch(room: string, identity: string | number, now = configNow(), storage?: StorageLike): void {
   if (isPremium()) return;
   const data = read(now, storage);
   if (!data) return;
@@ -58,7 +58,7 @@ export function countHostedMatch(room: string, identity: string | number, now = 
 }
 
 /** Seating precedes the SeatView. Alias its provisional key to the activity log's match identity. */
-export function identifyHostedMatch(room: string, startedAt: number, now = Date.now(), storage?: StorageLike): void {
+export function identifyHostedMatch(room: string, startedAt: number, now = configNow(), storage?: StorageLike): void {
   const data = read(now, storage);
   if (!data) return;
   const index = data.usage.matches.findIndex(key => {
@@ -104,5 +104,5 @@ export function useDailyRemaining(storage?: StorageLike): number {
     globalThis.addEventListener?.('storage', refresh);
     return () => { clearInterval(timer); globalThis.removeEventListener?.('storage', refresh); };
   }, []);
-  return account ? account.remainingMatches ?? Infinity : deviceLimitFallback() ? remainingMatches(Date.now(), storage) : Infinity;
+  return account ? account.remainingMatches ?? Infinity : deviceLimitFallback() ? remainingMatches(configNow(), storage) : Infinity;
 }

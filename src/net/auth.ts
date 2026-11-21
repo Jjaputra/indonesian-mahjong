@@ -1,7 +1,8 @@
+import { acceptConfig, fetchConfig, getConfig } from './config';
 import { useSyncExternalStore } from 'react';
 
 export const GOOGLE_CLIENT_ID = '493683615084-apa5g3v01866pb8b9qfrgc75ii4pqtqk.apps.googleusercontent.com';
-export interface Account { id: string; name: string; picture: string | null; premium: boolean; remainingMatches: number | null; currentRoom?: { code: string; phase: string } | null; newsOptIn?: boolean }
+export interface Account { admin?: boolean; dailyMatchLimit?: number; resetAt?: number; serverNow?: number; id: string; name: string; picture: string | null; premium: boolean; remainingMatches: number | null; currentRoom?: { code: string; phase: string } | null; newsOptIn?: boolean }
 interface Google { accounts: { id: { initialize(options: { client_id: string; callback: (result: { credential: string }) => void }): void; renderButton(element: HTMLElement, options: { type: string; text: string; locale: string; theme: string; size: string }): void } } }
 interface Facebook { init(options: { appId: string; version: string }): void; login(callback: (response: { authResponse?: { accessToken: string } }) => void, options: { scope: string }): void }
 let me: Account | null = null;
@@ -15,22 +16,22 @@ export const authStore = {
 let revision = 0;
 const update = (value: Account | null) => { me = value; revision++; for (const fn of listeners) fn(); };
 export function useAccount(): Account | null { useSyncExternalStore(authStore.subscribe, () => revision, () => revision); return me; }
-export const deviceLimitFallback = () => !me && !loginRequired;
-let loginRequired = false;
-export const onlineLoginRequired = () => loginRequired;
+export const deviceLimitFallback = () => !me && !getConfig().loginRequired;
+export const onlineLoginRequired = () => getConfig().loginRequired;
 export function authHeaders(): Record<string, string> { return bearer ? { Authorization: `Bearer ${bearer}` } : {}; }
 export function authSocket(url: string): WebSocket { return bearer && new URL(url).hostname === 'localhost' ? new WebSocket(url, ['maciokyu-auth', bearer]) : new WebSocket(url); }
 export async function refreshAccount(): Promise<void> {
   const response = await fetch(`${server}/me`, { credentials: 'include', headers: authHeaders() });
   if (response.status === 401) { update(null); return; }
   if (!response.ok) throw new Error('Gagal memuat akun.');
-  update(await response.json());
+  const value = await response.json();
+  if (value.resetAt !== undefined) acceptConfig({ resetAt: value.resetAt, serverNow: value.serverNow, dailyMatchLimit: value.dailyMatchLimit });
+  update(value);
 }
 export async function openAuth(base: string): Promise<void> {
   server = base;
   if (new URL(base).hostname === 'localhost') try { bearer = sessionStorage.getItem(`itm.auth:${base}`); } catch { /* blocked storage */ }
-  const config = await fetch(`${base}/auth/config`, { credentials: 'include' });
-  if (config.ok) { loginRequired = (await config.json()).loginRequired === true; update(me); }
+  await fetchConfig(base); update(me);
   await refreshAccount();
 }
 export async function signIn(provider: 'google' | 'facebook', credential: string): Promise<void> {

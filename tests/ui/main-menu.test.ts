@@ -208,7 +208,7 @@ describe('PremiumModal', () => {
     expect(html).toContain('role="dialog"');
     expect(html).toContain('maciokYU! Premium');
     expect(html).toContain('Segera hadir');
-    expect(html).toContain('Main bareng teman tanpa batas harian. Tanpa Premium, host bisa memulai 5 match online per hari; teman yang join tetap gratis.');
+    expect(html).toContain('Main bareng teman tanpa batas harian. Tanpa Premium, host bisa memulai 3 match online per hari; teman yang join tetap gratis.');
     expect(html).toContain('Fitur lain menyusul.');
     expect(html).toMatch(/<button[^>]*>Oke<\/button>/);
     expect(html).not.toMatch(/<input|<form|Rp|\$|bayar|email/i);

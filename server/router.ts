@@ -1,3 +1,5 @@
+import { adminRoute } from './admin';
+import { readSettings, resetAt } from './settings';
 import { authRoute, resolveUser, sessionToken, tokenHash, type AuthEnv } from './auth';
 import { isRoomCode, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '../src/net/protocol';
 
@@ -25,7 +27,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get('Origin');
     if (!originAllowed(origin)) return Response.json({ code: 'bad_message', message: 'Asal koneksi tidak diizinkan.' }, { status: 403 });
-    const cors = { 'Access-Control-Allow-Origin': origin!, 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Credentials': 'true', Vary: 'Origin' };
+    const cors = { 'Access-Control-Allow-Origin': origin!, 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Credentials': 'true', Vary: 'Origin' };
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const url = new URL(request.url);
     const currentRoom = async (userId: string) => {
@@ -45,7 +47,9 @@ export default {
       if (room && body?.code === room.code) await env.ROOMS.get(env.ROOMS.idFromName(room.code)).fetch(new Request('https://room/account', { method: 'DELETE', headers: { 'X-User-Id': user.id } }));
       return Response.json({ ok: true }, { headers: cors });
     }
-    if (request.method === 'GET' && url.pathname === '/auth/config') return Response.json({ loginRequired: env.LOGIN_REQUIRED === 'true' }, { headers: { ...cors, 'Cache-Control': 'no-store' } });
+    if (url.pathname.startsWith('/admin/')) return adminRoute(request, env, cors);
+    const settings = await readSettings(env);
+    if (request.method === 'GET' && ['/config', '/auth/config'].includes(url.pathname)) return Response.json({ ...settings, resetAt: resetAt(Date.now()), serverNow: Date.now() }, { headers: { ...cors, 'Cache-Control': 'no-store' } });
     if (url.pathname.startsWith('/auth/') || url.pathname === '/me') {
       const limiter = env.AUTH_LIMITER ?? env.ROOM_CREATION_LIMITER;
       if (!(await limiter.limit({ key: request.headers.get('CF-Connecting-IP') ?? 'local' })).success) return Response.json({ code: 'rate_limited', message: 'Tunggu sebentar.' }, { status: 429, headers: cors });
@@ -60,7 +64,7 @@ export default {
       const { success } = await env.ROOM_CREATION_LIMITER.limit({ key: request.headers.get('CF-Connecting-IP') ?? 'local' });
       if (!success) return Response.json({ code: 'rate_limited', message: 'Terlalu banyak room dibuat. Coba lagi sebentar.' }, { status: 429, headers: { ...cors, 'Retry-After': '60' } });
       const user = await resolveUser(request, env);
-      if (!user && env.LOGIN_REQUIRED === 'true') return Response.json({ code: 'login_required', message: 'Host perlu masuk untuk membuat room.' }, { status: 401, headers: cors });
+      if (!user && settings.loginRequired) return Response.json({ code: 'login_required', message: 'Host perlu masuk untuk membuat room.' }, { status: 401, headers: cors });
       const live = user && await currentRoom(user.id);
       const body = await request.json().catch(() => null) as { replace?: unknown } | null;
       if (live && body?.replace !== true) return Response.json({ code: 'current_room', currentRoom: live, message: `Kamu masih punya room ${live.code}` }, { status: 409, headers: cors });

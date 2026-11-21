@@ -1,3 +1,4 @@
+import { readSettings, resetAt } from './settings';
 export const GOOGLE_CLIENT_ID = '493683615084-apa5g3v01866pb8b9qfrgc75ii4pqtqk.apps.googleusercontent.com';
 export const FACEBOOK_APP_ID = '1670170614568233';
 export interface Statement {
@@ -6,7 +7,7 @@ export interface Statement {
   run(): Promise<{ meta: { changes: number } }>;
 }
 export interface Database { prepare(sql: string): Statement; batch(statements: Statement[]): Promise<unknown> }
-export interface AuthEnv { currentRoom?(userId: string): Promise<{ code: string; phase: string } | null>; DB?: Database; LOGIN_REQUIRED?: string; FACEBOOK_ENABLED?: string }
+export interface AuthEnv { currentRoom?(userId: string): Promise<{ code: string; phase: string } | null>; DB?: Database; ADMIN_USER_IDS?: string; LOGIN_REQUIRED?: string; FACEBOOK_ENABLED?: string }
 export interface User { id: string; name: string; picture: string | null; premium: number; news_opt_in?: number; news_opt_in_at?: number | null }
 interface Identity { sub: string; name: string; email?: string; picture?: string }
 const COOKIE = '__Host-maciokyu_session';
@@ -66,19 +67,20 @@ export async function resolveUser(request: Request, env: AuthEnv): Promise<User 
   if (!token || !env.DB) return null;
   return env.DB.prepare('SELECT u.id, u.name, u.picture, u.premium, u.news_opt_in, u.news_opt_in_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await tokenHash(token), Date.now()).first<User>();
 }
-export async function remaining(db: Database, user: User, now = Date.now()): Promise<number | null> {
+export async function remaining(db: Database, user: User, now = Date.now(), limit = 3): Promise<number | null> {
   if (user.premium) return null;
   const row = await db.prepare('SELECT COUNT(*) AS n FROM daily_matches WHERE user_id=? AND wib_day=?').bind(user.id, wibDay(now)).first<{ n: number }>();
-  return Math.max(0, 5 - (row?.n ?? 0));
+  return Math.max(0, limit - (row?.n ?? 0));
 }
 /** One atomic conditional insert prevents concurrent rooms exceeding the account limit. */
 export async function countMatch(env: AuthEnv, userId: string | undefined, key: string, now = Date.now()): Promise<'login_required' | 'daily_limit' | null> {
-  if (!userId) return env.LOGIN_REQUIRED === 'true' ? 'login_required' : null;
+  const settings = await readSettings(env, now);
+  if (!userId) return settings.loginRequired ? 'login_required' : null;
   const db = env.DB!;
   const user = await db.prepare('SELECT id, name, picture, premium FROM users WHERE id=?').bind(userId).first<User>();
   if (!user) return 'login_required';
   const day = wibDay(now);
-  const result = await db.prepare('INSERT OR IGNORE INTO daily_matches (user_id,wib_day,match_key) SELECT ?,?,? WHERE ?=1 OR (SELECT COUNT(*) FROM daily_matches WHERE user_id=? AND wib_day=?)<5').bind(userId, day, key, user.premium ? 1 : 0, userId, day).run();
+  const result = await db.prepare('INSERT OR IGNORE INTO daily_matches (user_id,wib_day,match_key) SELECT ?,?,? WHERE ?=1 OR (SELECT COUNT(*) FROM daily_matches WHERE user_id=? AND wib_day=?)<?').bind(userId, day, key, user.premium ? 1 : 0, userId, day, settings.dailyMatchLimit).run();
   if (result.meta.changes) return null;
   return await db.prepare('SELECT match_key FROM daily_matches WHERE user_id=? AND wib_day=? AND match_key=?').bind(userId, day, key).first() ? null : 'daily_limit';
 }
@@ -86,8 +88,10 @@ export async function authRoute(request: Request, env: AuthEnv, cors: Record<str
   const path = new URL(request.url).pathname;
   const respond = (body: unknown, status = 200, headers = {}) => Response.json(body, { status, headers: { ...cors, 'Cache-Control': 'no-store', ...headers } });
   if (!env.DB) return respond({ message: 'Login belum tersedia.' }, 503);
+  const settings = await readSettings(env);
+  const allowance = async (user: User) => ({ admin: (env.ADMIN_USER_IDS ?? '').split(',').map(s => s.trim()).includes(user.id), dailyMatchLimit: settings.dailyMatchLimit, resetAt: resetAt(Date.now()), serverNow: Date.now(), remainingMatches: await remaining(env.DB!, user, Date.now(), settings.dailyMatchLimit) });
   if (request.method === 'POST' && ['/auth/google', '/auth/facebook'].includes(path)) {
-    if (path.endsWith('facebook') && env.FACEBOOK_ENABLED !== 'true') return respond({ message: 'Facebook belum tersedia.' }, 404);
+    if (path.endsWith('facebook') && !settings.facebookEnabled) return respond({ message: 'Facebook belum tersedia.' }, 404);
     let identity: Identity;
     try {
       if (Number(request.headers.get('Content-Length') ?? 0) > 20000) return respond({ message: 'Data terlalu besar.' }, 413);
@@ -114,7 +118,7 @@ export async function authRoute(request: Request, env: AuthEnv, cors: Record<str
     const token = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     await env.DB.prepare('INSERT INTO sessions (token_hash,user_id,created_at,expires_at) VALUES (?,?,?,?)').bind(await tokenHash(token), user.id, now, now + LIFETIME).run();
     const local = new URL(request.headers.get('Origin') ?? request.url).hostname === 'localhost';
-    return respond({ ...user, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, remainingMatches: await remaining(env.DB, user), ...(local ? { token } : {}) }, 200, { 'Set-Cookie': cookie(token) });
+    return respond({ ...user, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, ...await allowance(user), ...(local ? { token } : {}) }, 200, { 'Set-Cookie': cookie(token) });
   }
   const user = await resolveUser(request, env);
   if (request.method === 'POST' && path === '/auth/logout') {
@@ -123,7 +127,7 @@ export async function authRoute(request: Request, env: AuthEnv, cors: Record<str
     return respond({ ok: true }, 200, { 'Set-Cookie': cookie('', 0) });
   }
   if (!user) return respond({ code: 'login_required', message: 'Host perlu masuk.' }, 401);
-  if (request.method === 'GET' && path === '/me') return respond({ ...user, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, remainingMatches: await remaining(env.DB, user) });
+  if (request.method === 'GET' && path === '/me') return respond({ ...user, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, ...await allowance(user) });
   if (request.method === 'POST' && path === '/me') {
     let body: { newsOptIn?: unknown };
     try { body = await request.json(); } catch { return respond({ message: 'Data tidak valid.' }, 400); }
