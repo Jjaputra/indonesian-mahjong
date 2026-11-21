@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-21
+### Fixed
+- The admin page (`?admin=1`) was blank. It now loads your login itself and shows "Memuat akun…", the Google login, "Akun ini bukan admin." or the settings, plus "Kembali ke menu".
+### Docs
+- `FEEDBACK.md` lists every group report with its status, version and the test that guards it, plus lessons to check before each release.
+
 ## [1.5.1] - 2026-11-21
 ### Added
 - Online: after the last game of a match, "Klasemen Akhir" opens with the table winner, the ranked totals (koin, Tay, Hu), the Σ 0 check and every game of the match, like in single player. The host can press "Main lagi" from there. Coming back to a finished room opens the standings straight away.
