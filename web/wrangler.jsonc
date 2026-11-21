@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  // The game itself: static assets only, no script, so requests never count against Worker limits.
+  "name": "maciokyu-web",
+  "compatibility_date": "2026-11-15",
+  "assets": { "directory": "../dist" },
+  "routes": [
+    { "pattern": "maciokyu.com", "custom_domain": true },
+    { "pattern": "www.maciokyu.com", "custom_domain": true }
+  ],
+  "workers_dev": false
+}

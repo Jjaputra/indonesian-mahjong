@@ -8,7 +8,7 @@ export interface Env {
   ROOMS: RoomNamespace;
   ROOM_CREATION_LIMITER: { limit(input: { key: string }): Promise<{ success: boolean }> };
 }
-export const ALLOWED_ORIGINS = [/^https:\/\/indomahjong\.pages\.dev$/, /^https:\/\/[a-z0-9-]+\.indomahjong\.pages\.dev$/, /^http:\/\/localhost:\d+$/];
+export const ALLOWED_ORIGINS = [/^https:\/\/maciokyu\.com$/, /^https:\/\/www\.maciokyu\.com$/, /^https:\/\/indomahjong\.pages\.dev$/, /^https:\/\/[a-z0-9-]+\.indomahjong\.pages\.dev$/, /^http:\/\/localhost:\d+$/];
 export function originAllowed(origin: string | null): boolean { return origin !== null && ALLOWED_ORIGINS.some(rule => rule.test(origin)); }
 export function roomCode(): string {
   // Rejection sampling avoids modulo bias.
