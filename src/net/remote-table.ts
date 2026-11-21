@@ -5,6 +5,7 @@ import { saveGameRecord, type StorageLike } from '../storage';
 import { Connection, type ConnectionStatus, type SocketLike, type Timers } from './connection';
 import type { ReactionId, ErrorCode, RoomConfig, RoomInfo, ServerMessage } from './protocol';
 import { forgetRoom, roomSocketUrl, saveRoom } from './room-store';
+import { countHostedMatch, identifyHostedMatch, loadHostBoundary, saveHostBoundary, remainingMatches, type HostBoundary } from './daily-limit';
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 /** An action as the UI builds it; the table stamps the view's version on send. */
@@ -62,6 +63,7 @@ export class RemoteTable {
   private pendingConfig: RoomConfig | undefined;
   private logSeq = 0;
   private errorSeq = 0;
+  private hostBoundary: HostBoundary | null = null;
 
   constructor(private readonly options: RemoteTableOptions) {
     this.code = options.code;
@@ -111,6 +113,7 @@ export class RemoteTable {
   }
 
   get isHost(): boolean { return this.state.host; }
+  get dailyLimitStorage(): StorageLike | undefined { return this.options.storage; }
 
   leave(): void { this.conn.send({ type: 'leave' }); this.conn.stop(); }
   react(preset: ReactionId): void { if (this.state.seat) this.conn.send({ type: 'reaction', preset }); }
@@ -121,8 +124,8 @@ export class RemoteTable {
   ready(): void { this.conn.send({ type: 'ready' }); }
   rollSeats(): void { this.conn.send({ type: 'rollSeats' }); }
   replaceBot(seat: Seat): void { this.conn.send({ type: 'replaceBot', seat }); }
-  start(): void { this.conn.send({ type: 'start' }); }
-  rematch(): void { this.conn.send({ type: 'rematch' }); }
+  start(): void { if (remainingMatches(this.now(), this.options.storage) > 0) this.conn.send({ type: 'start' }); }
+  rematch(): void { if (remainingMatches(this.now(), this.options.storage) > 0) this.conn.send({ type: 'rematch' }); }
 
   /** Send a game action stamped with the version of the view the player is looking at. */
   act(action: ActionInput): boolean {
@@ -139,6 +142,7 @@ export class RemoteTable {
         this.token = message.token;
         this.assignedName = message.name ?? this.assignedName;
         saveRoom({ code: this.code, token: message.token, name: this.assignedName }, this.options.storage);
+        this.observeRoom(message.room, message.host);
         this.patch({ seat: message.seat, host: message.host, room: message.room, joined: true, ended: null });
         if (this.pendingConfig && message.room.phase === 'lobby') {
           const config = this.pendingConfig;
@@ -147,6 +151,7 @@ export class RemoteTable {
         }
         break;
       case 'room':
+        this.observeRoom(message.room, message.host);
         if (message.name) {
           this.assignedName = message.name;
           if (this.token) saveRoom({ code: this.code, token: this.token, name: message.name }, this.options.storage);
@@ -157,6 +162,19 @@ export class RemoteTable {
         } else this.patch({ room: message.room, seat: message.seat, host: message.host });
         break;
       case 'view': {
+        const boundary = this.hostBoundary;
+        const identity = message.view.match?.startedAt;
+        if (boundary && this.state.host && identity !== undefined &&
+          (this.state.room?.phase === 'playing' || this.state.room?.phase === 'seating')) {
+          if (identity >= boundary.observedAt && identity !== boundary.previousMatch) {
+            countHostedMatch(this.code, identity, this.now(), this.options.storage);
+          }
+          this.setHostBoundary(null);
+        }
+        if (message.view.match) identifyHostedMatch(this.code, message.view.match.startedAt, this.now(), this.options.storage);
+        if (this.state.host && this.state.room?.phase === 'finished' && identity !== undefined && this.token) {
+          this.setHostBoundary({ token: this.token, observedAt: this.serverNow(), previousMatch: identity });
+        }
         const matchChanged = this.state.view !== null && this.state.view.match.startedAt !== message.view.match.startedAt;
         const finished = message.view.phase === 'DRAW_SERI' || message.view.phase === 'RESOLVED_HU';
         // Stamp the end of a hand once; later views of the same finished hand keep the first time.
@@ -206,6 +224,29 @@ export class RemoteTable {
   private patch(next: Partial<RemoteState>): void {
     this.state = { ...this.state, ...next };
     for (const listener of [...this.listeners]) listener();
+  }
+
+  private setHostBoundary(value: HostBoundary | null): void {
+    this.hostBoundary = value;
+    saveHostBoundary(this.code, value, this.options.storage);
+  }
+
+  private observeRoom(room: RoomInfo, host: boolean): void {
+    if (!host) { this.setHostBoundary(null); return; }
+    if (!this.token) return;
+    if (room.phase === 'lobby' || room.phase === 'finished') {
+      this.setHostBoundary({ token: this.token, observedAt: this.serverNow(),
+        previousMatch: room.phase === 'finished' ? this.state.view?.match.startedAt ?? null : null });
+      return;
+    }
+    const boundary = loadHostBoundary(this.code, this.options.storage) ?? this.hostBoundary;
+    // Being host in an active room alone is insufficient: require this same host token's prior boundary.
+    this.hostBoundary = boundary?.token === this.token ? boundary : null;
+    const deadline = room.seatDice?.deadline;
+    if (this.hostBoundary && room.phase === 'seating' && deadline !== undefined && deadline > this.hostBoundary.observedAt) {
+      countHostedMatch(this.code, `seating:${deadline}`, this.now(), this.options.storage);
+      this.setHostBoundary(null);
+    }
   }
 }
 

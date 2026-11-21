@@ -132,7 +132,7 @@ describe('v0.4.2 match options', () => {
     }
   });
   it('renders the three Kim choices and two wall choices together in the menu', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, kimMode: 'natural', onKimModeChange: noop, deadWall: 'none', onDeadWallChange: noop }));
+    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, kimMode: 'natural', onKimModeChange: noop, deadWall: 'none', onDeadWallChange: noop, initialStep: 'solo' }));
     for (const label of ['Kim dari tile', 'Kim tambahan (pemula)', 'Tanpa Kim', 'Sampai habis (turnamen)', 'Sisa 14 tile (dead wall)']) expect(html).toContain(label);
   });
 });

@@ -13,6 +13,7 @@ import { MatchScoreboard, TableInfo } from './MatchBoard';
 import { Modal } from './Modal';
 import { MeldView, TileRow } from './TileView';
 import { RemoteController, asGameController, seatName, seatNames, spectatorBottomNames } from './remote-adapter';
+import { DAILY_LIMIT_MESSAGE, DAILY_MATCH_LIMIT, useDailyRemaining } from '../../net/daily-limit';
 
 /** Maximum score review window, enforced by the room alarm. */
 export const NEXT_HAND_GRACE_MS = 120000;
@@ -87,6 +88,7 @@ export function ReadyStrip({ seats, self, nameOf }: { seats: RoomSeat[]; self: S
 }
 
 export function HandResult({ table, state, onClose, onLeave }: { table: RemoteTable; state: RemoteState; onClose: () => void; onLeave: () => void }) {
+  const remaining = useDailyRemaining(table.dailyLimitStorage);
   const view = state.view!;
   const last = view.lastHand ?? null;
   const [, tick] = useState(0);
@@ -107,7 +109,11 @@ export function HandResult({ table, state, onClose, onLeave }: { table: RemoteTa
     <Modal title={title} onClose={onClose} wide footer={
       <>
         {view.matchOver && (state.host
-          ? <button type="button" className="btn btn-primary" onClick={() => table.rematch()}>Main lagi</button>
+          ? <div className="online-daily-limit">
+              <button type="button" className="btn btn-primary" disabled={remaining === 0} onClick={() => table.rematch()}>Main lagi</button>
+              <div role="status"><p>Sisa {remaining} dari {DAILY_MATCH_LIMIT} match hari ini</p>
+                {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE}</p>}</div>
+            </div>
           : <span className="muted" role="status">Menunggu host memulai lagi</span>)}
         {view.matchOver && <button type="button" className="btn" onClick={onLeave}>Keluar room</button>}
         {canContinue && <button type="button" className="btn btn-primary" disabled={ready} onClick={() => table.ready()}>{ready ? 'Siap ✓' : 'Lanjut'}</button>}

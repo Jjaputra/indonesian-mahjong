@@ -63,3 +63,5 @@
 .mp-reaction-left { left: 3%; top: 45%; }
 .mp-reaction-right { right: 3%; top: 45%; }
 .mp-reaction-bottom { bottom: 15%; left: 50%; transform: translateX(-50%); }
+.online-daily-limit { font-size: .85rem; text-align: center; }
+.online-daily-limit p { margin: .4rem 0; }
