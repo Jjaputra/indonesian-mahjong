@@ -11,7 +11,7 @@ import { MemoryStorage } from '../../src/storage';
 
 function fixture() {
   const sql = new DatabaseSync(':memory:');
-  for (const name of ['0001_accounts', '0002_account_rooms', '0003_settings']) sql.exec(readFileSync(`server/migrations/${name}.sql`, 'utf8'));
+  for (const name of ['0001_accounts', '0002_account_rooms', '0003_settings', '0004_admin_overhaul']) sql.exec(readFileSync(`server/migrations/${name}.sql`, 'utf8'));
   const db: Database = {
     prepare(query) {
       let values: unknown[] = [];
@@ -53,7 +53,7 @@ it.each(['%', '_', '\\'])('searches for literal %s in names and emails', async t
   await db.prepare("INSERT INTO users(id,provider,provider_sub,name,email,premium,created_at,last_seen_at) VALUES('name','google','n',?,'n@example.com',0,0,0),('email','google','e','Email',?,0,0,0)").bind(`Has${term}Name`, `has${term}@example.com`).run();
   try {
     const response = await adminRoute(new Request(`https://api.test/admin/users?q=${encodeURIComponent(term)}`, { headers: { Authorization: `Bearer ${token}` } }), { DB: db, ADMIN_USER_IDS: 'admin' }, {});
-    expect((await response.json() as { id: string }[]).map(u => u.id).sort()).toEqual(['email', 'name']);
+    expect((await response.json() as { users: { id: string }[] }).users.map(u => u.id).sort()).toEqual(['email', 'name']);
   } finally { sql.close(); }
 });
 it('protects every admin route and applies audited settings and Premium changes immediately', async () => {
@@ -79,7 +79,7 @@ it('protects every admin route and applies audited settings and Premium changes 
   expect(await countMatch(env, 'u', 'fourth', day)).toBeNull();
   expect(sql.prepare('SELECT updated_by FROM admin_changes').get()!.updated_by).toBe('admin');
   expect(await (await adminRoute(request('news-emails'), env, {})).json()).toEqual(['yes@example.com']);
-  expect(await (await adminRoute(request('users?q=Player'), env, {})).json()).toMatchObject([{ id: 'u', premium: 1 }]);
+  expect(await (await adminRoute(request('users?q=Player'), env, {})).json()).toMatchObject({ users: [{ id: 'u', premium: true }] });
   sql.close();
 });
 it('resets exactly at WIB midnight and formats both countdown states', () => {

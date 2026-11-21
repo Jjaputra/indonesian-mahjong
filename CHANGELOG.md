@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-22
+### Changed
+- The admin panel is rebuilt with four tabs. Ringkasan shows player and match numbers with a 30-day chart. Pemain lists every player with search, filters, sorting, paging, the Premium switch, "Unduh CSV" and copying the emails of players who asked for news. Pengaturan groups the settings with explanations, a banner preview and who changed what last. Riwayat perubahan lists every settings and Premium change. The front menu shows an "Admin" button to the owner only.
+### Docs
+- `COPY.md` sets the voice for all player-facing text: relaxed, almost no pronouns, no slogans.
+
 ## [1.6.0] - 2026-11-22
 ### Fixed
 - Online Tay now matches single player. In a Kim match every Hu reads the Ada KIM column, as the house rule says. Before, online read the Tanpa KIM column for a hand without Kim, so some hands scored higher online (for example 44 instead of 29 Tay). Rooms already playing keep their old scoring until the match ends.

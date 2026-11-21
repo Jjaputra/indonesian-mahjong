@@ -18,6 +18,7 @@ it('never renders blank while the account is unknown, logged out or not an admin
     : Response.json({ id: 'u', name: 'Jason', picture: null, premium: false, remainingMatches: 3, admin: true })));
   await openAuth('https://mp.example');
   const admin = renderToStaticMarkup(createElement(AdminPage, { server: 'https://mp.example' }));
-  expect(admin).toContain('Salin email yang setuju dikabari');
+  expect(admin).toContain('Ringkasan');
+  expect(admin).toContain('Riwayat perubahan');
   await signOut();
 });
