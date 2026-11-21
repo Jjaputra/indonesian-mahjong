@@ -1,3 +1,4 @@
+import { authHeaders, authSocket, deviceLimitFallback, refreshAccount } from './auth';
 // Client-side room state: lobby info, the latest personal SeatView, and the actions that go back to the server.
 import type { Seat } from '../core/types';
 import type { SeatView, SessionAction } from '../session';
@@ -76,7 +77,7 @@ export class RemoteTable {
       onMessage: m => this.receive(m),
       onStatus: status => this.patch({ status }),
       onQuality: (latencyMs, pongLate) => this.patch({ latencyMs, pongLate }),
-      socketFactory: options.socketFactory,
+      socketFactory: options.socketFactory ?? (url => authSocket(url) as unknown as SocketLike),
       now: options.now,
       timers: options.timers,
       pingMs: options.pingMs,
@@ -124,8 +125,8 @@ export class RemoteTable {
   ready(): void { this.conn.send({ type: 'ready' }); }
   rollSeats(): void { this.conn.send({ type: 'rollSeats' }); }
   replaceBot(seat: Seat): void { this.conn.send({ type: 'replaceBot', seat }); }
-  start(): void { if (remainingMatches(this.now(), this.options.storage) > 0) this.conn.send({ type: 'start' }); }
-  rematch(): void { if (remainingMatches(this.now(), this.options.storage) > 0) this.conn.send({ type: 'rematch' }); }
+  start(): void { if (!deviceLimitFallback() || remainingMatches(this.now(), this.options.storage) > 0) this.conn.send({ type: 'start' }); }
+  rematch(): void { if (!deviceLimitFallback() || remainingMatches(this.now(), this.options.storage) > 0) this.conn.send({ type: 'rematch' }); }
 
   /** Send a game action stamped with the version of the view the player is looking at. */
   act(action: ActionInput): boolean {
@@ -162,16 +163,17 @@ export class RemoteTable {
         } else this.patch({ room: message.room, seat: message.seat, host: message.host });
         break;
       case 'view': {
+        if (this.state.host && this.state.view?.match.startedAt !== message.view.match?.startedAt) void refreshAccount().catch(() => {});
         const boundary = this.hostBoundary;
         const identity = message.view.match?.startedAt;
         if (boundary && this.state.host && identity !== undefined &&
           (this.state.room?.phase === 'playing' || this.state.room?.phase === 'seating')) {
           if (identity >= boundary.observedAt && identity !== boundary.previousMatch) {
-            countHostedMatch(this.code, identity, this.now(), this.options.storage);
+            if (deviceLimitFallback()) countHostedMatch(this.code, identity, this.now(), this.options.storage);
           }
           this.setHostBoundary(null);
         }
-        if (message.view.match) identifyHostedMatch(this.code, message.view.match.startedAt, this.now(), this.options.storage);
+        if (deviceLimitFallback() && message.view.match) identifyHostedMatch(this.code, message.view.match.startedAt, this.now(), this.options.storage);
         if (this.state.host && this.state.room?.phase === 'finished' && identity !== undefined && this.token) {
           this.setHostBoundary({ token: this.token, observedAt: this.serverNow(), previousMatch: identity });
         }
@@ -232,7 +234,7 @@ export class RemoteTable {
   }
 
   private observeRoom(room: RoomInfo, host: boolean): void {
-    if (!host) { this.setHostBoundary(null); return; }
+    if (!host || !deviceLimitFallback()) { this.setHostBoundary(null); return; }
     if (!this.token) return;
     if (room.phase === 'lobby' || room.phase === 'finished') {
       this.setHostBoundary({ token: this.token, observedAt: this.serverNow(),
@@ -244,7 +246,7 @@ export class RemoteTable {
     this.hostBoundary = boundary?.token === this.token ? boundary : null;
     const deadline = room.seatDice?.deadline;
     if (this.hostBoundary && room.phase === 'seating' && deadline !== undefined && deadline > this.hostBoundary.observedAt) {
-      countHostedMatch(this.code, `seating:${deadline}`, this.now(), this.options.storage);
+      if (deviceLimitFallback()) countHostedMatch(this.code, `seating:${deadline}`, this.now(), this.options.storage);
       this.setHostBoundary(null);
     }
   }
@@ -252,8 +254,8 @@ export class RemoteTable {
 
 /** POST /rooms; resolves with the new room code. */
 export async function createRoom(server: string, fetchImpl: typeof fetch = fetch): Promise<string> {
-  const res = await fetchImpl(`${server}/rooms`, { method: 'POST' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const res = await fetchImpl(`${server}/rooms`, { method: 'POST', credentials: 'include', headers: authHeaders() });
+  if (!res.ok) { const error = await res.json().catch(() => ({})); throw new Error(error.message ?? `HTTP ${res.status}`); }
   const body = await res.json() as { code?: unknown };
   if (typeof body.code !== 'string') throw new Error('Bad response');
   return body.code;

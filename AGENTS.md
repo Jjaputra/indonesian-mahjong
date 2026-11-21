@@ -65,4 +65,8 @@ All three must pass before you report done. For scoring changes, add tests that 
 1. Bump `version` in `package.json`, then `npm install --package-lock-only --silent`. Move the `[Unreleased]` notes in `CHANGELOG.md` under the new version with today's date; add a line for every player-visible change.
 2. Run the checks.
 3. Commit with a `feat:`/`fix:` message ending `(vX.Y.Z)`, push the branch, open a PR to `main`, and merge it.
-4. `main` deploys to GitHub Pages through `.github/workflows/pages.yml`. Watch the run with `gh run watch`.
+4. `main` deploys through `.github/workflows/cloudflare.yml` once the `CLOUDFLARE_API_TOKEN` secret exists; until then, deploy by hand:
+   - **Room server:** `npx wrangler deploy --config server/wrangler.jsonc`, served at api.maciokyu.com plus the old workers.dev address. Deploy it only when server-side code changed, because a deploy restarts live rooms.
+   - **Game:** build with `VITE_MP_SERVER=https://api.maciokyu.com npx vite build`, delete `dist/**/*.map` and `dist/wrangler.json`, then `npx wrangler deploy --config web/wrangler.jsonc`. That is the assets-only Worker `maciokyu-web` at maciokyu.com and www.
+   - **Old addresses:** deploy the same build to Pages `indomahjong` (from an empty directory: `npx wrangler pages deploy <dist> --project-name indomahjong --branch main`). GitHub Pages (`pages.yml`) also still publishes. Both only move players to maciokyu.com (`src/storage/domain-move.ts`).
+   - **Check:** `node scripts/smoke.mjs`.

@@ -1,3 +1,4 @@
+import { openAuth, refreshAccount, renderGoogle, signOut, useAccount, facebookLogin } from '../../net/auth';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoom, RemoteTable } from '../../net/remote-table';
 import type { RoomConfig } from '../../net/protocol';
@@ -25,6 +26,34 @@ interface Join { code: string; name: string; token?: string; config?: RoomConfig
 
 const emptyStore = () => () => {};
 
+export function AccountPanel({ onError }: { onError: (message: string) => void }) {
+  const account = useAccount();
+  const button = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!account) return;
+    const timer = setInterval(() => { void refreshAccount().catch(() => {}); }, 60000);
+    return () => clearInterval(timer);
+  }, [account?.id]);
+  useEffect(() => {
+    if (!account && button.current) void renderGoogle(button.current, onError).catch(error => onError(error.message));
+  }, [account, onError]);
+  return <section className="menu-card mp-card" aria-label="Akun host">
+    {account ? <>
+      {account.picture && <img src={account.picture} alt="" width={36} height={36} referrerPolicy="no-referrer" />}
+      <span>{account.name}</span>
+      <p>{account.premium ? 'Match tanpa batas' : `Sisa ${account.remainingMatches} dari 5 match hari ini`}</p>
+      <button type="button" className="mp-link" onClick={() => { void signOut().catch(error => onError(error.message)); }}>Keluar</button>
+      <button type="button" className="mp-link" onClick={() => {
+        if (window.confirm('Hapus akun beserta semua sesi dan hitungan match?')) void signOut(true).catch(error => onError(error.message));
+      }}>Hapus akun</button>
+    </> : <>
+      <p>Host perlu masuk untuk membuat room. Teman yang join tidak perlu.</p>
+      <div ref={button} />
+      {import.meta.env.VITE_FACEBOOK_LOGIN === '1' && <button type="button" className="btn" onClick={() => { void facebookLogin().catch(error => onError(error.message)); }}>Masuk dengan Facebook</button>}
+    </>}
+  </section>;
+}
+
 export function SeatRolls({ table }: { table: RemoteTable }) {
   const state = table.getState();
   const dice = state.room!.seatDice!;
@@ -46,6 +75,12 @@ export function SeatRolls({ table }: { table: RemoteTable }) {
 
 function RoomScreen({ table, optionsOpen, onOptionsOpenChange, onLeave, toast }: { table: RemoteTable; optionsOpen: boolean; onOptionsOpenChange: (open: boolean) => void; onLeave: () => void; toast: (text: string) => void }) {
   const state = useSyncExternalStore(table.subscribe, table.getState, table.getState);
+  const account = useAccount();
+  const accountId = account?.id ?? null;
+  const priorAccount = useRef(accountId);
+  useEffect(() => {
+    if (priorAccount.current !== accountId) { priorAccount.current = accountId; table.connect(); }
+  }, [accountId, table]);
   useEffect(() => startTurnAlerts(table), [table]);
   useEffect(() => {
     const visible = () => { if (document.visibilityState === 'visible') table.onVisible(); };
@@ -93,6 +128,7 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
   const [table, setTable] = useState<RemoteTable | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => { void openAuth(server).catch(() => setError('Gagal masuk, coba lagi.')); }, [server]);
   const [toastText, setToastText] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastRoom, setLastRoom] = useState(() => loadLastRoom());
@@ -150,8 +186,8 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
     setError(null);
     try {
       join({ code: await createRoom(server), name, config });
-    } catch {
-      setError('Gagal membuat room. Periksa koneksi lalu coba lagi.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Gagal membuat room.');
     } finally {
       setBusy(false);
     }
@@ -159,6 +195,8 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
 
   return (
     <>
+      {(!table || state?.room?.phase === 'lobby' || state?.room?.phase === 'finished') && <AccountPanel onError={setError} />}
+      {table && error && <p className="mp-error" role="alert">{error}</p>}
       {table
         ? <RoomScreen table={table} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} onLeave={leave} toast={toast} />
         : <OnlineMenu inviteCode={inviteCode} lastRoom={lastRoom} busy={busy} error={error}

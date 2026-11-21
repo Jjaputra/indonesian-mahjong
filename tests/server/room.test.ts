@@ -5,11 +5,11 @@ import { TableSession } from '../../src/session';
 import type { HandSeed } from '../../src/session';
 import { SEAT_ORDER, parseTileHand } from '../../src/core/tiles';
 
-function harness() {
+function harness(authorize?: RoomIO['authorize']) {
   let now = 1000, counter = 0, alarm: number | null = null, blob: RoomData | null = null, writes = 0, alarmWrites = 0, seeds = 0;
   const frames = new Map<string, ServerMessage[]>(), closed: string[] = [];
   const seedQueue: HandSeed[] = [];
-  const io: RoomIO = { seed: () => seedQueue.shift() ?? 1000 + seeds++, log: () => {}, now: () => now, token: () => `token-${++counter}`,
+  const io: RoomIO = { authorize, seed: () => seedQueue.shift() ?? 1000 + seeds++, log: () => {}, now: () => now, token: () => `token-${++counter}`,
     put: async d => { blob = structuredClone(d); writes++; }, deleteAll: async () => { blob = null; },
     setAlarm: async at => { alarm = at; alarmWrites++; },
     send: (s, m) => { frames.get(s.id)!.push(structuredClone(m)); }, close: s => { closed.push(s.id); }, attach: () => {},
@@ -396,4 +396,86 @@ describe('pending host transfer regressions', () => {
     expect(h.frames.get(returned.id)!.find(m => m.type === 'welcome')).toMatchObject({ host: true });
     expect(h.frames.get(younger.id)).toContainEqual({ type: 'event', text: 'Oldest sekarang host', seat: 'nan' });
   });
+});
+
+it('authorizes starts and rematches, charges only the actual match and applies the new host account', async () => {
+  const calls: { user?: string; key?: string }[] = [];
+  let denied: 'login_required' | 'daily_limit' | null = null;
+  const h = harness(async (socket, key) => { calls.push({ user: socket?.userId, key }); return denied; });
+  await h.room.create('ABCDEF', 'account1');
+  const guest = h.connect();
+  await h.send(guest, { type: 'hello', name: 'Guest' });
+  expect(h.room.data!.host).toBeNull(); expect(guest.seat).toBe('nan');
+  const host = h.connect(); host.userId = 'account1';
+  await h.send(host, { type: 'hello', name: 'Host' });
+  denied = 'login_required'; await h.send(host, { type: 'start' });
+  expect(errors(h, host).at(-1)?.code).toBe('login_required'); expect(h.room.data!.seatDice).toBeUndefined();
+  denied = 'daily_limit'; await h.send(host, { type: 'start' });
+  expect(errors(h, host).at(-1)?.code).toBe('daily_limit');
+  denied = null; await h.send(host, { type: 'start' });
+  expect(calls.at(-1)?.key).toBeUndefined();
+  await finishSeating(h); expect(calls.at(-1)).toMatchObject({ user: 'account1', key: expect.any(String) });
+  const snapshot = h.room.session!.serialize(); snapshot.match.endedBy = 'hands';
+  snapshot.match.finishedAt = h.now;
+  h.room.session = TableSession.deserialize(snapshot, () => h.now, () => 1);
+  denied = 'daily_limit'; await h.send(host, { type: 'rematch' });
+  expect(errors(h, host).at(-1)?.code).toBe('daily_limit');
+  await h.send(host, { type: 'leave' });
+  expect(h.room.data!.host).toBe(guest.token);
+  await h.send(guest, { type: 'rematch' });
+  expect(calls.at(-1)?.user).toBeUndefined();
+});
+
+it('keeps account ownership on reconnect and rejects replacement before kicking the real owner', async () => {
+  const charges: string[] = [];
+  const h = harness(async (socket, key) => { if (key) charges.push(socket!.userId!); return null; });
+  await h.room.create('ABCDEF', 'owner');
+  const owner = h.connect(); owner.userId = 'owner'; owner.sessionHash = 'old-session';
+  await h.send(owner, { type: 'hello', name: 'Owner' });
+  for (const userId of ['other-account', undefined]) {
+    const intruder = h.connect(); intruder.userId = userId; intruder.sessionHash = 'other-session';
+    await h.send(intruder, { type: 'hello', name: 'Intruder', token: owner.token });
+    expect(errors(h, intruder).at(-1)?.code).toBe('login_required');
+    expect(intruder.token).toBeUndefined(); expect(h.closed).not.toContain(owner.id);
+    expect(h.room.data!.people[owner.token!]!).toMatchObject({ userId: 'owner', sessionHash: 'old-session' });
+    expect(h.room.data!.host).toBe(owner.token);
+  }
+  const refreshed = h.connect(); refreshed.userId = 'owner'; refreshed.sessionHash = 'new-session';
+  await h.send(refreshed, { type: 'hello', name: 'Owner', token: owner.token });
+  expect(refreshed.token).toBe(owner.token); expect(h.closed).toContain(owner.id);
+  expect(h.room.data!.people[owner.token!]!.sessionHash).toBe('new-session');
+  await h.send(refreshed, { type: 'start' }); await finishSeating(h);
+  expect(charges).toEqual(['owner']);
+});
+it('reserves Dong against sit and promotes a creator who logs in from an existing anonymous seat', async () => {
+  const h = harness(); await h.room.create('ABCDEF', 'creator');
+  const guest = await h.join('Guest');
+  await h.send(guest, { type: 'sit', seat: 'dong' });
+  expect(errors(h, guest).at(-1)?.code).toBe('seat_taken');
+  expect(h.room.data!.host).toBeNull(); expect(h.room.data!.people[guest.token!]!.seat).toBe('nan');
+  const creator = h.connect(); creator.userId = 'creator'; creator.sessionHash = 'session';
+  await h.send(creator, { type: 'hello', name: 'Creator', token: guest.token });
+  expect(h.room.data!.host).toBe(guest.token);
+  expect(h.room.data!.people[guest.token!]!).toMatchObject({ seat: 'dong', userId: 'creator' });
+  expect(h.room.info().seats.find(s => s.seat === 'dong')!.host).toBe(true);
+});
+it('does not change the paying identity during seating and promotes a stable account on hand-over', async () => {
+  const charges: (string | undefined)[] = [];
+  const h = harness(async (socket, key) => { if (key) charges.push(socket?.userId); return null; });
+  await h.create(); const host = await h.join('Host');
+  const successor = h.connect(); successor.userId = 'successor'; successor.sessionHash = 'successor-session';
+  await h.send(successor, { type: 'hello', name: 'Next' });
+  await h.send(host, { type: 'start' });
+  const changing = h.connect(); changing.userId = 'new-account';
+  await h.send(changing, { type: 'hello', name: 'Host', token: host.token });
+  expect(errors(h, changing).at(-1)?.code).toBe('wrong_phase');
+  expect(h.room.data!.people[host.token!]!.userId).toBeUndefined();
+  await h.send(host, { type: 'leave' });
+  expect(h.room.data!.host).toBe(successor.token);
+  await finishSeating(h); expect(charges).toEqual(['successor']);
+  const replacement = h.connect(); replacement.userId = 'replacement';
+  await h.send(replacement, { type: 'hello', name: 'Next', token: successor.token });
+  expect(errors(h, replacement).at(-1)?.code).toBe('login_required');
+  expect(h.room.data!.host).toBe(successor.token);
+  expect(h.room.data!.people[successor.token!]!.userId).toBe('successor');
 });

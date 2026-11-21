@@ -20,6 +20,8 @@ function uniqueName(name: string, people: RoomData['people'], ownToken: string):
 export interface Socket {
   id: string;
   token?: string;
+  userId?: string;
+  sessionHash?: string;
   seat?: Seat | null;
   lastMessage?: number;
   /** Token bucket for the per-socket rate limit; refilled from lastMessage. */
@@ -29,9 +31,11 @@ export interface Socket {
 }
 export interface RoomData {
   code: string;
+  creatorUserId?: string;
+  matchKey?: string;
   config: RoomConfig;
   host: string | null;
-  people: Record<string, { name: string; seat: Seat | null; seatedAt?: number }>;
+  people: Record<string, { name: string; seat: Seat | null; seatedAt?: number; userId?: string; sessionHash?: string }>;
   hostOfflineAt?: number | null;
   hostTransferPending?: boolean;
   session: SerializedSession | null;
@@ -44,6 +48,7 @@ export interface RoomData {
   schedule: { version: number; deadline: number | null; botAt: number | null } | null;
 }
 export interface RoomIO {
+  authorize?(socket: Socket | undefined, key?: string): Promise<'login_required' | 'daily_limit' | null>;
   now(): number;
   token(): string;
   seed(): HandSeed;
@@ -84,10 +89,10 @@ export class Room {
     this.tail = task.catch(() => {});
     return task;
   }
-  create(code: string): Promise<boolean> {
+  create(code: string, creatorUserId?: string): Promise<boolean> {
     return this.exclusive(async () => {
       if (this.data) return false;
-      this.data = { code, config: { ...DEFAULT_ROOM_CONFIG }, host: null, people: {}, session: null,
+      this.data = { code, creatorUserId, config: { ...DEFAULT_ROOM_CONFIG }, host: null, people: {}, session: null,
         createdAt: this.io.now(), lastActivity: this.io.now(), handEndedAt: null, schedule: null };
       await this.save(); return true;
     });
@@ -187,10 +192,14 @@ export class Room {
         const name = normalizeName(m.name).slice(0, NAME_MAX_LENGTH).trimEnd();
         if (!name) { this.error(socket, 'bad_message', 'Nama wajib diisi.'); return; }
         const token = m.token && Object.hasOwn(d.people, m.token) ? m.token : this.io.token();
-        if (!d.people[token]) {
-          const first = d.host === null;
+        const existing = d.people[token];
+        // A room token can reconnect its account, never replace it with another account or anonymity.
+        if (existing?.userId && existing.userId !== socket.userId) { this.error(socket, 'login_required', 'Masuk dengan akun yang terikat ke kursi ini.'); return; }
+        if (existing && !existing.userId && socket.userId && d.seatDice) { this.error(socket, 'wrong_phase', 'Tunggu pertandingan dimulai sebelum menghubungkan akun.'); return; }
+        if (!existing) {
+          const first = d.host === null && (!d.creatorUserId || d.creatorUserId === socket.userId);
           const spectators = this.info().spectators;
-          const empty = !this.session && !d.seatDice ? SEAT_ORDER.find(seat => !Object.values(d.people).some(p => p.seat === seat)) ?? null : null;
+          const empty = !this.session && !d.seatDice ? SEAT_ORDER.find(seat => !(d.creatorUserId && !d.host && seat === 'dong') && !Object.values(d.people).some(p => p.seat === seat)) ?? null : null;
           if (!first && !empty && (!d.config.allowSpectators || spectators >= MAX_SPECTATORS)) { this.error(socket, 'room_full', 'Penonton sudah penuh atau tidak diizinkan.'); return; }
           d.people[token] = { name: uniqueName(name, d.people, token), seat: first ? 'dong' : empty, seatedAt: now };
           if (first) d.host = token;
@@ -198,6 +207,10 @@ export class Room {
         for (const old of this.sockets.values()) if (old.token === token && old.id !== socket.id) {
           this.safeSend(old, { type: 'kicked', reason: 'replaced' });
           this.sockets.delete(old.id); try { this.io.close(old); } catch { /* already closed */ }
+        }
+        d.people[token]!.userId ??= socket.userId; d.people[token]!.sessionHash = socket.sessionHash;
+        if (!d.host && d.creatorUserId === socket.userId && socket.userId) {
+          d.host = token; d.people[token]!.seat = 'dong'; d.people[token]!.seatedAt = now;
         }
         socket.token = token; socket.lastReaction = this.reactionTimes.get(token); socket.lastActivity = now; socket.seat = d.people[token]!.seat; this.io.attach(socket);
         const seat = d.people[token]!.seat;
@@ -242,6 +255,8 @@ export class Room {
       if (m.type === 'rematch') {
         if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Hanya host boleh memulai lagi.'); return; }
         if (!this.session?.viewFor(null).matchOver) { this.error(socket, 'wrong_phase', 'Pertandingan belum selesai.'); return; }
+        if (!await this.authorize(socket)) return;
+        d.matchKey = this.io.token();
         this.session = null; d.session = null; d.handEndedAt = null;
         d.ready = []; d.takeovers = []; d.schedule = null;
         d.seatDice = { groups: [[...SEAT_ORDER]], dice: {}, deadline: now + 15000, botAt: {}, settledAt: null };
@@ -281,6 +296,7 @@ export class Room {
       if (this.session || d.seatDice) { this.error(socket, 'wrong_phase', 'Pengaturan hanya bisa di lobi.'); return; }
       switch (m.type) {
         case 'sit':
+          if (m.seat === 'dong' && !d.host && d.creatorUserId) { this.error(socket, 'seat_taken', 'Kursi Dong disediakan untuk host pembuat room.'); return; }
           if (!SEAT_ORDER.includes(m.seat)) { this.error(socket, 'bad_message', 'Posisi tidak valid.'); return; }
           if (Object.values(d.people).some(p => p !== person && p.seat === m.seat)) { this.error(socket, 'seat_taken', 'Posisi sudah diisi.'); return; }
           person.seat = m.seat; person.seatedAt = now; break;
@@ -295,6 +311,8 @@ export class Room {
           if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Hanya host boleh memulai.'); return; }
           const occupied = Object.values(d.people).filter(p => p.seat !== null);
           if (!d.config.fillWithBots && occupied.length !== 4) { this.error(socket, 'room_full', 'Perlu empat pemain untuk mulai.'); return; }
+          if (!await this.authorize(socket)) return;
+          d.matchKey = this.io.token();
           d.seatDice = { groups: [[...SEAT_ORDER]], dice: {}, deadline: now + 15000, botAt: {}, settledAt: null };
           this.scheduleSeatBots();
           break;
@@ -369,8 +387,16 @@ export class Room {
     dice.deadline = this.io.now() + 15000;
     this.scheduleSeatBots();
   }
-  private startMatch(): void {
+  private async authorize(socket: Socket | undefined, key?: string): Promise<boolean> {
+    const error = await this.io.authorize?.(socket, key);
+    if (!error) return true;
+    if (socket) this.error(socket, error, error === 'login_required' ? 'Host perlu masuk. Kembali ke menu online untuk masuk.' : 'Batas 5 match hari ini tercapai. Coba lagi besok (WIB).');
+    return false;
+  }
+  private async startMatch(): Promise<void> {
     const d = this.data!;
+    const host = [...this.sockets.values()].find(s => s.token === d.host) ?? (d.host && d.people[d.host] ? { id: 'offline', ...d.people[d.host] } : undefined);
+    if (!await this.authorize(host, `${d.code}:${d.createdAt}:${d.matchKey ?? d.seatDice!.deadline}`)) { d.seatDice = null; return; }
     const ranking = d.seatDice!.groups.flat();
     for (const p of Object.values(d.people)) if (p.seat) p.seat = SEAT_ORDER[ranking.indexOf(p.seat)]!;
     for (const socket of this.sockets.values()) if (socket.token) { socket.seat = d.people[socket.token]?.seat; this.io.attach(socket); }
@@ -415,7 +441,7 @@ export class Room {
       let changed = this.handoverHost();
       const dice = d.seatDice;
       if (dice && !this.session) {
-        if (dice.settledAt !== null && this.io.now() >= dice.settledAt + 3000) { this.startMatch(); changed = true; }
+        if (dice.settledAt !== null && this.io.now() >= dice.settledAt + 3000) { await this.startMatch(); changed = true; }
         else if (dice.settledAt === null) {
           for (const seat of dice.groups.flat()) if (!dice.dice[seat] && (this.io.now() >= dice.deadline || (dice.botAt[seat] ?? Infinity) <= this.io.now())) { this.rollSeat(seat); changed = true; }
           if (changed) this.resolveSeats();

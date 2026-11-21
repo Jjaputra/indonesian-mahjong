@@ -1,3 +1,4 @@
+import { deviceLimitFallback, useAccount } from '../../net/auth';
 import { useState } from 'react';
 import { connectionIndicator, type ConnectionStatus } from '../../net/connection';
 import { Crown, HelpCircle, LogOut, MessageCircle, Share2 } from 'lucide-react';
@@ -42,6 +43,8 @@ export interface RoomLobbyProps {
 
 export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, onSit, onStand, onStart, onConfig, onLeave, onToast }: RoomLobbyProps) {
   const [help, setHelp] = useState(false);
+  const account = useAccount();
+  const loginBlocked = !account && !deviceLimitFallback();
   const remaining = useDailyRemaining(dailyLimitStorage);
   const { config } = room;
   const blocker = startBlocker(room);
@@ -112,7 +115,7 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
 
         <div className="menu-choices">
           {isHost ? (
-            <button type="button" className="btn btn-primary menu-choice" disabled={blocker !== null || remaining === 0} onClick={onStart}>
+            <button type="button" className="btn btn-primary menu-choice" disabled={blocker !== null || remaining === 0 || loginBlocked} onClick={onStart}>
               <strong>Mulai</strong><span>{blocker ?? (config.fillWithBots ? 'Kursi kosong diisi bot' : 'Keempat kursi sudah terisi')}</span>
             </button>
           ) : (
@@ -120,7 +123,7 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
           )}
         </div>
         {isHost && <div className="online-daily-limit" role="status">
-          <p>Sisa {remaining} dari {DAILY_MATCH_LIMIT} match hari ini</p>
+          <p>{Number.isFinite(remaining) ? `Sisa ${remaining} dari ${DAILY_MATCH_LIMIT} match hari ini` : account ? 'Match tanpa batas' : 'Host perlu masuk.'}</p>
           {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE}</p>}
         </div>}
       </section>
