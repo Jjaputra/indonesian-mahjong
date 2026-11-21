@@ -86,7 +86,7 @@ it('resets exactly at WIB midnight and formats both countdown states', () => {
   expect(resetAt(Date.parse('2026-11-21T16:59:59Z'))).toBe(Date.parse('2026-11-21T17:00:00Z'));
   expect(resetAt(Date.parse('2026-11-21T17:00:00Z'))).toBe(Date.parse('2026-11-22T17:00:00Z'));
   expect(formatCountdown(18753000)).toBe('Reset 00.00 WIB · 5 jam 12 menit lagi');
-  expect(formatCountdown(18753000, true)).toBe('Jatah hari ini habis. Reset dalam 05:12:33');
+  expect(formatCountdown(18753000, true)).toBe('Jatah host hari ini abis. Reset dalam 05:12:33');
   expect(formatCountdown(-1, true)).toContain('00:00:00');
 });
 it('uses the server clock plus monotonic elapsed time and applies configurable device limits', () => {

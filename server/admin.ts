@@ -52,7 +52,7 @@ export async function adminRoute(request: Request, env: AuthEnv, cors: Record<st
     if (request.method === 'GET') return reply(await readSettings(env));
     if (request.method === 'PUT') {
       const body: unknown = await request.json().catch(() => null);
-      if (!validSettings(body)) return reply({ message: 'Pengaturan tidak valid.' }, 400);
+      if (!validSettings(body)) return reply({ message: 'Pengaturan nggak valid. Cek lagi isinya.' }, 400);
       const stored = await rows<{ key: string; value: string }>(db, 'SELECT key,value FROM settings', ['key', 'value']);
       const changed = Object.entries(body).filter(([key, value]) => {
         const previous = stored.find(s => s.key === key);
@@ -136,8 +136,8 @@ export async function adminRoute(request: Request, env: AuthEnv, cors: Record<st
   const match = /^\/admin\/users\/([^/]+)\/premium$/.exec(url.pathname);
   if (request.method === 'PUT' && match) {
     const body = await request.json().catch(() => null) as { premium?: unknown } | null;
-    if (typeof body?.premium !== 'boolean') return reply({ message: 'Pilihan Premium tidak valid.' }, 400);
-    if (!await db.prepare('SELECT id FROM users WHERE id=?').bind(match[1]).first()) return reply({ message: 'Pengguna tidak ditemukan.' }, 404);
+    if (typeof body?.premium !== 'boolean') return reply({ message: 'Pilihan Premium nggak valid. Coba lagi.' }, 400);
+    if (!await db.prepare('SELECT id FROM users WHERE id=?').bind(match[1]).first()) return reply({ message: 'Pemain nggak ketemu.' }, 404);
     await db.batch([db.prepare('UPDATE users SET premium=? WHERE id=?').bind(body.premium ? 1 : 0, match[1]), db.prepare('INSERT INTO admin_changes(user_id,premium,updated_at,updated_by) VALUES(?,?,?,?)').bind(match[1], body.premium ? 1 : 0, Date.now(), user.id)]);
     return reply({ ok: true });
   }

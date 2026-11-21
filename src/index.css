@@ -2209,7 +2209,7 @@ select {
 }
 .table-hud .match-board > strong { flex-basis: 100%; font-size: 14px; color: #4a1206; }
 .table-hud .match-board .muted { color: var(--muted); }
-.table-hud [aria-label='Waktu pertandingan'] { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; color: #7d0e13; }
+.table-hud [aria-label='Waktu match'] { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; color: #7d0e13; }
 .table-hud .match-scores { margin-top: 4px; font-size: 12px; }
 .table-hud .match-scores :is(th, td) { border-bottom-color: #e3d5b4; }
 .table-hud .match-score.is-leader { background: #fff0bf; }

@@ -3,7 +3,7 @@ import { deviceLimitFallback, useAccount } from './auth';
 import { useEffect, useState } from 'react';
 import type { StorageLike } from '../storage';
 
-export const DAILY_LIMIT_MESSAGE = () => `Jatah ${getConfig().dailyMatchLimit} match hari ini sudah habis. Tunggu reset 00.00 WIB, atau Premium (segera hadir).`;
+export const DAILY_LIMIT_MESSAGE = () => `Jatah host ${getConfig().dailyMatchLimit} match hari ini udah abis. Tunggu reset 00.00 WIB, atau Premium (segera hadir).`;
 export const isPremium = (): boolean => false;
 const KEY = 'itm.mp.daily-matches.v1';
 const WIB_OFFSET = 7 * 60 * 60 * 1000;

@@ -95,7 +95,7 @@ export function DiceRoll({ roll, humanSeat, onDone }: { roll: OpeningRoll; human
         <p className={`dice-status${step.done ? ' is-final' : ''}`} role="status">{status}</p>
       </div>
       <button type="button" className="btn dice-confirm" disabled={step.started && !step.done} onClick={step.done ? onDone : start} autoFocus>
-        {step.done ? 'OK, mulai main' : step.started ? 'Dadu bergulir…' : 'Lempar dadu'}
+        {step.done ? 'Mulai' : step.started ? 'Dadu bergulir…' : 'Lempar dadu'}
       </button>
     </div>
   );

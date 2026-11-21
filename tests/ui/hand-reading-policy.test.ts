@@ -32,8 +32,8 @@ function input(patch: Partial<HandReadingInput> = {}): HandReadingInput {
 function expected(i: HandReadingInput, rules: FullRules, policy: OverlapPolicy): string {
   const r = scoreHu(i, i.seat, i.roundWind, flags, { ...rules, minHuTay: i.minHuTay }, policy);
   if (r.isValidHu) return `Hu dengan tile ini: ${r.totalTay} Tay.`;
-  if (r.lewFitReason === 'below-minimum') return `Bentuk sah, ${r.totalTay} Tay, kurang dari minimum ${i.minHuTay} Tay.`;
-  return 'Tile ini tidak membentuk Hu.';
+  if (r.lewFitReason === 'below-minimum') return `Bentuk sah, tapi ${r.totalTay} Tay masih di bawah minimum ${i.minHuTay} Tay.`;
+  return 'Tile ini nggak jadi Hu.';
 }
 
 describe('handReadingLine follows the selected rules and overlap policy', () => {
@@ -58,8 +58,8 @@ describe('handReadingLine follows the selected rules and overlap policy', () => 
       flags: { isSelfDraw: false },
     });
     const noKimPair: FullRules = { ...tournament, allowKimInPair: false };
-    expect(handReadingLine({ ...kimPair, rules: tournament })).not.toBe('Tile ini tidak membentuk Hu.');
-    expect(handReadingLine({ ...kimPair, rules: noKimPair })).toBe('Tile ini tidak membentuk Hu.');
+    expect(handReadingLine({ ...kimPair, rules: tournament })).not.toBe('Tile ini nggak jadi Hu.');
+    expect(handReadingLine({ ...kimPair, rules: noKimPair })).toBe('Tile ini nggak jadi Hu.');
   });
 
   it('input minHuTay overrides the rules minimum', () => {

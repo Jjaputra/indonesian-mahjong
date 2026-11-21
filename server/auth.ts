@@ -87,16 +87,16 @@ export async function countMatch(env: AuthEnv, userId: string | undefined, key: 
 export async function authRoute(request: Request, env: AuthEnv, cors: Record<string, string>): Promise<Response> {
   const path = new URL(request.url).pathname;
   const respond = (body: unknown, status = 200, headers = {}) => Response.json(body, { status, headers: { ...cors, 'Cache-Control': 'no-store', ...headers } });
-  if (!env.DB) return respond({ message: 'Login belum tersedia.' }, 503);
+  if (!env.DB) return respond({ message: 'Masuk belum tersedia. Coba lagi nanti.' }, 503);
   const settings = await readSettings(env);
   const allowance = async (user: User) => ({ admin: (env.ADMIN_USER_IDS ?? '').split(',').map(s => s.trim()).includes(user.id), dailyMatchLimit: settings.dailyMatchLimit, resetAt: resetAt(Date.now()), serverNow: Date.now(), remainingMatches: await remaining(env.DB!, user, Date.now(), settings.dailyMatchLimit) });
   if (request.method === 'POST' && ['/auth/google', '/auth/facebook'].includes(path)) {
-    if (path.endsWith('facebook') && !settings.facebookEnabled) return respond({ message: 'Facebook belum tersedia.' }, 404);
+    if (path.endsWith('facebook') && !settings.facebookEnabled) return respond({ message: 'Masuk pakai Facebook belum tersedia.' }, 404);
     let identity: Identity;
     try {
-      if (Number(request.headers.get('Content-Length') ?? 0) > 20000) return respond({ message: 'Data terlalu besar.' }, 413);
+      if (Number(request.headers.get('Content-Length') ?? 0) > 20000) return respond({ message: 'Data terlalu besar. Refresh, lalu coba lagi.' }, 413);
       const raw = await request.text();
-      if (raw.length > 20000) return respond({ message: 'Data terlalu besar.' }, 413);
+      if (raw.length > 20000) return respond({ message: 'Data terlalu besar. Refresh, lalu coba lagi.' }, 413);
       const body = JSON.parse(raw);
       if (path.endsWith('google')) {
         if (typeof body.credential !== 'string') throw new Error();
@@ -126,12 +126,12 @@ export async function authRoute(request: Request, env: AuthEnv, cors: Record<str
     if (token) await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await tokenHash(token)).run();
     return respond({ ok: true }, 200, { 'Set-Cookie': cookie('', 0) });
   }
-  if (!user) return respond({ code: 'login_required', message: 'Host perlu masuk.' }, 401);
+  if (!user) return respond({ code: 'login_required', message: 'Masuk dulu.' }, 401);
   if (request.method === 'GET' && path === '/me') return respond({ ...user, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, ...await allowance(user) });
   if (request.method === 'POST' && path === '/me') {
     let body: { newsOptIn?: unknown };
-    try { body = await request.json(); } catch { return respond({ message: 'Data tidak valid.' }, 400); }
-    if (typeof body.newsOptIn !== 'boolean') return respond({ message: 'Pilihan email tidak valid.' }, 400);
+    try { body = await request.json(); } catch { return respond({ message: 'Data nggak valid. Refresh, lalu coba lagi.' }, 400); }
+    if (typeof body.newsOptIn !== 'boolean') return respond({ message: 'Pilihan email nggak valid. Coba lagi.' }, 400);
     await env.DB.prepare('UPDATE users SET news_opt_in=?,news_opt_in_at=? WHERE id=?').bind(body.newsOptIn ? 1 : 0, Date.now(), user.id).run();
     return respond({ ok: true });
   }
@@ -139,5 +139,5 @@ export async function authRoute(request: Request, env: AuthEnv, cors: Record<str
     await env.DB.batch(['DELETE FROM sessions WHERE user_id=?', 'DELETE FROM daily_matches WHERE user_id=?', 'DELETE FROM account_rooms WHERE user_id=?', 'DELETE FROM users WHERE id=?'].map(sql => env.DB!.prepare(sql).bind(user.id)));
     return respond({ ok: true }, 200, { 'Set-Cookie': cookie('', 0) });
   }
-  return respond({ message: 'Tidak ditemukan.' }, 404);
+  return respond({ message: 'Nggak ketemu.' }, 404);
 }

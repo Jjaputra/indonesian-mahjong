@@ -147,7 +147,7 @@ describe('Gate, Lew Fit, instant Hu, arbitration and overlap policy', () => {
     expect(r.isLewFit).toBe(true);
     expect(r.lewFitReason).toBe('structure');
     expect(r.patterns).toHaveLength(0);
-    expect(r.rejectionReason).toMatch(/tidak membentuk Hu/);
+    expect(r.rejectionReason).toMatch(/nggak membentuk Hu/);
   });
 
   it('instant Hu declared without a trigger is Lew Fit', () => {

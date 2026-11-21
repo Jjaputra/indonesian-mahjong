@@ -26,5 +26,5 @@ it('reports an Indonesian error when online auth initialization fails', async ()
   }));
   // Run the initialization effect, with state writes captured so no browser DOM is required.
   effects[0]!();
-  await vi.waitFor(() => expect(updates).toContain('Gagal masuk, coba lagi.'));
+  await vi.waitFor(() => expect(updates).toContain('Gagal masuk. Coba lagi.'));
 });

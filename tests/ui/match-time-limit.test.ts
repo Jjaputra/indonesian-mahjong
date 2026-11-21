@@ -53,7 +53,7 @@ describe('optional real-time match limit', () => {
     saveMatchTimeLimit(null, storage); expect(loadMatchTimeLimit(storage)).toBeNull();
     storage.setItem('itm.match-time-limit.v1', '5'); expect(loadMatchTimeLimit(storage)).toBeNull();
     const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, timeLimitMinutes: null, onTimeLimitChange: noop, initialStep: 'solo' }));
-    expect(html).toContain('role="radiogroup" aria-label="Waktu"');
+    expect(html).toContain('role="radiogroup" aria-label="Batas waktu"');
     expect(html).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Tanpa batas (default)</button>');
     expect(html).toContain('<button type="button" role="radio" aria-checked="false">90 menit</button>');
     expect(html).toContain('90 menit');

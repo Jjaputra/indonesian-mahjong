@@ -334,7 +334,7 @@ export class ScoringEngine implements IScoringEngine {
     // Penalti #3: Kim in a claimed Jia/Pung/Kong
     const legality = validateKimMeldLegality(melds, r);
     if (legality.isLewFit) {
-      return reject('kim-claim', 'Lew Fit: Jia/Pung/Kong menggunakan Kim tidak diperbolehkan (Penalti #3)');
+      return reject('kim-claim', 'Lew Fit: Jia/Pung/Kong pakai Kim nggak boleh (Penalti #3)');
     }
 
     if (isInstantHu) return this.evaluateInstantHu(concealed, melds, flowers, base.mode, base, reject);
@@ -347,14 +347,14 @@ export class ScoringEngine implements IScoringEngine {
       isSelfDraw: context.isSelfDraw,
     });
     if (candidates.length === 0) {
-      return reject('structure', 'Lew Fit: susunan tile tidak membentuk Hu yang sah (Penalti #1/#2)');
+      return reject('structure', 'Lew Fit: susunan tile nggak membentuk Hu yang sah (Penalti #1/#2)');
     }
 
     const validCandidates = candidates.filter(
       (c) => !(c.shape === 'se_sam_pu_tat' && (flowers.length > 0 || c.mode === 'K'))
     );
     if (validCandidates.length === 0) {
-      return reject('structure', 'Lew Fit: Se Sam Pu Tat tidak boleh memiliki bunga, musim, atau Kim');
+      return reject('structure', 'Lew Fit: Se Sam Pu Tat nggak boleh ada Bunga, Musim, atau Kim');
     }
 
     // Every Kim used at its own face reads Tidak ada KIM (Bo KIM, RULES.md #8). Se Sam Pu Tat is the
@@ -420,7 +420,7 @@ export class ScoringEngine implements IScoringEngine {
     if (countConcealedTripletKinds(concealed, melds) >= 4) instant(34, concealedTripletReason({ triplets: instantConcealedTriplets(concealed, melds) }));
 
     if (patterns.length === 0) {
-      return reject('instant-invalid', 'Lew Fit: Hu langsung dideklarasikan tanpa syarat (7 bunga/musim, 4 Kim, atau 4 tris tertutup)');
+      return reject('instant-invalid', 'Lew Fit: Hu langsung diumumkan tanpa memenuhi syaratnya (7 bunga/musim, 4 Kim, atau 4 tris tertutup)');
     }
     const total = sumTay(patterns);
     const isValid = total >= base.minHuTay;

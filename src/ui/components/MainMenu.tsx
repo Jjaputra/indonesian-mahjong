@@ -59,9 +59,9 @@ export function MenuChoice<T>({ label, value, options, onChange }: { label: stri
 }
 
 export const DIFFICULTY_NOTE: Record<AIDifficulty, string> = {
-  easy: 'Bot bermain santai tanpa membaca buangan berbahaya; cocok untuk pemula.',
-  normal: 'Bot bermain seimbang, menyusun kombinasi standar dengan variasi wajar.',
-  hard: 'Bot bermain efisien, membaca buangan berbahaya, dan mengejar nilai tinggi.',
+  easy: 'Bot main santai dan nggak baca buangan berbahaya. Cocok buat pemula.',
+  normal: 'Bot main seimbang, nyusun kombinasi standar dengan variasi wajar.',
+  hard: 'Bot main efisien, baca buangan berbahaya, dan ngejar nilai tinggi.',
 };
 
 export const DIFFICULTY_OPTIONS: readonly ChoiceOption<AIDifficulty>[] = (['easy', 'normal', 'hard'] as const).map((value) => ({
@@ -71,17 +71,17 @@ export const DIFFICULTY_OPTIONS: readonly ChoiceOption<AIDifficulty>[] = (['easy
 }));
 
 const KIM_OPTIONS: readonly ChoiceOption<'natural' | 'dedicated' | 'off'>[] = [
-  { value: 'natural', label: 'Kim dari tile', note: 'Satu wajah tile diundi tiap game; keempat kopinya jadi Kim.' },
+  { value: 'natural', label: 'Kim dari tile', note: 'Satu wajah tile diundi tiap game, keempat kopinya jadi Kim.' },
   { value: 'dedicated', label: 'Kim tambahan (pemula)', note: 'Empat tile KIM khusus ditambahkan ke tembok (148 tile).' },
-  { value: 'off', label: 'Tanpa Kim', note: 'Tidak ada Kim; semua tile dimainkan dengan wajah aslinya.' },
+  { value: 'off', label: 'Tanpa Kim', note: 'Nggak ada Kim, semua tile dimainkan dengan wajah aslinya.' },
 ];
 const DEAD_WALL_OPTIONS: readonly ChoiceOption<DeadWallOption>[] = [
-  { value: 'none', label: 'Sampai habis (turnamen)', note: 'Semua tile dimainkan sampai habis, sesuai aturan turnamen.' },
+  { value: 'none', label: 'Sampai abis (turnamen)', note: 'Semua tile dimainkan sampai abis, sesuai aturan turnamen.' },
   { value: '14', label: 'Sisa 14 tile (dead wall)', note: 'Game berakhir Seri saat tembok tinggal 14 tile.' },
 ];
 const TIME_OPTIONS: readonly ChoiceOption<MatchTimeLimit>[] = [
-  { value: null, label: 'Tanpa batas (default)', note: 'Pertandingan berjalan sampai 16 game selesai.' },
-  { value: 90, label: '90 menit', note: 'Waktu tetap berjalan saat jeda atau dialog terbuka. Setelah waktu habis, selesaikan game yang sedang berjalan.' },
+  { value: null, label: 'Tanpa batas (default)', note: 'Match jalan sampai 16 game selesai.' },
+  { value: 90, label: '90 menit', note: 'Waktu tetap jalan saat jeda atau dialog terbuka. Kalau waktu abis, game yang lagi jalan diselesaikan dulu.' },
 ];
 
 function SoloChoices(props: MainMenuProps & { onBack: () => void }) {
@@ -97,15 +97,15 @@ function SoloChoices(props: MainMenuProps & { onBack: () => void }) {
       <button type="button" className="menu-back" onClick={onBack}><ArrowLeft size={18} aria-hidden="true" /> Kembali</button>
       <div className="menu-logo"><img src={logo} alt="maciokYU!" width={1277} height={407} /></div>
       <h2>Main sendiri</h2>
-      <p className="muted">Anda dan tiga lawan. Satu meja.</p>
-      {(onKimModeChange || onKimChange) && <MenuChoice label="Pilihan Kim" value={kimMode ?? (kimEnabled ? 'natural' : 'off')} options={KIM_OPTIONS}
+      <p className="muted">Lawan tiga bot, 16 game per match.</p>
+      {(onKimModeChange || onKimChange) && <MenuChoice label="Kim" value={kimMode ?? (kimEnabled ? 'natural' : 'off')} options={KIM_OPTIONS}
         onChange={(mode) => { if (onKimModeChange) onKimModeChange(mode, mode === 'off' ? 3 : 5); else onKimChange?.(mode !== 'off'); }} />}
-      {onDifficultyChange && <MenuChoice label="Tingkat kesulitan bot" value={activeDifficulty} options={DIFFICULTY_OPTIONS} onChange={onDifficultyChange} />}
+      {onDifficultyChange && <MenuChoice label="Level bot" value={activeDifficulty} options={DIFFICULTY_OPTIONS} onChange={onDifficultyChange} />}
       {onDeadWallChange && <MenuChoice label="Akhir tembok" value={deadWall ?? 'none'} options={DEAD_WALL_OPTIONS} onChange={onDeadWallChange} />}
-      {timeLimitMinutes !== undefined && onTimeLimitChange && <MenuChoice label="Waktu" value={timeLimitMinutes} options={TIME_OPTIONS} onChange={onTimeLimitChange} />}
+      {timeLimitMinutes !== undefined && onTimeLimitChange && <MenuChoice label="Batas waktu" value={timeLimitMinutes} options={TIME_OPTIONS} onChange={onTimeLimitChange} />}
       <div className="menu-choices">
         <button type="button" className="btn btn-primary menu-choice" onClick={onPractice}>
-          <strong>Mulai bermain <ArrowRight size={20} aria-hidden="true" /></strong>
+          <strong>Mulai <ArrowRight size={20} aria-hidden="true" /></strong>
           <span>Tiga bot · {activeDifficultyLabel} · 16 game</span>
         </button>
       </div>
@@ -122,7 +122,7 @@ function FrontChoices({ lastResult, onSolo, onOnline, resumeRoomCode, onResumeRo
   return (
     <section className="menu-card" aria-label="Menu utama">
       <div className="menu-logo"><img src={logo} alt="maciokYU!" width={1277} height={407} /></div>
-      <p className="menu-eyebrow">Mahjong Indonesia · main bareng teman</p>
+      <p className="menu-eyebrow">Mahjong Indonesia di browser</p>
       {lastResult !== null && <p className="menu-last">Terakhir: {lastResult}</p>}
       <div className="menu-choices menu-front">
         <button type="button" className="btn btn-primary menu-choice" onClick={onSolo}>
@@ -130,12 +130,12 @@ function FrontChoices({ lastResult, onSolo, onOnline, resumeRoomCode, onResumeRo
           <span>Lawan tiga bot</span>
         </button>
         {resumeRoomCode && onResumeRoom && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onResumeRoom}>
-          <strong>Lanjutkan room {resumeRoomCode}</strong>
-          <span>Kursi Anda masih disimpan</span>
+          <strong>Lanjut room {resumeRoomCode}</strong>
+          <span>Kursi masih disimpan</span>
         </button>}
         {onOnline && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onOnline}>
-          <strong><Users size={20} aria-hidden="true" /> Main bareng teman</strong>
-          <span>Room pribadi · undang lewat tautan</span>
+          <strong><Users size={20} aria-hidden="true" /> Main bareng</strong>
+          <span>Room pribadi · undang lewat link</span>
         </button>}
         <button type="button" className="menu-premium" onClick={onPremium}>
           <Sparkles size={16} aria-hidden="true" /> Premium · segera hadir

@@ -188,25 +188,25 @@ export class Room {
       // About 10 messages per second, with a burst of 10 so hello + config + start right after connecting pass.
       const burst = Math.min(RATE_BURST, (socket.burst ?? RATE_BURST) + (socket.lastMessage == null ? RATE_BURST : (now - socket.lastMessage) / 100));
       socket.lastMessage = now;
-      if (burst < 1) { socket.burst = burst; this.io.attach(socket); this.error(socket, 'rate_limited', 'Terlalu cepat. Tunggu sebentar.'); return; }
+      if (burst < 1) { socket.burst = burst; this.io.attach(socket); this.error(socket, 'rate_limited', 'Terlalu cepat. Tunggu bentar.'); return; }
       socket.burst = burst - 1; this.io.attach(socket);
-      if (!this.data) { this.error(socket, 'room_not_found', 'Room tidak ditemukan.'); return; }
+      if (!this.data) { this.error(socket, 'room_not_found', 'Room nggak ketemu. Cek lagi kodenya atau minta link baru.'); return; }
       let m: ClientMessage;
       try { if (raw.length > 16384) throw new Error(); m = JSON.parse(raw); if (!m || typeof m.type !== 'string') throw new Error(); }
-      catch { this.error(socket, 'bad_message', 'Pesan tidak valid.'); return; }
+      catch { this.error(socket, 'bad_message', 'Pesannya nggak valid. Refresh halaman.'); return; }
       const d = this.data;
       if (m.type === 'ping') { if (socket.token) { socket.lastActivity = now; this.io.attach(socket); } this.safeSend(socket, { type: 'pong', serverNow: now }); return; }
       if (m.type === 'hello') {
-        if (socket.token || typeof m.name !== 'string' || (m.token !== undefined && (typeof m.token !== 'string' || m.token.length > 128))) { this.error(socket, 'bad_message', 'Nama atau token tidak valid.'); return; }
+        if (socket.token || typeof m.name !== 'string' || (m.token !== undefined && (typeof m.token !== 'string' || m.token.length > 128))) { this.error(socket, 'bad_message', 'Nama atau token nggak valid. Refresh, lalu coba lagi.'); return; }
         const name = normalizeName(m.name).slice(0, NAME_MAX_LENGTH).trimEnd();
-        if (!name) { this.error(socket, 'bad_message', 'Nama wajib diisi.'); return; }
+        if (!name) { this.error(socket, 'bad_message', 'Isi nama dulu.'); return; }
         const owned = socket.userId ? Object.entries(d.people).find(([, p]) => p.userId === socket.userId && p.seat) : undefined;
         let token = owned?.[0] ?? (m.token && Object.hasOwn(d.people, m.token) ? m.token : this.io.token());
         const existing = d.people[token];
         // A room token can reconnect its account, never replace it with another account or anonymity.
-        if (existing?.userId && existing.userId !== socket.userId) { this.error(socket, 'login_required', 'Masuk dengan akun yang terikat ke kursi ini.'); return; }
-        if (existing && !existing.userId && socket.userId && d.seatDice) { this.error(socket, 'wrong_phase', 'Tunggu pertandingan dimulai sebelum menghubungkan akun.'); return; }
-        if (!socket.userId && ((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired) && !existing) { this.error(socket, 'login_required', 'Masuk dengan Google untuk bermain online.'); return; }
+        if (existing?.userId && existing.userId !== socket.userId) { this.error(socket, 'login_required', 'Masuk pakai akun yang dipakai buat kursi ini.'); return; }
+        if (existing && !existing.userId && socket.userId && d.seatDice) { this.error(socket, 'wrong_phase', 'Tunggu match mulai dulu sebelum menghubungkan akun.'); return; }
+        if (!socket.userId && ((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired) && !existing) { this.error(socket, 'login_required', 'Masuk pakai Google dulu buat main bareng.'); return; }
         if (existing?.userId && existing.seat && this.connected(token) && m.token !== token && m.reclaim !== true) {
           this.safeSend(socket, { type: 'kicked', reason: 'replaced' });
           this.sockets.delete(socket.id); this.io.close(socket, 'replaced'); return;
@@ -214,12 +214,12 @@ export class Room {
         const first = d.host === null && !d.hostTransferPending && (!Object.values(d.people).some(p => p.seat) || d.creatorPending) && (!d.creatorUserId || d.creatorUserId === socket.userId) && !Object.values(d.people).some(p => p.seat === 'dong');
         const spectators = this.info().spectators;
         const empty = !this.session && !d.seatDice ? SEAT_ORDER.find(seat => !(d.creatorPending && seat === 'dong') && !Object.values(d.people).some(p => p.seat === seat)) ?? null : null;
-        if (!existing && !first && !empty && (!d.config.allowSpectators || spectators >= MAX_SPECTATORS)) { this.error(socket, 'room_full', 'Penonton sudah penuh atau tidak diizinkan.'); return; }
+        if (!existing && !first && !empty && (!d.config.allowSpectators || spectators >= MAX_SPECTATORS)) { this.error(socket, 'room_full', 'Slot penonton penuh atau penonton nggak diizinkan.'); return; }
         // Admission checks must finish before a confirmed switch can release the old room.
         // A spectator takes no seat, so watching room B never releases the seat in room A.
         if (socket.userId && (existing?.seat || first || empty)) {
           const other = await this.io.joinAccount?.(socket.userId, d.code, m.switchRoom === true);
-          if (other) { this.error(socket, 'current_room', `Kamu masih duduk di room ${other}`); return; }
+          if (other) { this.error(socket, 'current_room', `Kamu masih duduk di room ${other}.`); return; }
         }
         if (!existing) {
           d.people[token] = { name: uniqueName(name, d.people, token), seat: first ? 'dong' : empty, seatedAt: now };
@@ -260,7 +260,7 @@ export class Room {
         this.safeSend(socket, { type: 'welcome', token, seat, host: this.isHost(token), serverNow: now, room: this.info(), name: d.people[token]!.name }); this.broadcast(true); return;
       }
       const person = socket.token ? d.people[socket.token] : undefined;
-      if (!person) { this.error(socket, 'bad_message', 'Kirim hello terlebih dahulu.'); return; }
+      if (!person) { this.error(socket, 'bad_message', 'Sambungan belum siap. Refresh halaman.'); return; }
       socket.lastActivity = now; this.io.attach(socket);
       if (m.type === 'leave') {
         this.sockets.delete(socket.id);
@@ -274,30 +274,30 @@ export class Room {
         await this.save(); this.broadcast(true); try { this.io.close(socket); } catch { /* closed */ } return;
       }
       if (m.type === 'reaction') {
-        if (!person.seat) { this.error(socket, 'not_seated', 'Penonton tidak bisa mengirim reaksi.'); return; }
-        if (!this.session) { this.error(socket, 'wrong_phase', 'Permainan belum dimulai.'); return; }
-        if (!Number.isInteger(m.preset) || m.preset < 0 || m.preset >= REACTIONS.length || Object.keys(m).length !== 2) { this.error(socket, 'bad_message', 'Reaksi tidak valid.'); return; }
-        if (now - (this.reactionTimes.get(socket.token!) ?? -Infinity) < 2000) { this.error(socket, 'rate_limited', 'Tunggu sebelum bereaksi lagi.'); return; }
+        if (!person.seat) { this.error(socket, 'not_seated', 'Penonton nggak bisa kirim reaksi.'); return; }
+        if (!this.session) { this.error(socket, 'wrong_phase', 'Game belum mulai.'); return; }
+        if (!Number.isInteger(m.preset) || m.preset < 0 || m.preset >= REACTIONS.length || Object.keys(m).length !== 2) { this.error(socket, 'bad_message', 'Reaksi nggak valid.'); return; }
+        if (now - (this.reactionTimes.get(socket.token!) ?? -Infinity) < 2000) { this.error(socket, 'rate_limited', 'Tunggu bentar sebelum kirim reaksi lagi.'); return; }
         this.reactionTimes.set(socket.token!, now); socket.lastReaction = now; this.io.attach(socket);
         for (const s of this.sockets.values()) this.safeSend(s, { type: 'event', text: REACTIONS[m.preset], seat: person.seat, reaction: m.preset });
         return;
       }
       if (m.type === 'rename') {
-        if (typeof m.name !== 'string' || !normalizeName(m.name)) { this.error(socket, 'bad_message', 'Nama wajib diisi.'); return; }
+        if (typeof m.name !== 'string' || !normalizeName(m.name)) { this.error(socket, 'bad_message', 'Isi nama dulu.'); return; }
         person.name = uniqueName(m.name, d.people, socket.token!);
         this.handoverHost();
         d.lastActivity = now; await this.save(); this.broadcast(true); return;
       }
       if (m.type === 'resync') { this.sendState(socket, true); return; }
       if (m.type === 'rematch') {
-        if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Hanya host boleh memulai lagi.'); return; }
-        if (!this.session?.viewFor(null).matchOver) { this.error(socket, 'wrong_phase', 'Pertandingan belum selesai.'); return; }
-        if (((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired) && !socket.userId) { this.error(socket, 'login_required', 'Masuk dengan Google untuk Main lagi.'); return; }
+        if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Cuma host yang bisa mulai lagi.'); return; }
+        if (!this.session?.viewFor(null).matchOver) { this.error(socket, 'wrong_phase', 'Match belum selesai.'); return; }
+        if (((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired) && !socket.userId) { this.error(socket, 'login_required', 'Masuk pakai Google dulu buat Main lagi.'); return; }
         if (!await this.authorize(socket)) return;
         // Anonymous seats from before login enforcement last only through the old match.
         if (((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired)) for (const [token, p] of Object.entries(d.people)) if (!p.userId) {
           for (const peer of this.sockets.values()) if (peer.token === token) {
-            this.safeSend(peer, { type: 'error', code: 'login_required', message: 'Masuk dengan Google untuk Main lagi.' });
+            this.safeSend(peer, { type: 'error', code: 'login_required', message: 'Masuk pakai Google dulu buat Main lagi.' });
             this.safeSend(peer, { type: 'kicked', reason: 'room_closed' });
             this.sockets.delete(peer.id); this.io.close(peer);
           }
@@ -313,65 +313,65 @@ export class Room {
         d.lastActivity = now; await this.save(); this.broadcast(true); return;
       }
       if (m.type === 'rollSeats') {
-        if (!person.seat) { this.error(socket, 'not_seated', 'Duduk dahulu untuk bermain.'); return; }
-        if (!d.seatDice || this.session || d.seatDice.settledAt !== null || d.seatDice.dice[person.seat]) { this.error(socket, 'wrong_phase', 'Tidak bisa kocok sekarang.'); return; }
+        if (!person.seat) { this.error(socket, 'not_seated', 'Duduk dulu buat ikut main.'); return; }
+        if (!d.seatDice || this.session || d.seatDice.settledAt !== null || d.seatDice.dice[person.seat]) { this.error(socket, 'wrong_phase', 'Nggak bisa kocok sekarang.'); return; }
         this.rollSeat(person.seat); this.resolveSeats();
         await this.save(); this.broadcast(true); return;
       }
       if (m.type === 'replaceBot') {
-        if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Hanya host boleh mengganti bot.'); return; }
+        if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Cuma host yang bisa ganti pemain dengan bot.'); return; }
         const target = Object.entries(d.people).find(([, p]) => p.seat === m.seat);
-        if (!this.session || !target || this.connected(target[0]) || d.takeovers?.includes(m.seat)) { this.error(socket, 'illegal_action', 'Pemain harus offline.'); return; }
+        if (!this.session || !target || this.connected(target[0]) || d.takeovers?.includes(m.seat)) { this.error(socket, 'illegal_action', 'Pemainnya harus offline dulu.'); return; }
         (d.takeovers ??= []).push(m.seat); this.session.setControl(m.seat, 'bot');
         await this.save(); this.event(`${target[1].name} digantikan bot`, m.seat); this.broadcast(true); return;
       }
       if (m.type === 'ready' || (m.type === 'act' && m.action?.type === 'nextHand')) {
-        if (!person.seat) { this.error(socket, 'not_seated', 'Duduk dahulu untuk melanjutkan.'); return; }
-        if (!this.session || d.handEndedAt === null || this.session.viewFor(null).matchOver) { this.error(socket, 'wrong_phase', 'Hand belum selesai.'); return; }
+        if (!person.seat) { this.error(socket, 'not_seated', 'Duduk dulu buat lanjut.'); return; }
+        if (!this.session || d.handEndedAt === null || this.session.viewFor(null).matchOver) { this.error(socket, 'wrong_phase', 'Game belum selesai.'); return; }
         if (!(d.ready ??= []).includes(socket.token!)) d.ready.push(socket.token!);
         this.continueIfReady(); await this.save(); this.broadcast(true); return;
       }
       if (m.type === 'act') {
-        if (!this.session) { this.error(socket, 'wrong_phase', 'Permainan belum dimulai.'); return; }
-        if (!person.seat && !(this.isHost(socket.token) && m.action?.type === 'nextHand')) { this.error(socket, 'not_seated', 'Duduk dahulu untuk bermain.'); return; }
-        if (!m.action || typeof m.action.type !== 'string') { this.error(socket, 'bad_message', 'Aksi tidak valid.'); return; }
+        if (!this.session) { this.error(socket, 'wrong_phase', 'Game belum mulai.'); return; }
+        if (!person.seat && !(this.isHost(socket.token) && m.action?.type === 'nextHand')) { this.error(socket, 'not_seated', 'Duduk dulu buat ikut main.'); return; }
+        if (!m.action || typeof m.action.type !== 'string') { this.error(socket, 'bad_message', 'Aksinya nggak valid. Coba lagi.'); return; }
         const seat = person.seat!;
         const result = this.session.apply(seat, m.action);
-        if (!result.ok) { this.error(socket, result.code === 'stale_version' ? 'stale_version' : 'illegal_action', result.code === 'stale_version' ? 'Versi meja sudah berubah.' : 'Aksi tidak valid untuk keadaan meja ini.'); return; }
+        if (!result.ok) { this.error(socket, result.code === 'stale_version' ? 'stale_version' : 'illegal_action', result.code === 'stale_version' ? 'Meja udah berubah. Coba lagi.' : 'Aksi ini nggak bisa dipakai sekarang.'); return; }
         this.handoverHost();
         d.lastActivity = now; await this.save(); this.broadcast(true); return;
       }
-      if (this.session || d.seatDice) { this.error(socket, 'wrong_phase', 'Pengaturan hanya bisa di lobi.'); return; }
+      if (this.session || d.seatDice) { this.error(socket, 'wrong_phase', 'Ini cuma bisa di lobi, sebelum match mulai.'); return; }
       switch (m.type) {
         case 'sit':
           if (person.userId) {
             const other = await this.io.joinAccount?.(person.userId, d.code, false);
-            if (other) { this.error(socket, 'current_room', `Kamu masih duduk di room ${other}`); return; }
+            if (other) { this.error(socket, 'current_room', `Kamu masih duduk di room ${other}.`); return; }
           }
-          if (((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired) && !person.userId) { this.error(socket, 'login_required', 'Masuk dengan Google untuk duduk.'); return; }
-          if (person.userId && Object.values(d.people).some(p => p !== person && p.userId === person.userId && p.seat)) { this.error(socket, 'seat_taken', 'Akun ini sudah punya kursi di room.'); return; }
-          if (m.seat === 'dong' && !d.host && d.creatorUserId) { this.error(socket, 'seat_taken', 'Kursi Dong disediakan untuk host pembuat room.'); return; }
-          if (!SEAT_ORDER.includes(m.seat)) { this.error(socket, 'bad_message', 'Posisi tidak valid.'); return; }
-          if (Object.values(d.people).some(p => p !== person && p.seat === m.seat)) { this.error(socket, 'seat_taken', 'Posisi sudah diisi.'); return; }
+          if (((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired) && !person.userId) { this.error(socket, 'login_required', 'Masuk pakai Google dulu buat duduk.'); return; }
+          if (person.userId && Object.values(d.people).some(p => p !== person && p.userId === person.userId && p.seat)) { this.error(socket, 'seat_taken', 'Akun ini udah punya kursi di room ini.'); return; }
+          if (m.seat === 'dong' && !d.host && d.creatorUserId) { this.error(socket, 'seat_taken', 'Kursi Dong buat host yang bikin room.'); return; }
+          if (!SEAT_ORDER.includes(m.seat)) { this.error(socket, 'bad_message', 'Kursi nggak valid.'); return; }
+          if (Object.values(d.people).some(p => p !== person && p.seat === m.seat)) { this.error(socket, 'seat_taken', 'Kursi udah ada yang duduk.'); return; }
           person.seat = m.seat; person.seatedAt = now; break;
         case 'stand':
-          if (person.seat && (!d.config.allowSpectators || this.info().spectators >= MAX_SPECTATORS)) { this.error(socket, 'room_full', 'Penonton sudah penuh atau tidak diizinkan.'); return; }
+          if (person.seat && (!d.config.allowSpectators || this.info().spectators >= MAX_SPECTATORS)) { this.error(socket, 'room_full', 'Slot penonton penuh atau penonton nggak diizinkan.'); return; }
           person.seat = null; break;
         case 'config':
-          if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Hanya host boleh mengatur room.'); return; }
-          if (!validConfig(m.config)) { this.error(socket, 'bad_message', 'Pengaturan room tidak valid.'); return; }
+          if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Cuma host yang bisa ubah aturan room.'); return; }
+          if (!validConfig(m.config)) { this.error(socket, 'bad_message', 'Aturan room nggak valid.'); return; }
           d.config = structuredClone(m.config); break;
         case 'start': {
-          if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Hanya host boleh memulai.'); return; }
+          if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Cuma host yang bisa mulai.'); return; }
           const occupied = Object.values(d.people).filter(p => p.seat !== null);
-          if (!d.config.fillWithBots && occupied.length !== 4) { this.error(socket, 'room_full', 'Perlu empat pemain untuk mulai.'); return; }
+          if (!d.config.fillWithBots && occupied.length !== 4) { this.error(socket, 'room_full', 'Butuh empat pemain buat mulai.'); return; }
           if (!await this.authorize(socket)) return;
           d.matchKey = this.io.token();
           d.seatDice = { groups: [[...SEAT_ORDER]], dice: {}, deadline: now + 15000, botAt: {}, settledAt: null };
           this.scheduleSeatBots();
           break;
         }
-        default: this.error(socket, 'bad_message', 'Pesan tidak dikenal.'); return;
+        default: this.error(socket, 'bad_message', 'Pesan nggak dikenal. Refresh halaman.'); return;
       }
       socket.seat = person.seat; this.io.attach(socket);
       this.handoverHost();
@@ -444,7 +444,7 @@ export class Room {
   private async authorize(socket: Socket | undefined, key?: string): Promise<boolean> {
     const error = await this.io.authorize?.(socket, key);
     if (!error) return true;
-    if (socket) this.error(socket, error, error === 'login_required' ? 'Host perlu masuk. Kembali ke menu online untuk masuk.' : `Batas ${(await this.io.settings?.())?.dailyMatchLimit ?? 3} match hari ini tercapai. Coba lagi setelah reset 00.00 WIB.`);
+    if (socket) this.error(socket, error, error === 'login_required' ? 'Host perlu masuk dulu. Balik ke menu Main bareng, lalu Masuk pakai Google.' : `Jatah host ${(await this.io.settings?.())?.dailyMatchLimit ?? 3} match hari ini udah abis. Coba lagi setelah reset 00.00 WIB.`);
     return false;
   }
   private captureMatchNames(): void {

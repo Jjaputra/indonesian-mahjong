@@ -25,7 +25,7 @@ describe('sharing', () => {
     expect(link).toBe('https://jjaputra.github.io/indo-mahjong/?room=ABC234');
   });
   it('builds the share text', () => {
-    expect(buildShareText('ABC234', link)).toBe('Ayo main maciokYU! bareng! Kode room: ABC234\nhttps://jjaputra.github.io/indo-mahjong/?room=ABC234');
+    expect(buildShareText('ABC234', link)).toBe('Yuk main maciokYU! bareng. Kode room: ABC234\nhttps://jjaputra.github.io/indo-mahjong/?room=ABC234');
   });
   it('encodes the WhatsApp url', () => {
     const url = whatsAppUrl(buildShareText('ABC234', link));

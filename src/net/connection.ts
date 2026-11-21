@@ -32,7 +32,7 @@ export interface ConnectionOptions {
 }
 
 export function connectionIndicator(status: ConnectionStatus, latencyMs: number | null, pongLate: boolean): { tone: 'online' | 'slow' | 'offline'; text: string } {
-  if (status !== 'open') return { tone: 'offline', text: 'Terputus · menyambung ulang...' };
+  if (status !== 'open') return { tone: 'offline', text: 'Terputus · menyambung ulang…' };
   const slow = pongLate || (latencyMs !== null && latencyMs > 400);
   return { tone: slow ? 'slow' : 'online', text: `${slow ? 'Sinyal lemah' : 'Online'}${pongLate || latencyMs === null ? '' : ` · ${Math.round(latencyMs)} ms`}` };
 }

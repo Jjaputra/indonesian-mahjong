@@ -14,9 +14,9 @@ it('offers the account room on a device without a local seat token and keeps ema
     : Response.json({ id: 'u', name: 'Jason', picture: null, premium: false, remainingMatches: 5, currentRoom: { code: 'ABCDEF', phase: 'playing' }, newsOptIn: false })));
   await openAuth('https://mp.example');
   const html = renderToStaticMarkup(createElement(OnlineScreen, { server: 'https://mp.example', inviteCode: null, resume: false, onTableChange: noop, optionsOpen: false, onOptionsOpenChange: noop, onExit: noop }));
-  expect(html).toContain('Lanjutkan room ABCDEF');
+  expect(html).toContain('Lanjut room ABCDEF');
   const panel = renderToStaticMarkup(createElement(AccountPanel, { onError: noop }));
-  expect(panel).toContain('Kabari saya lewat email soal Premium dan update maciokYU!');
+  expect(panel).toContain('Kabari lewat email soal Premium dan update maciokYU!');
   expect(panel).toContain('type="checkbox"');
   expect(panel).not.toContain('checked=""');
   await signOut();
@@ -27,7 +27,7 @@ it('keeps an invite code beside the Google login card while logged out', async (
     ? Response.json({ loginRequired: true }) : new Response(null, { status: 401 })));
   await openAuth('https://mp.example');
   const html = renderToStaticMarkup(createElement(OnlineScreen, { server: 'https://mp.example', inviteCode: 'ABCDEF', resume: false, onTableChange: noop, optionsOpen: false, onOptionsOpenChange: noop, onExit: noop }));
-  expect(html).toContain('Masuk dengan Google untuk gabung ke room ABCDEF');
+  expect(html).toContain('Masuk pakai Google dulu buat gabung ke room ABCDEF');
   expect(html).toContain('class="mp-google"');
   expect(html).toContain('value="ABCDEF"');
 });

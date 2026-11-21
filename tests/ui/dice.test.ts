@@ -48,7 +48,7 @@ describe('three-dice flow', () => {
     render().onClick();
     expect(render().disabled).toBe(true);
     for (let i = 0; i < 20; i++) { vi.advanceTimersByTime(1500); render(); }
-    expect(render().children).toBe('OK, mulai main');
+    expect(render().children).toBe('Mulai');
     vi.advanceTimersByTime(60000);
     expect(onDone).not.toHaveBeenCalled();
     render().onClick();
@@ -61,7 +61,7 @@ describe('three-dice flow', () => {
     expect(render().children).toBe('Lempar dadu');
     render().onClick();
     expect(hooks.state).toMatchObject({ rolling: false, done: true });
-    expect(render().children).toBe('OK, mulai main');
+    expect(render().children).toBe('Mulai');
     expect(onDone).not.toHaveBeenCalled();
     render().onClick();
     expect(onDone).toHaveBeenCalledOnce();

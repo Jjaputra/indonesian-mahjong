@@ -159,7 +159,7 @@ describe('practice automation boundaries and public activity', () => {
     }
     expect(automated).toBeGreaterThan(0);
     expect(c.discardCount).toBeGreaterThan(0);
-    expect(c.log.some(l => l.text.includes('menarik satu tile'))).toBe(true);
+    expect(c.log.some(l => l.text.includes('tarik satu tile'))).toBe(true);
     expect(c.botExplanation).toMatch(/^Bot (Kanan|Seberang|Kiri)/);
     c.newGame();
     expect(c.discardCount).toBe(0);

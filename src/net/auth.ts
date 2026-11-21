@@ -29,7 +29,7 @@ export async function refreshAccount(): Promise<void> {
   }
   const response = await fetch(`${server}/me`, { credentials: 'include', headers: authHeaders() });
   if (response.status === 401) { update(null); return; }
-  if (!response.ok) throw new Error('Gagal memuat akun.');
+  if (!response.ok) throw new Error('Akun belum bisa dimuat. Coba refresh halaman.');
   const value = await response.json();
   if (value.resetAt !== undefined) acceptConfig({ resetAt: value.resetAt, serverNow: value.serverNow, dailyMatchLimit: value.dailyMatchLimit });
   if (value.currentRoom && leftRooms.get(value.currentRoom.code)?.userId === value.id) value.currentRoom = null;
@@ -52,12 +52,12 @@ export async function signIn(provider: 'google' | 'facebook', credential: string
 }
 export async function setNewsOptIn(newsOptIn: boolean): Promise<void> {
   const response = await fetch(`${server}/me`, { method: 'POST', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ newsOptIn }) });
-  if (!response.ok) throw new Error('Gagal menyimpan pilihan email.');
+  if (!response.ok) throw new Error('Pilihan email belum tersimpan. Coba lagi.');
   await refreshAccount();
 }
 async function deleteAccountRoom(code: string): Promise<void> {
   const response = await fetch(`${server}/me/room`, { method: 'DELETE', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
-  if (!response.ok) throw new Error('Gagal meninggalkan room.');
+  if (!response.ok) throw new Error('Belum bisa keluar dari room. Coba lagi.');
 }
 export async function leaveCurrentRoom(code: string): Promise<void> {
   if (!me) return;
@@ -69,7 +69,7 @@ export async function leaveCurrentRoom(code: string): Promise<void> {
 }
 export async function signOut(remove = false): Promise<void> {
   const response = await fetch(`${server}${remove ? '/me' : '/auth/logout'}`, { method: remove ? 'DELETE' : 'POST', credentials: 'include', headers: authHeaders() });
-  if (!response.ok) throw new Error('Gagal memperbarui akun.');
+  if (!response.ok) throw new Error('Akun belum ke-update. Coba lagi.');
   bearer = null;
   try { sessionStorage.removeItem(`itm.auth:${server}`); } catch { /* blocked storage */ }
   update(null);
@@ -78,7 +78,7 @@ let googleLoad: Promise<void> | undefined;
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script'); script.src = src; script.async = true;
-    script.onload = () => resolve(); script.onerror = () => reject(new Error('Gagal memuat login.')); document.head.append(script);
+    script.onload = () => resolve(); script.onerror = () => reject(new Error('Tombol masuk belum bisa dimuat. Cek koneksi, lalu refresh.')); document.head.append(script);
   });
 }
 export async function renderGoogle(element: HTMLElement, onError: (message: string) => void): Promise<void> {
@@ -95,7 +95,7 @@ export async function facebookLogin(): Promise<void> {
   const fb = (window as unknown as { FB: Facebook }).FB;
   fb.init({ appId: '1670170614568233', version: 'v27.0' });
   await new Promise<void>((resolve, reject) => fb.login(response => {
-    if (!response.authResponse) { reject(new Error('Login dibatalkan.')); return; }
+    if (!response.authResponse) { reject(new Error('Masuk dibatalkan. Tekan tombolnya lagi buat coba ulang.')); return; }
     signIn('facebook', response.authResponse.accessToken).then(resolve, reject);
   }, { scope: 'email,public_profile' }));
 }

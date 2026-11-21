@@ -12,7 +12,7 @@ it('never renders blank while the account is unknown, logged out or not an admin
   await openAuth('https://mp.example');
   const loggedOut = renderToStaticMarkup(createElement(AdminPage, { server: 'https://mp.example' }));
   expect(loggedOut).toContain('Pengaturan admin');
-  expect(loggedOut).toContain('Kembali ke menu');
+  expect(loggedOut).toContain('Ke menu');
   vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/auth/config')
     ? Response.json({ loginRequired: true })
     : Response.json({ id: 'u', name: 'Jason', picture: null, premium: false, remainingMatches: 3, admin: true })));

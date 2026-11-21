@@ -36,8 +36,8 @@ export interface CoachLine {
   emphasis: CoachEmphasis;
 }
 
-export const COACH_BOTS_TEXT = 'Pemain lain sedang mengambil giliran.';
-export const COACH_GAME_OVER_TEXT = 'Hasil permainan sudah siap. Permainan Baru membawa Anda kembali ke menu utama.';
+export const COACH_BOTS_TEXT = 'Nunggu giliran pemain lain.';
+export const COACH_GAME_OVER_TEXT = 'Hasil game udah siap. Tekan Ke menu buat balik ke menu utama.';
 
 function joinOr(items: string[]): string {
   if (items.length <= 1) return items.join('');
@@ -53,14 +53,14 @@ function claimLine(c: CoachClaim): CoachLine {
   if (canJia) enabled.push({ label: 'Jia', emphasis: 'jia' });
 
   if (enabled.length === 0) {
-    return { text: 'Buangan ini tidak bisa Anda klaim; tekan Lew untuk melewatkannya.', emphasis: 'lew' };
+    return { text: 'Buangan ini nggak bisa kamu klaim. Tekan Lew buat lewat.', emphasis: 'lew' };
   }
   const notes: string[] = [];
   if (c.canHu && (c.canKong || c.canPung)) notes.push('Hu didahulukan');
-  if (canJia) notes.push('Jia hanya dari pemain di kiri Anda');
+  if (canJia) notes.push('Jia cuma dari buangan pemain di kiri kamu');
   const note = notes.length ? ` (${notes.join('; ')})` : '';
   return {
-    text: `Anda bisa klaim buangan ini dengan ${joinOr(enabled.map((e) => e.label))}${note}, atau tekan Lew untuk melewatkannya.`,
+    text: `Buangan ini bisa diklaim: ${joinOr(enabled.map((e) => e.label))}${note}. Atau tekan Lew buat lewat.`,
     emphasis: enabled[0]!.emphasis,
   };
 }
@@ -72,36 +72,36 @@ function discardTail(input: PracticeCoachInput): string {
 export function practiceCoachLine(input: PracticeCoachInput): CoachLine {
   if (input.outcome) {
     const text = input.matchComplete === false
-      ? 'Hasil game sudah siap. Buka hasil lalu pilih Lanjut ke game berikutnya untuk melanjutkan pertandingan.'
+      ? 'Hasil game udah siap. Buka hasil, lalu tekan Lanjut buat main game berikutnya.'
       : input.matchComplete === true
-        ? 'Pertandingan selesai. Buka hasil lalu Lihat klasemen akhir; pilih Main lagi atau Kembali ke menu.'
+        ? 'Match selesai. Buka hasil, tekan Lihat klasemen akhir, lalu pilih Main lagi atau Ke menu.'
         : COACH_GAME_OVER_TEXT;
     return { text, emphasis: 'none' };
   }
   if (input.claim) return claimLine(input.claim);
   if (input.canReplaceFlowers) {
-    return { text: 'Anda memegang Bunga; tekan Ganti Bunga untuk menukarnya dengan tile baru.', emphasis: 'flowers' };
+    return { text: 'Ada Bunga di tangan. Tekan Ganti Bunga buat tukar dengan tile baru.', emphasis: 'flowers' };
   }
   if (input.canSelfDrawHu) {
-    return { text: `Hand Anda sudah lengkap; tekan Hu untuk menang${discardTail(input)}.`, emphasis: 'hu' };
+    return { text: `Hand udah lengkap. Tekan Hu buat menang${discardTail(input)}.`, emphasis: 'hu' };
   }
-  if (input.canDraw) return { text: 'Giliran Anda: tekan Tarik untuk mengambil tile dari tembok.', emphasis: 'tarik' };
+  if (input.canDraw) return { text: 'Giliran kamu. Tekan Tarik buat ambil tile dari tembok.', emphasis: 'tarik' };
   if (input.canPaoChin) {
-    return { text: `Hand Anda bisa langsung Cin; tekan Pao Chin untuk mendeklarasikannya${discardTail(input)}.`, emphasis: 'pao-chin' };
+    return { text: `Hand bisa langsung Cin. Tekan Pao Chin buat deklarasi${discardTail(input)}.`, emphasis: 'pao-chin' };
   }
   if (input.ankongOptions.length > 0) {
-    return { text: `Anda memegang empat tile sama; tekan Kong untuk Kong tertutup${discardTail(input)}.`, emphasis: 'ankong' };
+    return { text: `Ada empat tile sama di tangan. Tekan Kong buat Kong tertutup${discardTail(input)}.`, emphasis: 'ankong' };
   }
   if (input.kakanOptions.length > 0) {
-    return { text: `Tile ini melengkapi Pung terbuka Anda; tekan Kong untuk menambahkannya ke Pung Anda${discardTail(input)}.`, emphasis: 'kakan' };
+    return { text: `Tile ini melengkapi Pung terbuka kamu. Tekan Kong buat nambahin ke Pung itu${discardTail(input)}.`, emphasis: 'kakan' };
   }
   if (input.canDiscard) {
     const id = input.selectedTileId;
     if (id && input.discardableTileIds.includes(id)) {
       const label = input.selectedTileLabel || 'tile yang dipilih';
-      return { text: `Tekan Buang untuk membuang ${label}, atau klik tile lain untuk mengganti pilihan.`, emphasis: 'buang' };
+      return { text: `Tekan Buang buat buang ${label}, atau pilih tile lain.`, emphasis: 'buang' };
     }
-    return { text: 'Angkat satu tile dari tangan Anda, lalu tekan Buang.', emphasis: 'buang' };
+    return { text: 'Angkat satu tile dari tangan, lalu tekan Buang.', emphasis: 'buang' };
   }
   return { text: COACH_BOTS_TEXT, emphasis: 'none' };
 }

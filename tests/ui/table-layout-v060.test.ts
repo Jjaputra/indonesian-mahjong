@@ -31,7 +31,7 @@ describe('v0.6.0 table layout: framed discard pool, sets above each hand', () =>
     expect(ruleBody('.table-felt .discard-pool')).toMatch(/container-type: inline-size;/);
     expect(ruleBody('.table-felt .discard-pool .pool-tile > .tile')).toMatch(/--w: calc\(\(100cqw [^;]*\/ var\(--pool-cols\) \* var\(--pool-scale, 1\)\)/);
     const html = renderToStaticMarkup(createElement(CenterArea, { controller: controllerAt('late') }));
-    expect(html).toMatch(/<div class="pool-frame"><p data-wall-anchor="" class="wall-counter[^"]*"[^>]*>SISA: <b>\d+<\/b> TILES<\/p>/);
+    expect(html).toMatch(/<div class="pool-frame"><p data-wall-anchor="" class="wall-counter[^"]*"[^>]*>SISA: <b>\d+<\/b> TILE<\/p>/);
     expect(html).toMatch(/class="pool-frame">.*<div class="discard-pool"/);
   });
 

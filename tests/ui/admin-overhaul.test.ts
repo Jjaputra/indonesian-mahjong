@@ -80,7 +80,7 @@ describe('admin entry', () => {
   it('renders the four tabs with a skeleton while the first answers load', async () => {
     await loginAs(true);
     const html = renderToStaticMarkup(createElement(AdminPage, { server: SERVER }));
-    for (const label of ['Ringkasan', 'Pemain', 'Pengaturan', 'Riwayat perubahan', 'Kembali ke menu']) expect(html).toContain(label);
+    for (const label of ['Ringkasan', 'Pemain', 'Pengaturan', 'Riwayat perubahan', 'Ke menu']) expect(html).toContain(label);
     expect(html).toContain('aria-busy="true"');
     await signOut();
   });
@@ -126,7 +126,7 @@ describe('tabs render their data', () => {
   it('Pengaturan: groups, explanations and a disabled Simpan until something changes', () => {
     const audit: AuditEntry[] = [{ at: NOW - 3600000, by: { id: 'a', name: 'Jason' }, kind: 'setting', key: 'dailyMatchLimit', value: 3 }];
     const html = renderToStaticMarkup(createElement(SettingsForm, { saved: settings, audit, now: NOW, onSave: async () => {} }));
-    for (const legend of ['Match online', 'Login', 'Pengumuman']) expect(html).toContain(`<legend>${legend}</legend>`);
+    for (const legend of ['Match online', 'Masuk', 'Pengumuman']) expect(html).toContain(`<legend>${legend}</legend>`);
     expect(html).toContain('Terakhir diubah 1 jam lalu oleh Jason');
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Simpan<\/button>|<button disabled=""[^>]*>Simpan<\/button>/);
     expect(settingsDirty(settings, { ...settings, dailyMatchLimit: 4 })).toBe(true);

@@ -55,7 +55,7 @@ describe('v0.5.5 Round Score display', () => {
     const html = render(withWin(base, 'tsumo'));
     expect(html).toContain('Total Tay');
     expect(html).toContain('Round Score');
-    expect(html).toContain(`Ce Mo: 6 × ${tay} tay`);
+    expect(html).toContain(`Ce Mo: 6 × ${tay} Tay`);
     expect(koinCells(html)).toEqual([`+${6 * tay}`, `${MINUS}${2 * tay}`, `${MINUS}${2 * tay}`, `${MINUS}${2 * tay}`]);
     expect(html).toContain('Σ 0 · kit-kit ✓');
     expect(html).not.toMatch(/Pengali|x2 \(|Poin</);
@@ -64,7 +64,7 @@ describe('v0.5.5 Round Score display', () => {
 
   it('Buangan: payer listed second and tagged "buang" at −2T, other two −T, winner +4T', () => {
     const html = render(withWin(base, 'ron', opp(2)));
-    expect(html).toContain(`Buangan: 4 × ${tay} tay; yang buang 2×, lainnya 1×`);
+    expect(html).toContain(`Buangan: 4 × ${tay} Tay; yang buang 2×, lainnya 1×`);
     expect(koinCells(html)).toEqual([`+${4 * tay}`, `${MINUS}${2 * tay}`, `${MINUS}${tay}`, `${MINUS}${tay}`]);
     expect(html).toMatch(/is-payer"><span class="rs-name">[^<]+<\/span><span class="rs-wind">[^<]+<\/span><span class="rs-tag">buang</);
     expect(html).toContain('class="rs-koin is-plus"');
@@ -80,9 +80,9 @@ describe('v0.5.5 Round Score display', () => {
 
   it('Lew Fit and Seri: Round Score 0 koin semua', () => {
     const lewFit: HuOutcome = { ...base, winMethod: 'tsumo', scoring: { ...base.scoring, isValidHu: false }, roundScore: null };
-    expect(render(lewFit)).toContain('Round Score: 0 koin semua');
+    expect(render(lewFit)).toContain('Round Score: semua 0 koin');
     const seri = renderToStaticMarkup(createElement(HuResultModal, { outcome: { kind: 'seri', kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 }, durationSeconds: 3 }, onClose: noop, onNewGame: noop }));
-    expect(seri).toContain('Round Score: 0 koin semua');
+    expect(seri).toContain('Round Score: semua 0 koin');
   });
 
   it('Tabel Total Poin: # · Pemain · Koin · Tay · Hu ranked by signed koin, with a Σ 0 footer', () => {

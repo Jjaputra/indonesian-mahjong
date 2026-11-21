@@ -47,7 +47,7 @@ export function SettingsForm({ saved, audit, now = Date.now(), onSave }: { saved
         <label>{settingLabel('discardRevealMs')} (ms)<input type="number" min={0} max={3000} value={Number.isNaN(draft.discardRevealMs) ? '' : draft.discardRevealMs} onChange={e => set('discardRevealMs', e.target.valueAsNumber)} /></label>
       </Field>
     </fieldset>
-    <fieldset><legend>Login</legend>
+    <fieldset><legend>Masuk</legend>
       <Field k="loginRequired" {...field} explain="Main bareng harus masuk pakai akun dulu.">
         <label className="admin-check"><input type="checkbox" checked={draft.loginRequired} onChange={e => set('loginRequired', e.target.checked)} /> {settingLabel('loginRequired')}</label>
       </Field>

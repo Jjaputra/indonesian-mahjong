@@ -52,11 +52,11 @@ describe('online hand result', () => {
   it('marks pressed Lanjut as Siap and handles Seri / Lew Fit', () => {
     expect(render(fixture({ ready: true }))).toContain('Siap ✓');
     const seri = render(fixture({ winner: null }));
-    expect(seri).toContain('>SERI<'); expect(seri).toContain('Tembok habis');
+    expect(seri).toContain('>SERI<'); expect(seri).toContain('Tembok abis');
     expect(render(fixture({ lewFit: true }))).toContain('LEW FIT');
   });
   it('highlights own chip and treats bots as ready', () => {
     const html = renderToStaticMarkup(createElement(ReadyStrip, { seats: fixture().state.room!.seats, self: 'dong', nameOf: s => s }));
-    expect(html).toContain('is-self'); expect(html).toContain('✓ siap'); expect(html).toContain('⏳ tunggu');
+    expect(html).toContain('is-self'); expect(html).toContain('✓ siap'); expect(html).toContain('nunggu');
   });
 });

@@ -20,7 +20,7 @@ describe('online seat dice', () => {
   it('offers the main dice action and highlights the local player', () => {
     const html = render('dong');
     expect(html).toContain('Kocok dadu'); expect(html).toContain('online-roll');
-    expect(html).toContain('class="is-self"'); expect(html).toContain('(Anda)');
+    expect(html).toContain('class="is-self"'); expect(html).toContain('(kamu)');
   });
   it('hides the action for spectators, completed rolls and settled dice', () => {
     expect(render(null)).not.toContain('online-roll');

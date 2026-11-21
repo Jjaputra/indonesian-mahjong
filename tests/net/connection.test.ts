@@ -192,7 +192,7 @@ describe('own connection quality', () => {
     expect(connectionIndicator('open', 25, true)).toEqual({ tone: 'slow', text: 'Sinyal lemah' });
     expect(connectionIndicator('open', null, true)).toEqual({ tone: 'slow', text: 'Sinyal lemah' });
     for (const status of ['idle', 'connecting', 'reconnecting', 'stopped'] as const)
-      expect(connectionIndicator(status, 20, false)).toEqual({ tone: 'offline', text: 'Terputus · menyambung ulang...' });
+      expect(connectionIndicator(status, 20, false)).toEqual({ tone: 'offline', text: 'Terputus · menyambung ulang…' });
   });
 
   it('measures RTT, marks a late pong and recovers without adding ping traffic', () => {

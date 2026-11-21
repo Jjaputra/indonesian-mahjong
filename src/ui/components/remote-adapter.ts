@@ -147,7 +147,7 @@ export const asGameController = (remote: RemoteController): GameController => re
 export function seatNames(table: RemoteTable): Record<Seat, string> {
   const { seat } = table.getState();
   const names = Object.fromEntries(SEAT_ORDER.map(id => [id, seatName(table, id)])) as Record<Seat, string>;
-  if (seat !== null) names[seat] = `${names[seat]} (Anda)`;
+  if (seat !== null) names[seat] = `${names[seat]} (kamu)`;
   return names;
 }
 

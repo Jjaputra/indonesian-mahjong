@@ -19,7 +19,7 @@ export const WIND_GLYPH: Record<Wind, string> = { dong: '東', nan: '南', xi: '
  * so a name never names a wind (see seatWindOf in win-context.ts).
  */
 export const PLAYER_NAME: Record<Seat, string> = {
-  dong: 'Anda',
+  dong: 'Kamu',
   nan: 'Bot Kanan',
   xi: 'Bot Seberang',
   bei: 'Bot Kiri',
@@ -36,7 +36,7 @@ export const WIN_METHOD_LABEL: Record<WinMethod, string> = {
   tsumo: 'Ce Mo (ambil sendiri dari tembok)',
   ron: 'Buangan (Ron dari buangan lawan)',
   chiong_kong: 'Chiong Kong (curi Kong lawan)',
-  draw: 'Seri (tembok habis)',
+  draw: 'Seri (tembok abis)',
 };
 
 export const DIFFICULTY_LABEL: Record<AIDifficulty, string> = { easy: 'Mudah', normal: 'Normal', hard: 'Sulit' };
@@ -121,7 +121,7 @@ export function tileAccessibleLabel(face: TileFace): string {
 
 export function getTileFace(tile: Tile): TileFace {
   if (tile.type === 'kim') {
-    return { main: '金', sub: 'KIM', tone: 'kim', title: 'KIM (Joker)', hint: 'tile Kim tetap, mode joker lama' };
+    return { main: '金', sub: 'KIM', tone: 'kim', title: 'KIM (Joker)', hint: 'tile Kim tetap (mode joker lama)' };
   }
   if (tile.isKim) {
     // Natural Kim keeps its printed face; logs and receipts name both the face and the Kim role.

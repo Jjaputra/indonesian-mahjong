@@ -114,7 +114,7 @@ describe('migration data', () => {
     expect(destination.getItem('unrelated')).toBeNull();
     expect(source.length).toBe(3);
     expect(arrival.fake.history.replaceState).toHaveBeenCalledWith({ preserved: true }, '', '/?room=ABCDEF');
-    expect(arrival.notices[1]?.textContent).toBe('Data Anda dari alamat lama sudah dipindahkan ke maciokyu.com. Kalau sebelumnya memasang aplikasi, pasang ulang dari alamat ini.');
+    expect(arrival.notices[1]?.textContent).toBe('Data kamu dari alamat lama udah dipindah ke maciokyu.com. Kalau sebelumnya udah pasang aplikasi, pasang ulang dari alamat ini.');
     await runDomainMove(arrival.window);
     expect(arrival.fake.document.body.append).toHaveBeenCalledTimes(1);
   });

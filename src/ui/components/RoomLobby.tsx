@@ -25,7 +25,7 @@ const KIM_TEXT = { natural: 'Kim dari tile', dedicated: 'Kim tambahan', off: 'Ta
 export function startBlocker(room: RoomInfo): string | null {
   const taken = room.seats.filter(s => s.name !== null).length;
   if (taken === 0) return 'Belum ada pemain yang duduk.';
-  if (!room.config.fillWithBots && taken < 4) return `Butuh 4 pemain (baru ${taken}), atau aktifkan bot.`;
+  if (!room.config.fillWithBots && taken < 4) return `Butuh 4 pemain (baru ${taken}) atau nyalakan Isi pakai bot.`;
   return null;
 }
 
@@ -57,9 +57,9 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
     try {
       if (typeof navigator.share === 'function') { await navigator.share({ text }); return; }
       await navigator.clipboard.writeText(text);
-      onToast('Tautan undangan disalin');
+      onToast('Link undangan disalin');
     } catch (error) {
-      if ((error as { name?: string })?.name !== 'AbortError') onToast('Gagal membagikan. Salin kode room secara manual.');
+      if ((error as { name?: string })?.name !== 'AbortError') onToast('Nggak bisa bagikan. Salin kode room-nya sendiri.');
     }
   };
 
@@ -87,8 +87,8 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
                 <span className="mp-seat-wind">{SEAT_LABEL[id]}</span>
                 <strong className="mp-seat-name">
                   {info?.host && <Crown size={14} aria-label="Host" />}
-                  {info?.name ?? (config.fillWithBots ? 'Kosong · bot akan duduk' : 'Kosong · perlu 4 pemain')}
-                  {mine && <small> (Anda)</small>}
+                  {info?.name ?? (config.fillWithBots ? 'Kosong · nanti diisi bot' : 'Kosong · perlu 4 pemain')}
+                  {mine && <small> (kamu)</small>}
                   {info?.bot && <span className="badge">Bot</span>}
                   {info?.name && !info.bot && !info.connected && <span className="badge mp-offline">Offline</span>}
                 </strong>
@@ -104,7 +104,7 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
           <div><dt>Kim</dt><dd>{KIM_TEXT[config.kimMode]}</dd></div>
           <div><dt>Min Tay</dt><dd>{config.minHuTay}</dd></div>
           <div><dt>Waktu giliran</dt><dd>{config.turnSeconds === null ? 'Tanpa batas' : `${config.turnSeconds} dtk`}</dd></div>
-          <div><dt>Pertandingan</dt><dd>16 game{config.timeLimitMinutes ? ` · maks ${config.timeLimitMinutes} menit` : ''}</dd></div>
+          <div><dt>Match</dt><dd>16 game{config.timeLimitMinutes ? ` · maks ${config.timeLimitMinutes} menit` : ''}</dd></div>
           <div><dt>Bot</dt><dd>{config.fillWithBots ? `Isi kursi kosong · ${DIFFICULTY_LABEL[config.botLevel]}` : 'Tidak ada'}</dd></div>
           <div><dt>Penonton</dt><dd>{config.allowSpectators ? 'Boleh' : 'Tidak'}</dd></div>
         </dl>
@@ -119,14 +119,14 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
         <div className="menu-choices">
           {isHost ? (
             <button type="button" className="btn btn-primary menu-choice" disabled={blocker !== null || remaining === 0 || loginBlocked} onClick={onStart}>
-              <strong>Mulai</strong><span>{blocker ?? (config.fillWithBots ? 'Kursi kosong diisi bot' : 'Keempat kursi sudah terisi')}</span>
+              <strong>Mulai</strong><span>{blocker ?? (config.fillWithBots ? 'Kursi kosong diisi bot' : 'Keempat kursi udah terisi')}</span>
             </button>
           ) : (
-            <p className="muted mp-note" role="status">{seat === null ? 'Tekan Duduk di kursi kosong untuk ikut bermain.' : 'Menunggu host menekan Mulai…'}</p>
+            <p className="muted mp-note" role="status">{seat === null ? 'Tekan Duduk di kursi kosong buat ikut main.' : 'Nunggu host tekan Mulai…'}</p>
           )}
         </div>
         {isHost && <div className="online-daily-limit" role="status">
-          <p>{Number.isFinite(remaining) ? `Sisa ${remaining} dari ${dailyMatchLimit} match hari ini` : account ? 'Match tanpa batas' : 'Host perlu masuk.'}</p>
+          <p>{Number.isFinite(remaining) ? `Jatah host hari ini: sisa ${remaining} dari ${dailyMatchLimit} match` : account ? 'Jatah host: tanpa batas' : 'Host perlu masuk dulu.'}</p>
           {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE()}</p>}<AllowanceReset remaining={remaining} />
         </div>}
       </section>

@@ -15,11 +15,11 @@ export function AbandonMatchDialog({ onStay, onLeave }: AbandonMatchDialogProps)
           <h2 id={titleId}>Kembali ke menu?</h2>
         </header>
         <div className="panel-body">
-          <p>Apakah Anda ingin meninggalkan pertandingan saat ini dan kembali ke menu?</p>
+          <p>Tinggalkan match yang lagi jalan dan balik ke menu?</p>
         </div>
         <footer className="panel-footer">
           <button type="button" className="btn btn-primary" onClick={onStay}>Tetap di meja</button>
-          <button type="button" className="btn" onClick={onLeave}>Kembali ke menu</button>
+          <button type="button" className="btn" onClick={onLeave}>Ke menu</button>
         </footer>
       </div>
     </div>

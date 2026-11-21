@@ -88,11 +88,11 @@ export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMod
     >
       <div className="settings">
         <section>
-          <h3>Preferensi bermain</h3>
-          <p className="field-note">Pilihan Kim diatur di menu utama sebelum pertandingan dimulai.</p>
+          <h3>Cara main</h3>
+          <p className="field-note">Kim diatur di menu utama, sebelum match mulai.</p>
           <div className="field">
-            <span>Tingkat kesulitan AI</span>
-            <div className="segmented" role="group" aria-label="Tingkat kesulitan AI">
+            <span>Level bot</span>
+            <div className="segmented" role="group" aria-label="Level bot">
               {(['easy', 'normal', 'hard'] as AIDifficulty[]).map((d) => (
                 <button key={d} type="button" className={draft.aiDifficulty === d ? 'is-on' : ''} aria-pressed={draft.aiDifficulty === d} onClick={() => set('aiDifficulty', d)}>
                   {DIFFICULTY_LABEL[d]}
@@ -100,14 +100,14 @@ export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMod
               ))}
             </div>
           </div>
-          <Toggle label={`Animasi tile: ${draft.animationSpeed === 'off' ? 'mati' : 'aktif'}`}
+          <Toggle label={`Animasi tile: ${draft.animationSpeed === 'off' ? 'mati' : 'nyala'}`}
             checked={draft.animationSpeed !== 'off'} onChange={enabled => set('animationSpeed', enabled ? 'slow' : 'off')} />
-          <Toggle label="Layar tetap menyala saat main" checked={draft.keepScreenOn} onChange={v => set('keepScreenOn', v)} />
+          <Toggle label="Layar tetap nyala saat main" checked={draft.keepScreenOn} onChange={v => set('keepScreenOn', v)} />
         </section>
         <section className="install-app">
           <h3>Pasang maciokYU!</h3>
-          {pwa.state === 'installed' && <p className="field-note">maciokYU! sudah terpasang sebagai aplikasi.</p>}
-          {pwa.state === 'prompt' && <button type="button" className="btn" onClick={pwa.install}>Pasang maciokYU! sebagai aplikasi</button>}
+          {pwa.state === 'installed' && <p className="field-note">maciokYU! udah terpasang sebagai aplikasi.</p>}
+          {pwa.state === 'prompt' && <button type="button" className="btn" onClick={pwa.install}>Pasang aplikasi</button>}
           {pwa.state === 'ios' && <p className="field-note">Safari → Bagikan → Tambah ke Layar Utama</p>}
           {pwa.state === 'none' && <p className="field-note">Di Chrome Android: menu ⋮ → Pasang aplikasi. Di iPhone: Safari → Bagikan → Tambah ke Layar Utama.</p>}
         </section>
@@ -127,7 +127,7 @@ export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMod
             <span>Volume efek: {Math.round(draft.effectsVolume * 100)}%</span>
             <input type="range" aria-label="Volume efek" min="0" max="100" step="1" value={Math.round(draft.effectsVolume * 100)} onChange={(e) => setAudio('effectsVolume', Number(e.target.value) / 100)} />
           </label>
-          <p className="field-note">Audio langsung diterapkan dan disimpan.</p>
+          <p className="field-note">Audio langsung berlaku dan tersimpan.</p>
         </section>
         {onDevModeChange && <section className="dev-settings">
           <h3>Developer</h3>

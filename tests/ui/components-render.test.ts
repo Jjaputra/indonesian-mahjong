@@ -41,14 +41,14 @@ describe('UI render smoke tests', () => {
   it('App first renders the main menu without dealing', () => {
     const html = renderToString(createElement(App));
     expect(html).toContain('alt="maciokYU!"');
-    expect(html).toContain('Mahjong Indonesia · main bareng teman');
+    expect(html).toContain('Mahjong Indonesia di browser');
     expect(html).not.toContain('Mahjong Tradisional Indonesia');
     expect(html).toContain('Main sendiri');
     expect(html).toContain('Premium · segera hadir');
-    expect(html).not.toContain('Mulai bermain');
+    expect(html).not.toContain('<strong>Mulai <');
     expect(html).not.toMatch(/Kalkulator|Rulebook|ver06|PDF|aturan rumah|model lama/);
     expect(html).not.toContain('Tembok');
-    expect(html).not.toContain('Permainan Baru');
+    expect(html).not.toContain('Ke menu');
   });
 
   it('public header renders the package release version exactly once', () => {
@@ -87,7 +87,7 @@ describe('UI render smoke tests', () => {
     expect(html).not.toContain('wall-stack');
     expect(html).toContain('Selatan');
     expect(html).toContain('Timur');
-    expect(html).toContain(`SISA: <b>${c.remainingDrawable}</b> TILES`);
+    expect(html).toContain(`SISA: <b>${c.remainingDrawable}</b> TILE`);
     expect((html.match(/tile-lg/g) ?? []).length).toBe(c.getState().players.dong.hand.length);
   });
 
@@ -101,7 +101,7 @@ describe('UI render smoke tests', () => {
     expect(html).not.toContain("is-rolling");
     expect(html).toContain('Lempar dadu: angka tertinggi jadi dealer');
     expect(html).toContain('Lempar dadu</button>');
-    for (const name of ['Anda', 'Bot Kanan', 'Bot Seberang', 'Bot Kiri']) expect(html).toContain(name);
+    for (const name of ['Kamu', 'Bot Kanan', 'Bot Seberang', 'Bot Kiri']) expect(html).toContain(name);
   });
 
   it('table centre has no wall, only the drawable-tile counter', () => {
@@ -121,7 +121,7 @@ describe('UI render smoke tests', () => {
   it('Hu result modal shows receipt sections', () => {
     const c = finishedGame();
     const html = renderToString(createElement(HuResultModal, { outcome: c.outcome!, onClose: noop, onNewGame: noop }));
-    for (const label of ['Pemenang', 'Tile menang', 'Cara menang', 'Klasifikasi', 'Total Tay', 'Salin Struk']) {
+    for (const label of ['Pemenang', 'Tile menang', 'Cara menang', 'Klasifikasi', 'Total Tay', 'Salin struk']) {
       expect(html).toContain(label);
     }
     expect(html).toContain('Memenuhi minimum Hu');
@@ -145,13 +145,13 @@ describe('UI render smoke tests', () => {
   it('Settings modal exposes only preferences; maintainer presets keep preferences', () => {
     const s = settings({ aiDifficulty: 'hard', soundEnabled: true });
     const html = renderToString(createElement(SettingsModal, { settings: s, onSave: noop, onClose: noop }));
-    for (const label of ['kesulitan AI', 'Animasi tile: aktif', 'Suara', 'Simpan']) {
+    for (const label of ['Level bot', 'Animasi tile: nyala', 'Suara', 'Simpan']) {
       expect(html).toContain(label);
     }
     expect(html).not.toMatch(/Kim aktif|Minimum Tay|Dealer awal|Bunga.Musim|PDF|Preset|Aturan rumah/);
     // Kim is chosen once, on the main menu; settings only point there.
     expect(html).not.toMatch(/Mode Kim|<select/);
-    expect(html).toContain('Pilihan Kim diatur di menu utama');
+    expect(html).toContain('Kim diatur di menu utama');
     const casual = withPreset(s, 'casual');
     expect(casual.allowKimInMeldClaim).toBe(getPreset('casual').allowKimInMeldClaim);
     expect(casual.aiDifficulty).toBe('hard');
@@ -166,7 +166,7 @@ describe('UI render smoke tests', () => {
     );
     saveGameRecord({ winner: null, winningHand: [], winningTile: null, scoringBreakdown: [], totalTay: 0, isWithKim: false, winMethod: 'draw', durationSeconds: 300 }, storage);
     const html = renderToString(createElement(HistoryModal, { history: loadGameHistory(storage), onDelete: noop, onClear: noop, onClose: noop }));
-    expect(html).toContain('Riwayat Permainan');
+    expect(html).toContain('Riwayat');
     expect(html).toContain('Bot Seberang Hu');
     expect(html).toContain('Seri');
     expect(html).toContain('30 Tay');

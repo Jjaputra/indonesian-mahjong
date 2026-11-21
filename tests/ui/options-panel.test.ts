@@ -56,7 +56,7 @@ describe('options panel', () => {
       onPause: noop, onStep: noop, optionsOpen: false, onOptionsOpenChange: noop,
     }));
     expect(closed).toContain('Angin meja');
-    expect(closed).toContain('aria-label="Buka panel OPTION"');
+    expect(closed).toContain('aria-label="Buka panel Opsi"');
     expect(closed).toMatch(/aria-expanded="false"/);
     expect(closed).toMatch(/id="table-options-panel"[^>]*hidden/);
 

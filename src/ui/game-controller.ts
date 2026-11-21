@@ -398,8 +398,8 @@ export class GameController {
     this.startedAt = this.now();
     const total = this.match ? '/16' : '';
     this.addLog(this.match
-      ? `Game ${currentHandNumber(this.match)}${total} dimulai. Dealer (Timur): ${PLAYER_NAME[dealer]}. Angin putaran: ${SEAT_SHORT[roundWind]}.`
-      : `Permainan baru dimulai. Dealer (Timur): ${PLAYER_NAME[dealer]}.`);
+      ? `Game ${currentHandNumber(this.match)}${total} mulai. Dealer (Timur): ${PLAYER_NAME[dealer]}. Angin putaran: ${SEAT_SHORT[roundWind]}.`
+      : `Game baru mulai. Dealer (Timur): ${PLAYER_NAME[dealer]}.`);
     this.logFlowerRecords(records);
     this.checkSeri();
     this.changed();
@@ -407,7 +407,7 @@ export class GameController {
 
   private logFlowerRecords(records: { seat: Seat; flowers: Tile[] }[]): void {
     for (const r of records) {
-      this.addLog(`${PLAYER_NAME[r.seat]} membuka ${r.flowers.map(tileText).join(', ')} dan mengganti dari ekor tembok.`, r.seat);
+      this.addLog(`${PLAYER_NAME[r.seat]} buka ${r.flowers.map(tileText).join(', ')} dan ganti dari ekor tembok.`, r.seat);
       this.emit('flower', r.seat);
     }
   }
@@ -432,7 +432,7 @@ export class GameController {
   private checkSeri(): boolean {
     if (this.getState().phase !== 'DRAW_SERI' || this.outcome) return false;
     this.outcome = { kind: 'seri', kongPayments: [...this.currentKongPayments], gameDeltas: gameDeltas(null, this.currentKongPayments), durationSeconds: this.durationSeconds() };
-    this.addLog('Tembok habis — permainan Seri (tidak ada pemenang).');
+    this.addLog('Tembok abis. Game Seri, nggak ada pemenang.');
     this.emit('seri');
     this.record();
     this.settleMatch();
@@ -713,7 +713,7 @@ export class GameController {
 
   humanPaoChin(): void {
     if (!this.getHumanActions().canPaoChin) return;
-    if (this.engine.declarePaoChin(this.humanSeat)) this.addLog(`${PLAYER_NAME[this.humanSeat]} declare Pao Chin!`, this.humanSeat);
+    if (this.engine.declarePaoChin(this.humanSeat)) this.addLog(`${PLAYER_NAME[this.humanSeat]} deklarasi Pao Chin.`, this.humanSeat);
     this.changed();
   }
 
@@ -744,7 +744,7 @@ export class GameController {
     const r = this.engine.startTurnDraw(seat);
     this.logNewFlowers(before);
     if (r.drawnTile) {
-      this.addLog(`${PLAYER_NAME[seat]} menarik satu tile dari tembok.`, seat);
+      this.addLog(`${PLAYER_NAME[seat]} tarik satu tile dari tembok.`, seat);
       this.emit('draw', seat);
       if (seat === this.humanSeat) this.humanDrawnTileId = r.drawnTile.id;
     }
@@ -782,7 +782,7 @@ export class GameController {
     this.engine.declareKakan(seat, tileId, meldIndex);
     this.claimRevealAt = this.now() + this.discardRevealMs;
     const tile = this.getState().discardPending?.tile;
-    this.addLog(`${PLAYER_NAME[seat]} Kong ${tile ? tileText(tile) : ''} — menunggu Chiong Kong.`, seat);
+    this.addLog(`${PLAYER_NAME[seat]} Kong ${tile ? tileText(tile) : ''} — nunggu Chiong Kong.`, seat);
     this.emit('kong', seat);
     if (seat === this.humanSeat) this.humanDrawnTileId = null;
   }
@@ -848,12 +848,12 @@ export class GameController {
       if (seat === this.humanSeat || seat === pending.discarder) continue;
       const decl = this.strategy.decideClaim(this.aiObservation(seat), this.rng);
       if (decl.action === 'pass') {
-        this.bufferedAIClaims.push({ text: `${PLAYER_NAME[seat]} Lew (melewati klaim).`, seat });
+        this.bufferedAIClaims.push({ text: `${PLAYER_NAME[seat]} Lew (lewat).`, seat });
         continue;
       }
       if (decl.action === 'hu' && !this.scoreDiscard(seat)?.isValidHu) continue; // Tay gate
       this.bufferedAIClaims.push({ declaration: { ...decl, seat }, seat,
-        text: `${PLAYER_NAME[seat]} mengajukan ${decl.action === 'hu' ? 'Hu' : MELD_LABEL[decl.action]} atas ${tileText(pending.tile)}; menunggu resolusi klaim.` });
+        text: `${PLAYER_NAME[seat]} klaim ${decl.action === 'hu' ? 'Hu' : MELD_LABEL[decl.action]} atas ${tileText(pending.tile)}. Nunggu klaim lain dicek.` });
     }
     this.aiClaimsFor = claimKey(s);
   }
@@ -904,7 +904,7 @@ export class GameController {
       }
     } else if (pending.isPromotedKong) {
       this.payKong(pending.discarder, pending.tile, false);
-      this.addLog(`Kong ${PLAYER_NAME[pending.discarder]} sah; ambil tile pengganti.`, pending.discarder);
+      this.addLog(`Kong ${PLAYER_NAME[pending.discarder]} sah. Ambil tile pengganti.`, pending.discarder);
       if (pending.discarder === this.humanSeat) {
         const hand = this.getState().players[this.humanSeat].hand;
         this.humanDrawnTileId = hand[hand.length - 1]?.id ?? null;
@@ -915,7 +915,7 @@ export class GameController {
     if (result.winningAction === 'pass' && !pending.isPromotedKong && this.getState().phase === 'ACTION_DECISION') {
       // All passed: the engine committed the discard and drew for the next seat.
       const next = result.nextTurn;
-      this.addLog(`Semua Lew; ${PLAYER_NAME[next]} menarik satu tile dari tembok.`, next);
+      this.addLog(`Semua Lew. ${PLAYER_NAME[next]} tarik satu tile dari tembok.`, next);
       this.emit('draw', next);
       if (next === this.humanSeat) {
         const hand = this.getState().players[next].hand;

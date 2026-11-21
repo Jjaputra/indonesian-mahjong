@@ -74,7 +74,7 @@ export function inviteLink(code: string, location: Pick<Location, 'origin' | 'pa
   return `${location.origin}${location.pathname}?room=${code}`;
 }
 
-export const buildShareText = (code: string, link: string): string => `Ayo main maciokYU! bareng! Kode room: ${code}\n${link}`;
+export const buildShareText = (code: string, link: string): string => `Yuk main maciokYU! bareng. Kode room: ${code}\n${link}`;
 
 export const whatsAppUrl = (text: string): string => `https://wa.me/?text=${encodeURIComponent(text)}`;
 
