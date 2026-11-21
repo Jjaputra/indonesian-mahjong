@@ -231,7 +231,7 @@ describe('Natural Kim review regressions', () => {
   it('full natural-Kim games never discard, claim or meld a Kim and always finish', async () => {
     const { GameController } = await import('../../src/ui/game-controller');
     for (let seed = 1; seed <= 12; seed++) {
-      const c = new GameController({ settings, seed: seed * 37, saveHistory: false });
+      const c = new GameController({ discardRevealMs: 0, settings, seed: seed * 37, saveHistory: false });
       expect(c.getState().kimFace).toBeTruthy();
       let guard = 0;
       while (!c.outcome && guard++ < 5000) {

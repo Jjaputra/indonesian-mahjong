@@ -3,6 +3,7 @@
  * human's legal actions (with the minimum-Tay Hu gate), scores the final hand with the 44-Tay
  * engine and records finished games in storage. Pure TypeScript, so it runs under Vitest in node.
  */
+import { DISCARD_REVEAL_MS } from '../core/claim-timing';
 import { gameDeltas } from '../core/round-score';
 import { GameEngine, canFormWinningHand, type GameEngineState } from '../core/game-engine';
 import { SEAT_ORDER, isSameKind } from '../core/tiles';
@@ -102,6 +103,8 @@ export interface GameControllerOptions {
   /** Persist finished games to history (default true) */
   saveHistory?: boolean;
   now?: () => number;
+  /** Headless simulations may disable the reveal delay. */
+  discardRevealMs?: number;
 }
 
 const MAX_LOG = 80;
@@ -156,7 +159,10 @@ export class GameController {
   private gameIndex = 0;
   private rng: () => number = Math.random;
   private startedAt = 0;
+  private readonly discardRevealMs: number;
+  private claimRevealAt = 0;
   private aiClaimsFor = '';
+  private bufferedAIClaims: { declaration?: ClaimDeclaration; text: string; seat: Seat }[] = [];
   private humanAnsweredFor = '';
   private logSeq = 0;
   private listeners = new Set<() => void>();
@@ -206,6 +212,7 @@ export class GameController {
     this.developerMode = options.devMode ?? loadDevMode(this.storage);
     this.saveHistory = options.saveHistory ?? true;
     this.now = options.now ?? Date.now;
+    this.discardRevealMs = options.discardRevealMs ?? DISCARD_REVEAL_MS;
     this.baseSeed = options.seed;
     if (options.autoStart === false) this.engine = new GameEngine(this.rules);
     else this.newGame();
@@ -378,6 +385,7 @@ export class GameController {
     this.currentKongPayments = [];
     this.log = [];
     this.aiClaimsFor = '';
+    this.bufferedAIClaims = [];
     this.humanAnsweredFor = '';
     this.lastDiscard = null;
     this.discardTrail = [];
@@ -740,6 +748,7 @@ export class GameController {
 
   private discardFor(seat: Seat, tileId: string): void {
     const r = this.engine.discard(seat, tileId);
+    this.claimRevealAt = this.now() + this.discardRevealMs;
     this.lastDiscard = { seat, tile: r.discardedTile };
     this.discardCount++;
     if (seat === this.humanSeat) this.humanDrawnTileId = null;
@@ -766,6 +775,7 @@ export class GameController {
 
   private kakanFor(seat: Seat, tileId: string, meldIndex: number): void {
     this.engine.declareKakan(seat, tileId, meldIndex);
+    this.claimRevealAt = this.now() + this.discardRevealMs;
     const tile = this.getState().discardPending?.tile;
     this.addLog(`${PLAYER_NAME[seat]} Kong ${tile ? tileText(tile) : ''} — menunggu Chiong Kong.`, seat);
     this.emit('kong', seat);
@@ -828,20 +838,17 @@ export class GameController {
   private collectAIClaims(): void {
     const s = this.getState();
     const pending = s.discardPending!;
+    this.bufferedAIClaims = [];
     for (const seat of SEAT_ORDER) {
       if (seat === this.humanSeat || seat === pending.discarder) continue;
       const decl = this.strategy.decideClaim(this.aiObservation(seat), this.rng);
       if (decl.action === 'pass') {
-        this.addLog(`${PLAYER_NAME[seat]} Lew (melewati klaim).`, seat);
+        this.bufferedAIClaims.push({ text: `${PLAYER_NAME[seat]} Lew (melewati klaim).`, seat });
         continue;
       }
       if (decl.action === 'hu' && !this.scoreDiscard(seat)?.isValidHu) continue; // Tay gate
-      try {
-        this.engine.submitClaim({ ...decl, seat });
-        this.addLog(`${PLAYER_NAME[seat]} mengajukan ${decl.action === 'hu' ? 'Hu' : MELD_LABEL[decl.action]} atas ${tileText(pending.tile)}; menunggu resolusi klaim.`, seat);
-      } catch {
-        // Illegal claim from a strategy is treated as a pass.
-      }
+      this.bufferedAIClaims.push({ declaration: { ...decl, seat }, seat,
+        text: `${PLAYER_NAME[seat]} mengajukan ${decl.action === 'hu' ? 'Hu' : MELD_LABEL[decl.action]} atas ${tileText(pending.tile)}; menunggu resolusi klaim.` });
     }
     this.aiClaimsFor = claimKey(s);
   }
@@ -849,6 +856,15 @@ export class GameController {
   private resolveClaims(): void {
     const s = this.getState();
     const pending = s.discardPending!;
+    for (const { declaration, text, seat } of this.bufferedAIClaims) {
+      try {
+        if (declaration) this.engine.submitClaim(declaration);
+        this.addLog(text, seat);
+      } catch {
+        // Illegal claim from a strategy is treated as a pass.
+      }
+    }
+    this.bufferedAIClaims = [];
     const claims = Object.values(s.pendingClaims).filter((c): c is ClaimDeclaration => !!c);
     const huClaims = claims.filter((c) => c.action === 'hu');
     // Score every Hu claimant now: the pending discard is cleared by the engine on resolution.
@@ -905,10 +921,14 @@ export class GameController {
     this.checkSeri();
   }
 
-  /**
-   * Advance the game by one automated unit (an AI turn, AI claims, or claim resolution).
-   * Returns false when nothing can happen without the human, or the game is over.
-   */
+  /** Collect privately at the same time for every discard; publish only at resolution. */
+  automationDelay(): number | null {
+    const s = this.getState();
+    if (s.phase !== 'CLAIM_WINDOW') return null;
+    return this.aiClaimsFor === claimKey(s) ? Math.max(0, this.claimRevealAt - this.now()) : 0;
+  }
+
+  /** Advance one automated unit; returns false while waiting for a human, reveal, or presentation. */
   step(): boolean {
     if (this.isPresenting || this.outcome || this.isWaitingForHuman()) return false;
     const s = this.getState();
@@ -934,6 +954,7 @@ export class GameController {
           break;
         }
         if (this.humanClaimPending()) return false;
+        if (this.now() < this.claimRevealAt) return false;
         this.resolveClaims();
         progressed = true;
         break;
@@ -946,10 +967,15 @@ export class GameController {
     return progressed;
   }
 
-  /** Run automation until the human must act or the game ends. Returns steps taken. */
-  runUntilHuman(maxSteps = 2000): number {
+  /** Run until a human choice, reveal delay, or game end. Screenshot demos may skip the reveal. */
+  runUntilHuman(maxSteps = 2000, skipReveal = false): number {
     let n = 0;
-    while (n < maxSteps && this.step()) n++;
+    while (n < maxSteps) {
+      // Fixed screenshot demos can drive a whole hand synchronously.
+      if (skipReveal) this.claimRevealAt = 0;
+      if (!this.step()) break;
+      n++;
+    }
     return n;
   }
 

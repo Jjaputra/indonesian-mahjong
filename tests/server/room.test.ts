@@ -144,7 +144,10 @@ describe('room', () => {
     for (let i = 0; i < 80 && h.blob.handEndedAt === null; i++) {
       const snapshot = h.room.session!.serialize();
       const delay = h.blob.schedule!.botAt! - h.now;
-      if (snapshot.state.phase === 'CLAIM_WINDOW') { expect(delay).toBeGreaterThanOrEqual(1000); expect(delay).toBeLessThanOrEqual(2000); }
+      if (snapshot.state.phase === 'CLAIM_WINDOW') {
+        if (h.blob.schedule!.botAt === null) expect(h.alarm).toBe(snapshot.claimRevealAt);
+        else { expect(delay).toBeGreaterThanOrEqual(1000); expect(delay).toBeLessThanOrEqual(2000); }
+      }
       else if (snapshot.state.phase === 'TURN_DRAW') expect(delay).toBe(1);
       else { expect(delay).toBeGreaterThanOrEqual(1500); expect(delay).toBeLessThanOrEqual(3000); }
       const before = h.blob.schedule; h.rebuild(); expect(h.room.data!.schedule).toEqual(before); await h.tick();
@@ -478,4 +481,58 @@ it('does not change the paying identity during seating and promotes a stable acc
   expect(errors(h, replacement).at(-1)?.code).toBe('login_required');
   expect(h.room.data!.host).toBe(successor.token);
   expect(h.room.data!.people[successor.token!]!.userId).toBe('successor');
+});
+
+
+it.each([false, true])('resolves an unclaimable discard by alarm, reload=%s', async reload => {
+  const h = harness(); await h.create(); const host = await h.join();
+  await h.send(host, { type: 'start' }); await finishSeating(h);
+  const data = h.room.session!.serialize();
+  data.state.players.dong.hand[13] = { type: 'tong', value: 3, id: 'reveal-discard' };
+  for (const seat of ['nan', 'xi', 'bei'] as const) data.state.players[seat].hand = Array.from({ length: 13 }, (_, i) => ({ type: 'sok', value: i % 9 + 1, id: `${seat}-${i}` }));
+  h.room.session = TableSession.deserialize(data, () => h.now);
+  await h.send(host, { type: 'act', action: { type: 'discard', tileId: 'reveal-discard', version: h.room.session.version } });
+  const revealAt = h.now + 1000;
+  expect(h.room.session.viewFor(null).phase).toBe('CLAIM_WINDOW');
+  expect(h.alarm).toBe(revealAt);
+  expect(h.blob.session!.claimRevealAt).toBe(revealAt);
+  h.now += 500;
+  if (reload) h.rebuild();
+  await h.room.alarm();
+  expect(h.room.session!.viewFor(null).phase).toBe('CLAIM_WINDOW');
+  expect(h.alarm).toBe(revealAt);
+  await h.tick();
+  expect(h.room.session!.viewFor(null).phase).toBe('ACTION_DECISION');
+  expect(h.blob.session!.claimRevealAt).toBeNull();
+  const resolved = h.room.session!.serialize();
+  await h.room.alarm();
+  expect(h.room.session!.serialize()).toEqual(resolved);
+});
+
+it.each(['hello', 'rename', 'disconnect'] as const)('keeps the reveal deadline across %s before and after expiry', async action => {
+  const h = harness(); await h.create(); const host = await h.join();
+  await h.send(host, { type: 'start' }); await finishSeating(h);
+  const watchers = action === 'disconnect' ? [await h.join('Watcher 1'), await h.join('Watcher 2')] : [];
+  const data = h.room.session!.serialize();
+  data.state.players.dong.hand[13] = { type: 'tong', value: 3, id: 'reveal-discard' };
+  for (const seat of ['nan', 'xi', 'bei'] as const) data.state.players[seat].hand = Array.from({ length: 13 }, (_, i) => ({ type: 'sok', value: i % 9 + 1, id: `${seat}-${i}` }));
+  h.room.session = TableSession.deserialize(data, () => h.now);
+  await h.send(host, { type: 'act', action: { type: 'discard', tileId: 'reveal-discard', version: h.room.session.version } });
+  const revealAt = h.now + 1000;
+  let current = host;
+  const save = async () => {
+    if (action === 'hello') current = await h.join('Host', host.token);
+    else if (action === 'rename') await h.send(current, { type: 'rename', name: 'Renamed' });
+    else await h.room.disconnect(watchers.shift()!);
+  };
+  h.now += 200;
+  await save();
+  expect(h.room.session.viewFor(null).phase).toBe('CLAIM_WINDOW');
+  expect(h.alarm).toBe(revealAt);
+  expect(h.blob.session!.claimRevealAt).toBe(revealAt);
+  h.now = revealAt;
+  await save();
+  expect(h.room.session.viewFor(null).phase).toBe('ACTION_DECISION');
+  expect(h.blob.session!.claimRevealAt).toBeNull();
+  expect(h.alarm).toBe(h.blob.schedule!.botAt);
 });

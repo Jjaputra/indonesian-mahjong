@@ -14,7 +14,7 @@ const zero = () => ({ dong: 0, nan: 0, xi: 0, bei: 0 });
 const sum = (d: Record<Seat, number>) => Object.values(d).reduce((a, b) => a + b, 0);
 function sandbox(code: string) { const p = parseHandCode(code); if (!p.ok) throw new Error(p.error); return evaluateDevHand(p.hand, settings); }
 function fixture(owner: Seat = 'dong', storage = new MemoryStorage()) {
-  const c = new GameController({ settings, seed: 17, storage, strategy: { decideClaim: o => ({ seat: o.seat, action: 'pass' }), decideTurnAction: () => ({ type: 'discard', tileId: 'unused' }) } });
+  const c = new GameController({ discardRevealMs: 0, settings, seed: 17, storage, strategy: { decideClaim: o => ({ seat: o.seat, action: 'pass' }), decideTurnAction: () => ({ type: 'discard', tileId: 'unused' }) } });
   const s = c.getState() as GameEngineState;
   s.phase = 'ACTION_DECISION'; s.currentTurn = owner; s.selfDrawSeat = owner;
   s.pendingClaims = {}; s.discardPending = null;

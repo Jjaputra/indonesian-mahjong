@@ -1,3 +1,4 @@
+import { DISCARD_REVEAL_MS } from '../core/claim-timing';
 import { GameEngine, canFormWinningHand, type GameEngineState } from '../core/game-engine';
 import { SEAT_ORDER, sortTiles, createCompleteTileSet } from '../core/tiles';
 import type { ClaimActionType, LegalActions, Meld, Seat, Tile } from '../core/types';
@@ -28,6 +29,8 @@ export interface SessionOptions {
   botLevel?: AIDifficulty;
   hostSeat?: Seat;
   turnTimeMs?: number;
+  /** Headless simulations may disable the reveal delay. */
+  discardRevealMs?: number;
 }
 export interface PendingDecision { seat: Seat; kind: 'turn' | 'claim'; deadline: number }
 export interface SeatActions extends LegalActions {
@@ -69,6 +72,7 @@ export interface SerializedSession {
   handIndex: number;
   decisions: PendingDecision[];
   claimDeadline: number | null;
+  claimRevealAt?: number | null;
   presence: Record<Seat, { connected: boolean; afk: boolean }>;
 }
 const copy = <T>(value: T): T => structuredClone(value);
@@ -84,6 +88,7 @@ export class TableSession {
   private discardTrail: { seat: Seat; tile: Tile }[] = [];
   private decisions: PendingDecision[] = [];
   private claimDeadline: number | null = null;
+  private claimRevealAt: number | null = null;
   private rngState: number;
   private handIndex = 0;
   private handSeed?: HandSeed;
@@ -164,12 +169,13 @@ export class TableSession {
   private normalize(): void {
     if (this.state.phase === 'CLAIM_WINDOW') {
       // Public window timing is fixed before checking any concealed hand.
+      this.claimRevealAt ??= this.now() + (this.options.discardRevealMs ?? DISCARD_REVEAL_MS);
       this.claimDeadline ??= this.now() + (this.options.turnTimeMs ?? 15000);
       for (const seat of SEAT_ORDER) {
         if (seat !== this.state.discardPending!.discarder && !this.state.pendingClaims[seat] && !this.claimable(seat)) this.engine.submitClaim({ seat, action: 'pass' });
       }
       const pending = this.state.discardPending!;
-      if (SEAT_ORDER.every(seat => seat === pending.discarder || this.state.pendingClaims[seat])) {
+      if (this.now() >= this.claimRevealAt && SEAT_ORDER.every(seat => seat === pending.discarder || this.state.pendingClaims[seat])) {
         const scores = new Map(SEAT_ORDER.map(seat => [seat, this.state.pendingClaims[seat]?.action === 'hu' ? evaluateDiscardHu(this.observation(seat)) : null]));
         const result = this.engine.resolveClaimWindow();
         if (result.winningAction === 'hu') {
@@ -179,7 +185,7 @@ export class TableSession {
         }
       }
     }
-    if (this.state.phase !== 'CLAIM_WINDOW') this.claimDeadline = null;
+    if (this.state.phase !== 'CLAIM_WINDOW') { this.claimDeadline = null; this.claimRevealAt = null; }
     if (this.state.phase === 'DRAW_SERI' && this.match.hands.length < this.handIndex) this.settle(null, 0);
     for (const seat of SEAT_ORDER) for (const tile of this.state.players[seat].discards) {
       if (!this.discardTrail.some(d => d.tile.id === tile.id)) this.discardTrail.push({ seat, tile: copy(tile) });
@@ -245,12 +251,26 @@ export class TableSession {
       // Keep a claim window's deadlines, but start a fresh clock after every turn action.
       if (action.type !== 'paoChin' && action.type !== 'draw' && (before.state.phase !== 'CLAIM_WINDOW' || this.state.phase !== 'CLAIM_WINDOW')) this.decisions = [];
       this.normalize();
-      this.version++;
+      // Claim answers are private until resolution, including the shared version.
+      if (before.state.phase !== 'CLAIM_WINDOW' || this.state.phase !== 'CLAIM_WINDOW') this.version++;
       return { ok: true, version: this.version };
     } catch (error) {
       this.restore(before);
       return { ok: false, code: 'illegal_action', message: error instanceof Error ? error.message : 'Aksi tidak valid.' };
     }
+  }
+
+  /** Only schedules a reveal alarm when all eligible seats have answered. */
+  revealResolutionAt(): number | null {
+    return this.state.phase === 'CLAIM_WINDOW' && !this.decisions.length ? this.claimRevealAt : null;
+  }
+
+  resolveReveal(): boolean {
+    const at = this.revealResolutionAt();
+    if (at === null || this.now() < at) return false;
+    this.normalize();
+    this.version++;
+    return true;
   }
 
   pendingDecisions(): PendingDecision[] { return copy(this.decisions); }
@@ -350,7 +370,7 @@ export class TableSession {
   }
 
   serialize(): SerializedSession {
-    return copy({ discardTrail: this.discardTrail, handSeed: this.handSeed, lastHand: this.lastHand, schema: 1, options: this.options, state: { ...this.state, wall: this.state.wall.serialize() }, match: this.match, payments: this.payments, version: this.version, rngState: this.rngState, handIndex: this.handIndex, decisions: this.decisions, claimDeadline: this.claimDeadline, presence: this.presence });
+    return copy({ discardTrail: this.discardTrail, handSeed: this.handSeed, lastHand: this.lastHand, schema: 1, options: this.options, state: { ...this.state, wall: this.state.wall.serialize() }, match: this.match, payments: this.payments, version: this.version, rngState: this.rngState, handIndex: this.handIndex, decisions: this.decisions, claimDeadline: this.claimDeadline, claimRevealAt: this.claimRevealAt, presence: this.presence });
   }
 
   private restore(data: SerializedSession): void {
@@ -361,6 +381,7 @@ export class TableSession {
     this.match = copy(data.match); this.payments = copy(data.payments); this.version = data.version;
     this.rngState = data.rngState; this.handIndex = data.handIndex; this.decisions = copy(data.decisions); this.presence = copy(data.presence);
     this.claimDeadline = data.claimDeadline;
+    this.claimRevealAt = data.claimRevealAt ?? (data.state.phase === 'CLAIM_WINDOW' ? this.now() + (this.options.discardRevealMs ?? DISCARD_REVEAL_MS) : null);
   }
 
   static deserialize(data: SerializedSession, now: () => number, handSeed?: () => HandSeed): TableSession {

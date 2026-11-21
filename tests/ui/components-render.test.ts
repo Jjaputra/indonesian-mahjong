@@ -23,7 +23,7 @@ const settings = (patch: Partial<GameSettings> = {}): GameSettings => ({ ...getP
 
 function finishedGame(): GameController {
   for (let seed = 1; seed < 50; seed++) {
-    const c = new GameController({ settings: settings(), seed, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), seed, saveHistory: false });
     let guard = 0;
     while (!c.outcome && guard++ < 3000) {
       c.runUntilHuman();
@@ -59,7 +59,7 @@ describe('UI render smoke tests', () => {
   });
 
   it('deferred controller stays undealt until practice starts', () => {
-    const c = new GameController({ settings: settings(), autoStart: false, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), autoStart: false, saveHistory: false });
     expect(c.getState().phase).toBe('INIT');
     expect(c.getState().players.dong.hand).toHaveLength(0);
     c.newGame();
@@ -67,7 +67,7 @@ describe('UI render smoke tests', () => {
   });
 
   it('table parts render seat winds, wall counter, Kim indicator and hand tiles', () => {
-    const c = new GameController({ settings: settings(), seed: 11, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), seed: 11, saveHistory: false });
     const pos = seatPositions(c.humanSeat);
     expect(pos).toEqual({ bottom: 'dong', right: 'nan', top: 'xi', left: 'bei' });
     const actions = c.getHumanActions();
@@ -92,7 +92,7 @@ describe('UI render smoke tests', () => {
   });
 
   it('opening dice overlay shows three still dice per seat and waits for Lempar', () => {
-    const c = new GameController({ settings: settings(), autoStart: false, seed: 5, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), autoStart: false, seed: 5, saveHistory: false });
     c.startMatch();
     const roll = openingRollOf(c.match)!;
     expect(roll.rounds[0]).toHaveLength(4);
@@ -105,7 +105,7 @@ describe('UI render smoke tests', () => {
   });
 
   it('table centre has no wall, only the drawable-tile counter', () => {
-    const c = new GameController({ settings: settings(), seed: 11, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), seed: 11, saveHistory: false });
     const html = renderToString(createElement(CenterArea, { controller: c }));
     expect(html).not.toMatch(/wall-ring|wall-stack/);
     expect(html).toMatch(/class="wall-counter[^"]*" aria-label="Sisa \d+ tile di tembok"/);

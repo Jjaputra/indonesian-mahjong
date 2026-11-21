@@ -122,7 +122,7 @@ describe('Ce Mo requires a fresh draw', () => {
   });
 
   it('GameController never offers the human Ce Mo after claiming a Pung', () => {
-    const c = new GameController({ settings: { ...getPreset('tournament'), soundEnabled: false }, seed: 3, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: { ...getPreset('tournament'), soundEnabled: false }, seed: 3, saveHistory: false });
     const engine = (c as unknown as { engine: GameEngine }).engine;
     const s = mutable(engine);
     s.players.dong.hand = parseTileHand(SHANPON);
@@ -194,7 +194,7 @@ describe('Thien Fu: posisi Dong winning on the hand from the first deal', () => 
   const ids = (seat: Seat, patch?: Partial<WinFlags>) =>
     scoreHu({ hand, melds: [], flowers: [], winningTile }, seat, 'dong', flags(patch), rules, 'additive').patterns.map((p) => p.id);
   const controller = (dealer: Seat) =>
-    new GameController({
+    new GameController({ discardRevealMs: 0,
       settings: { ...getPreset('tournament'), kimEnabled: false, startingSeatWind: dealer, soundEnabled: false },
       seed: 5,
       saveHistory: false,

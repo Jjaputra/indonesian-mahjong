@@ -23,7 +23,7 @@ const ORDER: Seat[] = ['dong', 'nan', 'xi', 'bei'];
 
 function validHu(): HuOutcome {
   for (let seed = 1; seed < 50; seed++) {
-    const c = new GameController({ settings: settings(), seed, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: settings(), seed, saveHistory: false });
     let guard = 0;
     while (!c.outcome && guard++ < 3000) {
       c.runUntilHuman();

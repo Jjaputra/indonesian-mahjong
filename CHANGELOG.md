@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-11-21
+### Fixed
+- Every discard now shows for 1 second before play goes on, whether or not anyone can claim it. The claim popup and the Aktivitas log no longer give away that someone can Jia, Pung, Kong or Hu. This applies online and in single player.
+
 ## [1.3.2] - 2026-11-21
 ### Changed
 - The Privacy, Terms and Delete Account pages are shorter and describe exactly what the game does. Room data is deleted about 24 hours after a room goes idle, and "Hapus akun" in the game deletes the account immediately.

@@ -124,7 +124,7 @@ function play(c: GameController): void {
 describe('Round 2 · a match freezes its rules until the next hand', () => {
   it('basis and flower rule edits mid-match apply only after newGame', () => {
     const house: GameSettings = { ...HOUSE_SETTINGS, soundEnabled: false };
-    const c = new GameController({ settings: house, seed: 7, saveHistory: false });
+    const c = new GameController({ discardRevealMs: 0, settings: house, seed: 7, saveHistory: false });
     c.setSettings({ ...house, scoringBasis: 'hand_kim_usage', bonusTileRule: 'rulebook_per_tile', kimEnabled: false });
     expect(c.getSettings()).toMatchObject({ scoringBasis: 'match_table', bonusTileRule: 'rulebook_per_tile', kimEnabled: true });
     c.newGame();
@@ -135,7 +135,7 @@ describe('Round 2 · a match freezes its rules until the next hand', () => {
     let checked = 0;
     for (const kimEnabled of [true, false]) {
       for (let seed = 1; seed <= 40 && checked < 4; seed++) {
-        const c = new GameController({ settings: { ...HOUSE_SETTINGS, kimEnabled, kimMode: kimEnabled ? 'dedicated' : 'off', soundEnabled: false }, seed, saveHistory: false });
+        const c = new GameController({ discardRevealMs: 0, settings: { ...HOUSE_SETTINGS, kimEnabled, kimMode: kimEnabled ? 'dedicated' : 'off', soundEnabled: false }, seed, saveHistory: false });
         play(c);
         const o = c.outcome;
         if (!o || o.kind !== 'hu') continue;

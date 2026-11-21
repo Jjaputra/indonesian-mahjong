@@ -75,8 +75,8 @@ describe('v0.4.2 match options', () => {
   });
   it('opening dice are deterministic and a bot dealer receives Timur and 14 tiles', () => {
     expect(rollOpeningDealer(createMulberry32(7))).toEqual(rollOpeningDealer(createMulberry32(7)));
-    const a = new GameController({ ...options, seed: 7 }); a.startMatch();
-    const b = new GameController({ ...options, seed: 7 }); b.startMatch();
+    const a = new GameController({ discardRevealMs: 0, ...options, seed: 7 }); a.startMatch();
+    const b = new GameController({ discardRevealMs: 0, ...options, seed: 7 }); b.startMatch();
     expect(a.match!.openingRoll).toEqual(b.match!.openingRoll);
     const s = a.getState();
     expect(s.dealerSeat).not.toBe(a.humanSeat);
@@ -96,7 +96,7 @@ describe('v0.4.2 match options', () => {
     expect(Wall.deserialize(wall.serialize()).drawTail()).toBeNull();
   });
   it('ends at the reserve with Seri, counting once and rotating seating', () => {
-    const c = new GameController({ ...options, seed: 7 }); c.startMatch('stay', null, '14');
+    const c = new GameController({ discardRevealMs: 0, ...options, seed: 7 }); c.startMatch('stay', null, '14');
     expect(c.remainingDrawable).toBe(c.getState().wall.remainingCount - 14);
     const s = c.getState() as GameEngineState;
     s.wall = new Wall(createCompleteTileSet().slice(0, 14), null); s.wall.reservedCount = 14;
