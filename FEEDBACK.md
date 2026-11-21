@@ -11,7 +11,7 @@ Every report from the WhatsApp group: what was asked, what we did, and the test 
 | 2026-11-21 | "Semua nya login pake google dulu aja … email group" | Done: every online player logs in, email opt-in off by default | 1.4.0 | `tests/server/room.test.ts`, `tests/ui/account-rooms.test.ts` |
 | 2026-11-21 | "Login di hp sama ipad … emailnya sama tp jadi 2 room" | Done: the room follows the account. **Not yet tested on two real devices.** | 1.4.0 | `tests/server/room.test.ts` (reclaim) |
 | 2026-11-21 | Claim popup only shows when someone can claim, so it gives away hands | Fixed: every discard shows for 1 s | 1.3.3 | `tests/session/table-session.test.ts`, `tests/ui/game-controller.test.ts` |
-| 2026-11-21 | "Yg jelas kerasa mah point perhitungan (tay)" on the new site | Fixed in working tree: new online matches use the house-rule match column, shared with practice; running matches keep frozen rules. Online receipt, per-hand history and live Kong koin now follow solo. | Unreleased | `tests/session/online-parity.test.ts`, `tests/server/room.test.ts`, `tests/ui/online-parity.test.ts`, `tests/net/remote-table.test.ts` |
+| 2026-11-21 | "Yg jelas kerasa mah point perhitungan (tay)" on the new site | Fixed: new online matches use the house-rule match column, shared with practice; running matches keep frozen rules. Online receipt, per-hand history and live Kong koin now follow solo. | 1.6.0 | `tests/session/online-parity.test.ts`, `tests/server/room.test.ts`, `tests/ui/online-parity.test.ts`, `tests/net/remote-table.test.ts` |
 
 ## Lessons (check these every time)
 - **Parity:** a feature in single player should exist online too, and the other way round (standings, Tay rules, history). Both 1.5.1 and the open Tay report were parity gaps.
