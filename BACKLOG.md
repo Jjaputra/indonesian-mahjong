@@ -32,10 +32,7 @@ Not planned for now: ranks, a cosmetics shop, voice chat.
 
 ## Multiplayer follow-ups (after v0.7.0)
 
-- Online match history: save finished online matches to each player's Riwayat with an `online` flag.
-- Discard order after a reload: the client rebuilds the discard trail round-robin from the dealer, so a Kong turn's two discards can show in the wrong order. The view needs a global discard sequence.
 - Move a seat to another device without an account (a short transfer code).
-- Usage alert before the group grows: about 1,600 Durable Object row writes per 16-hand match; the free plan allows 100k a day.
 - Retire the GitHub Pages copy: redirect plus a one-time localStorage move to indomahjong.pages.dev, then make the repo private after 2–4 weeks.
 
 ## Multiplayer decisions (players, WhatsApp 2026-11-15)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.8.3] - 2026-11-23
+### Changed
+- Behind the scenes: the room server writes the "your room" list to the database only when someone sits, stands or leaves (plus a refresh every 10 minutes), not on every move. That cuts daily database writes by about 90% and keeps the free plan far from its limit.
+### Added
+- Operations: a daily check of Cloudflare free-plan usage that emails the owner when anything passes 70%, and server logs and traces in the Cloudflare dashboard.
+
 ## [1.8.2] - 2026-11-22
 ### Fixed
 - The table fits every screen we checked: 21 sizes from a 360px phone to a 1920px desktop, including phones held sideways and the Xiaomi tablet range. On a phone held sideways the discards stay inside their frame and "SISA" is no longer covered. Melds and flowers no longer touch a player's name or hand, and "Waktu hampir abis" no longer covers the claim buttons. Claim buttons stay on one line, names and badges are at least 10px, and the header buttons are easier to tap.
