@@ -73,6 +73,14 @@
   background: rgba(0, 0, 0, 0.22); color: var(--brand-cream-hi); font-size: 13px; line-height: 1.35; min-width: 0;
 }
 .mp-account.is-out { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; }
+/* Logged in: name and actions on top, then the allowance pills, then the opt-in, each on its own full-width row. */
+.mp-account.is-in { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "who actions" "allowance allowance" "optin optin"; gap: 6px 10px; }
+.mp-account.is-in .mp-account-who { grid-area: who; }
+.mp-account.is-in .mp-account-actions { grid-area: actions; }
+.mp-account-allowance { grid-area: allowance; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.mp-account-allowance .mp-pill { max-width: 100%; white-space: normal; }
+.mp-account-optin { grid-area: optin; display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.mp-account-optin input { flex: none; margin-top: 2px; }
 .mp-account p { margin: 0; }
 .mp-account-note { font-weight: 600; text-align: left; }
 .mp-google { min-height: 44px; min-width: 190px; max-width: 100%; overflow: hidden; display: flex; align-items: center; justify-content: flex-end; }
@@ -96,9 +104,6 @@
 .mp-account-standalone .mp-account { margin: 0; }
 @media (max-width: 560px) {
   .mp-account { grid-template-columns: minmax(0, 1fr) auto; }
-  .mp-account.is-in { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-  .mp-account.is-in .mp-pill { justify-self: start; max-width: 100%; white-space: normal; }
-  .mp-account.is-in .mp-account-actions { justify-content: space-between; }
   .mp-account.is-out { grid-template-columns: minmax(0, 1fr); }
   .mp-google { min-width: 0; justify-content: flex-start; }
 }
