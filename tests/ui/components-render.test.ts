@@ -2,7 +2,7 @@
  * Server-render smoke tests (Vitest runs in node without a DOM): every screen renders
  * without throwing and shows its key Bahasa Indonesia labels.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import App from '@/App';
@@ -38,7 +38,11 @@ function finishedGame(): GameController {
 }
 
 describe('UI render smoke tests', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   it('App first renders the main menu without dealing', () => {
+    // CI builds with VITE_MP_SERVER set; this case pins the no-server menu.
+    vi.stubEnv('VITE_MP_SERVER', '');
     const html = renderToString(createElement(App));
     expect(html).toContain('alt="maciokYU!"');
     expect(html).toContain('Mahjong Indonesia di browser');
