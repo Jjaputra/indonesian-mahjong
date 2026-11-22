@@ -939,6 +939,8 @@ button.tile {
 .overlay {
   position: fixed;
   inset: 0;
+  height: 100vh;
+  height: 100dvh;
   z-index: 50;
   display: flex;
   background: rgba(31, 42, 48, 0.45);
@@ -955,7 +957,9 @@ button.tile {
 .panel {
   display: flex;
   flex-direction: column;
+  /* dvh: on a tablet with browser chrome 100vh is taller than what shows, and the footer ends up off screen. */
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line);
@@ -970,13 +974,16 @@ button.tile {
 .panel-drawer {
   width: min(760px, 100%);
   max-height: 100vh;
+  max-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   border-radius: 0;
   animation: slide 0.2s ease-out;
 }
 .panel-header,
 .panel-footer {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
@@ -994,8 +1001,20 @@ button.tile {
   flex-wrap: wrap;
 }
 .panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 14px 16px;
   overflow: auto;
+  overscroll-behavior: contain;
+}
+/* Short landscape screens (phones, tablets under browser chrome): tighter bars so the body keeps room and the footer stays on screen. */
+@media (max-height: 760px) {
+  .overlay-dialog { padding: 8px; }
+  .panel { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
+  .panel-header, .panel-footer { padding: 6px 12px; }
+  .panel-header h2 { font-size: 16px; }
+  .panel-footer .btn { min-height: 38px; padding-top: 4px; padding-bottom: 4px; }
+  .panel-body { padding: 10px 12px; }
 }
 
 /* ---------- Receipt / tables ---------- */
@@ -1624,6 +1643,7 @@ select {
   }
   .panel {
     max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
   }
   .panel-header,
   .panel-footer {
@@ -2457,6 +2477,10 @@ select {
 @media (min-width: 901px) and (max-height: 760px) {
   .table-felt .human-area .hand-row { padding-top: 12px; padding-bottom: 4px; }
   .table-felt .hud-btn { min-height: 46px; font-size: 19px; }
+  /* Landscape tablet with browser chrome: the pill strip is only as tall as the pills, so the pool frame keeps the rest. */
+  .table-felt .center-area { padding-bottom: 54px; }
+  .board-plane { padding-top: 24px; padding-bottom: 22px; }
+  .table-felt .human-area .bonus-rack .tile { --w: 24px; --h: 32px; }
 }
 @media (min-width: 901px) and (max-width: 1150px) {
   :root { --hud-rail: 240px; }

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-11-22
+### Fixed
+- On a landscape tablet the discard pool stays readable. Before, tiles shrank once the pool reached its second row. The pool now picks its columns and size from the space it really has, solo and online.
+- On a short screen the Hu receipt and the Klasemen akhir scroll inside, and their buttons (Lanjut, Ke menu, Main lagi) always stay visible at the bottom.
+- The account panel in Main bareng no longer squeezes on a tablet: name and buttons on top, host quota and reset below, the news checkbox last.
+- After logging in, the old "Masuk pakai Google dulu, baru buat room." note goes away.
+
 ## [1.7.1] - 2026-11-22
 ### Changed
 - Every text in the game is rewritten to sound like a person, not a manual. It is short and relaxed, says "kamu" only where it's needed, has no slogans, and every error says what to do next. Rule explanations keep every fact. The menu tagline is "Mahjong Indonesia di browser", the side panel is "Opsi", the leave button is "Ke menu" everywhere, and the WhatsApp invite says "Yuk main maciokYU! bareng.".

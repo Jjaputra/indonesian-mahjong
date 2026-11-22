@@ -104,6 +104,71 @@ export function OpponentPanel({ seat, position, controller, reveal, names = PLAY
   );
 }
 
+/** A pool tile is this many times taller than wide (`--h` in the pool rules of index.css). */
+const POOL_TILE_RATIO = 1.34;
+/** The last row's seat mark hangs this far below its tile. */
+const POOL_MARK_PAD = 3;
+
+export interface PoolFitInput {
+  /** Pool content box, px */
+  width: number;
+  height: number;
+  count: number;
+  /** Gap between tiles in a row / between rows, px */
+  gap: number;
+  rowGap: number;
+  /** The stylesheet's `--pool-cols` for this layout: the size a tile has when the pool is not crowded */
+  baseCols: number;
+  /** Below this width a tile is only used when nothing larger fits, px */
+  minTile?: number;
+}
+
+export interface PoolFit {
+  cols: number;
+  /** Multiplies the width `cols` gives a tile; 1 unless a few discards would otherwise grow past the cap */
+  scale: number;
+  /** Tile width and row gap that result, px */
+  tile: number;
+  rowGap: number;
+}
+
+/**
+ * Column count and scale for the discard pool: the widest tiles that still hold every discard in the
+ * frame. A tall frame gets fewer columns and more rows, a wide one more columns; a handful of
+ * discards never grow past a cap, so tiles only shrink as the pool fills. The row gap tightens
+ * only when tiles would otherwise fall below `minTile`.
+ */
+export function fitDiscardPool({ width, height, count, gap, rowGap, baseCols, minTile = 22 }: PoolFitInput): PoolFit {
+  const widthAt = (cols: number) => (width - 1 - (cols - 1) * gap) / cols;
+  const base = Math.max(1, baseCols);
+  const fallback: PoolFit = { cols: base, scale: 1, tile: Math.max(0, widthAt(base)), rowGap };
+  if (width <= 0 || height <= 0 || count <= 0) return fallback;
+  const baseTile = Math.max(0, widthAt(base));
+  const cap = Math.max(baseTile, Math.min(38, baseTile * 1.25));
+  const best = (rg: number): PoolFit | null => {
+    let found: PoolFit | null = null;
+    // Per row count: the tallest tiles the height allows, held back by the width a full row needs and by the cap.
+    for (let rows = 1; rows <= count; rows++) {
+      const tile = Math.min(cap, (height - POOL_MARK_PAD - (rows - 1) * rg) / (rows * POOL_TILE_RATIO), widthAt(Math.ceil(count / rows)));
+      if (tile < 2 || (found && tile <= found.tile)) continue;
+      // Columns are what a row of this tile width holds (never fewer than the discards need); scale trims the stylesheet's width to it.
+      const cols = Math.max(1, Math.floor((width - 1 + gap) / (tile + gap)));
+      found = { cols, scale: tile / widthAt(cols), tile, rowGap: rg };
+    }
+    return found;
+  };
+  const roomy = best(rowGap);
+  if (roomy && roomy.tile >= minTile) return roomy;
+  const tight = best(Math.min(rowGap, POOL_MARK_PAD + 1));
+  const pick = tight && (!roomy || tight.tile > roomy.tile) ? tight : roomy;
+  if (pick) return pick;
+  // Not even 2px tiles hold this many discards: keep the stylesheet's size and let the last rows clip.
+  return fallback;
+}
+
+/** Reads a computed px length (`row-gap` can be "normal" before layout), falling back to `or`. */
+const px = (value: string, or: number) => (Number.isFinite(parseFloat(value)) ? parseFloat(value) : or);
+
 export function CenterArea({ controller, progress, names = PLAYER_NAME }: { controller: GameController; progress?: ReactNode; names?: SeatNames }) {
   const s = controller.getState();
   const pending = s.discardPending;
@@ -119,12 +184,27 @@ export function CenterArea({ controller, progress, names = PLAYER_NAME }: { cont
   useLayoutEffect(() => {
     const pool = poolRef.current;
     if (!pool) return;
-    // Tiles take the frame width / --pool-cols; late in a hand, when rows run out, shrink them until all fit.
+    // Columns and scale come from the frame's real width and height (fitDiscardPool), so tiles stay as large as every discard allows.
     const fit = () => {
-      let scale = 1;
+      pool.style.removeProperty('--pool-cols');
+      pool.style.removeProperty('row-gap');
       pool.style.setProperty('--pool-scale', '1');
-      while (scale > 0.4 && pool.scrollHeight > pool.clientHeight + 1) {
-        scale = Math.round((scale - 0.05) * 100) / 100;
+      const css = getComputedStyle(pool);
+      const result = fitDiscardPool({
+        width: pool.clientWidth,
+        height: pool.clientHeight,
+        count: pool.querySelectorAll('.pool-tile').length,
+        gap: px(css.columnGap, 3),
+        rowGap: px(css.rowGap, 8),
+        baseCols: Number(css.getPropertyValue('--pool-cols')) || 17,
+      });
+      pool.style.setProperty('--pool-cols', String(result.cols));
+      pool.style.setProperty('--pool-scale', String(Math.round(result.scale * 1000) / 1000));
+      pool.style.setProperty('row-gap', `${result.rowGap}px`);
+      // Rounding or an odd frame can still leave a row over: shrink in small steps as a last resort.
+      let scale = result.scale;
+      while (scale > 0.3 && pool.scrollHeight > pool.clientHeight + 1) {
+        scale = Math.round((scale - 0.03) * 1000) / 1000;
         pool.style.setProperty('--pool-scale', String(scale));
       }
     };

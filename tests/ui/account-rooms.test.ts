@@ -19,6 +19,8 @@ it('offers the account room on a device without a local seat token and keeps ema
   expect(panel).toContain('Kabari lewat email soal Premium dan update maciokYU!');
   expect(panel).toContain('type="checkbox"');
   expect(panel).not.toContain('checked=""');
+  // Name and actions, the allowance pills, and the opt-in each get their own row, so nothing is squeezed on a tablet.
+  expect(panel).toMatch(/class="mp-account-who"[\s\S]*class="mp-account-allowance"[\s\S]*class="mp-account-optin"/);
   await signOut();
 });
 

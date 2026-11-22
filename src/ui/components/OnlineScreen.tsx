@@ -35,6 +35,8 @@ function Avatar({ name, picture }: { name: string; picture: string | null }) {
   </span>;
 }
 
+const LOGIN_TO_CREATE = 'Masuk pakai Google dulu, baru buat room.';
+
 export function AccountPanel({ onError, onClear, error }: { onError: (message: string) => void; onClear?: () => void; error?: string | null }) {
   const account = useAccount();
   const config = useConfig();
@@ -60,9 +62,9 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
   return <div className={`mp-account ${account ? 'is-in' : 'is-out'}`} role="group" aria-label="Akun pemain">
     {account ? <>
       <span className="mp-account-who"><Avatar name={account.name} picture={account.picture} /><span className="mp-account-name" title={account.name}>{account.name}</span></span>
-      <span className="mp-pill">{account.premium ? 'Jatah host: tanpa batas' : `Jatah host hari ini: sisa ${account.remainingMatches} dari ${config.dailyMatchLimit} match`}</span>
-      <AllowanceReset remaining={account.remainingMatches ?? Infinity} />
-      <label><input type="checkbox" checked={account.newsOptIn === true} onChange={e => { void setNewsOptIn(e.target.checked).catch(error => onError(error.message)); }} /> Kabari lewat email soal Premium dan update maciokYU!</label>
+      <span className="mp-account-allowance"><span className="mp-pill">{account.premium ? 'Jatah host: tanpa batas' : `Jatah host hari ini: sisa ${account.remainingMatches} dari ${config.dailyMatchLimit} match`}</span>
+      <AllowanceReset remaining={account.remainingMatches ?? Infinity} /></span>
+      <label className="mp-account-optin"><input type="checkbox" checked={account.newsOptIn === true} onChange={e => { void setNewsOptIn(e.target.checked).catch(error => onError(error.message)); }} /> Kabari lewat email soal Premium dan update maciokYU!</label>
       <span className="mp-account-actions">
         <button type="button" className="mp-link" onClick={attempt(() => { void signOut().catch(error => onError(error.message)); })}>Keluar</button>
         <button type="button" className="mp-link mp-link-quiet" onClick={attempt(() => {
@@ -161,6 +163,8 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
   const [authError, setAuthError] = useState<string | null>(null);
   const clearAuthError = useCallback(() => setAuthError(null), []);
   useEffect(() => { void openAuth(server).catch(() => setAuthError('Gagal masuk. Coba lagi.')).finally(() => setAuthReady(true)); }, [server]);
+  // The login reminder from an earlier Buat room no longer applies once someone is logged in.
+  useEffect(() => { if (account) setError(e => e === LOGIN_TO_CREATE ? null : e); }, [account?.id]);
   const [toastText, setToastText] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastRoom, setLastRoom] = useState(() => loadLastRoom());
@@ -238,7 +242,7 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
 
   const resumeRoom = account?.currentRoom ? { code: account.currentRoom.code, name: account.name, token: loadRoom(account.currentRoom.code)?.token ?? '' } : account ? null : lastRoom;
   const create = async (config: RoomConfig, name: string, replace = false) => {
-    if (!account && onlineLoginRequired()) { setError('Masuk pakai Google dulu, baru buat room.'); return; }
+    if (!account && onlineLoginRequired()) { setError(LOGIN_TO_CREATE); return; }
     await refreshAccount().catch(() => {});
     if (!replace && authStore.get()?.currentRoom) { setPendingCreate({ config, name }); return; }
     setBusy(true);
