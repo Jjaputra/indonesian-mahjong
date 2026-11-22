@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -50,6 +51,11 @@ describe('room menu', () => {
     const html = renderToStaticMarkup(createElement(OnlineMenu, { initialStep: 'create', inviteCode: 'ABC234', busy: false, error: null, onCreate: noop, onJoin: noop, onBack: noop }));
     expect(html).toContain('<h2>Gabung room</h2>');
     expect(html).toContain('value="ABC234"');
+  });
+  it('the room code field is clamped to its card so the join form cannot scroll sideways', () => {
+    const css = readFileSync('src/ui/online.css', 'utf8');
+    expect(css).toMatch(/\.mp-field input \{[^}]*box-sizing: border-box; width: 100%; max-width: 100%;/);
+    expect(css).toMatch(/\.mp-field > \* \{ min-width: 0; max-width: 100%; \}/);
   });
 });
 

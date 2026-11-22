@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-11-22
+### Fixed
+- The table fits every screen we checked: 21 sizes from a 360px phone to a 1920px desktop, including phones held sideways and the Xiaomi tablet range. On a phone held sideways the discards stay inside their frame and "SISA" is no longer covered. Melds and flowers no longer touch a player's name or hand, and "Waktu hampir abis" no longer covers the claim buttons. Claim buttons stay on one line, names and badges are at least 10px, and the header buttons are easier to tap.
+- On a phone held sideways, chat and Opsi take turns: opening one closes the other, and the CHAT tab is always reachable. Turning the phone back restores what was open.
+- Typing in chat on a phone no longer flips the table into the landscape layout when the keyboard opens.
+- The Gabung room form no longer scrolls sideways on a 360px phone.
+- On a short laptop or tablet screen (up to 690px tall), the collapsed chat is a slim tab beside the table, so it no longer covers the right player's name. With Opsi open, the chat keeps showing its last 2 lines.
+
 ## [1.8.1] - 2026-11-22
 ### Fixed
 - On a phone held sideways, chat no longer covers the table. Collapsed, it is a small CHAT tab next to Opsi with a dot for new messages. Opened, it is a narrow drawer on the right, and the pool, the hand, the claim buttons and every seat stay visible. The quick reactions scroll in one row.
