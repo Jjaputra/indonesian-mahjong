@@ -7,7 +7,6 @@ import { Wall } from '@/core/wall';
 import { getPreset, MemoryStorage } from '@/storage';
 import { GameController } from '@/ui/game-controller';
 import { createMatch, nextSeating, recordHand, remainingMatchMs, watchMatchClock, loadMatchTimeLimit, saveMatchTimeLimit } from '@/ui/match';
-import { MainMenu } from '@/ui/components/MainMenu';
 import { MatchClock, MatchScoreboard, MatchResultNote, MatchStandingsModal } from '@/ui/components/MatchBoard';
 
 const minute = 60_000;
@@ -52,11 +51,7 @@ describe('optional real-time match limit', () => {
     saveMatchTimeLimit(90, storage); expect(loadMatchTimeLimit(storage)).toBe(90);
     saveMatchTimeLimit(null, storage); expect(loadMatchTimeLimit(storage)).toBeNull();
     storage.setItem('itm.match-time-limit.v1', '5'); expect(loadMatchTimeLimit(storage)).toBeNull();
-    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, timeLimitMinutes: null, onTimeLimitChange: noop, initialStep: 'solo' }));
-    expect(html).toContain('role="radiogroup" aria-label="Batas waktu"');
-    expect(html).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Tanpa batas (default)</button>');
-    expect(html).toContain('<button type="button" role="radio" aria-checked="false">90 menit</button>');
-    expect(html).toContain('90 menit');
+
   });
 
   it('time expiry leaves the active hand playable, then counts its Hu and ends by time', () => {

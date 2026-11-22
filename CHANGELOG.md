@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-22
+### Changed
+- Single player is gone; the game is online only. The front menu has two buttons, Buat room and Gabung room, plus Lanjut room when a seat is still held. To play alone, make a room and turn on "Isi pakai bot". A refresh brings you back to the room.
+- Dev mode is removed for players.
+### Added
+- Chat in online rooms. A panel at the top right, under the Angin meja and Kim card, shows the last 2 messages and opens like Opsi to read the rest, type a message (up to 120 characters) or send a quick reaction. Reactions no longer pop up on the table, only in the chat. The last 50 messages stay with the room and are deleted with it.
+
 ## [1.7.2] - 2026-11-22
 ### Fixed
 - On a landscape tablet the discard pool stays readable. Before, tiles shrank once the pool reached its second row. The pool now picks its columns and size from the space it really has, solo and online.

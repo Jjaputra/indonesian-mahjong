@@ -2,12 +2,10 @@ import { useRef, useState } from 'react';
 import { RotateCcw, Save } from 'lucide-react';
 import {
   getPreset,
-  type AIDifficulty,
   type GameSettings,
   type SettingsPresetName,
 } from '../../storage';
 import { soundEffects } from '../../audio';
-import { DIFFICULTY_LABEL } from '../labels';
 import { usePwaInstall } from '../pwa-install';
 import { ContactLine } from './ContactLine';
 import { Modal } from './Modal';
@@ -18,9 +16,6 @@ interface SettingsModalProps {
   onSave: (settings: GameSettings) => void;
   onClose: () => void;
   onAudioChange?: (patch: Partial<Pick<GameSettings, 'soundEnabled' | 'musicEnabled' | 'musicVolume' | 'masterVolume' | 'effectsVolume'>>) => void;
-  /** Developer mode applies at once too (device preference, see src/dev). */
-  devMode?: boolean;
-  onDevModeChange?: (on: boolean) => void;
 }
 
 /** Applies a preset's rules while keeping presentation preferences (same as storage.applyPreset). */
@@ -52,7 +47,7 @@ function Toggle({ label, hint, checked, disabled, onChange }: { label: string; h
   );
 }
 
-export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMode = false, onDevModeChange }: SettingsModalProps) {
+export function SettingsModal({ settings, onSave, onClose, onAudioChange }: SettingsModalProps) {
   const [initialAudio] = useState(() => ({
     soundEnabled: settings.soundEnabled, musicEnabled: settings.musicEnabled,
     musicVolume: settings.musicVolume, masterVolume: settings.masterVolume, effectsVolume: settings.effectsVolume,
@@ -89,19 +84,6 @@ export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMod
       <div className="settings">
         <section>
           <h3>Cara main</h3>
-          <p className="field-note">Kim diatur di menu utama, sebelum match mulai.</p>
-          <div className="field">
-            <span>Level bot</span>
-            <div className="segmented" role="group" aria-label="Level bot">
-              {(['easy', 'normal', 'hard'] as AIDifficulty[]).map((d) => (
-                <button key={d} type="button" className={draft.aiDifficulty === d ? 'is-on' : ''} aria-pressed={draft.aiDifficulty === d} onClick={() => set('aiDifficulty', d)}>
-                  {DIFFICULTY_LABEL[d]}
-                </button>
-              ))}
-            </div>
-          </div>
-          <Toggle label={`Animasi tile: ${draft.animationSpeed === 'off' ? 'mati' : 'nyala'}`}
-            checked={draft.animationSpeed !== 'off'} onChange={enabled => set('animationSpeed', enabled ? 'slow' : 'off')} />
           <Toggle label="Layar tetap nyala saat main" checked={draft.keepScreenOn} onChange={v => set('keepScreenOn', v)} />
         </section>
         <section className="install-app">
@@ -129,11 +111,6 @@ export function SettingsModal({ settings, onSave, onClose, onAudioChange, devMod
           </label>
           <p className="field-note">Audio langsung berlaku dan tersimpan.</p>
         </section>
-        {onDevModeChange && <section className="dev-settings">
-          <h3>Developer</h3>
-          <Toggle label="Mode developer" checked={devMode} onChange={onDevModeChange} />
-          <p className="field-note dev-warning" role="note">Untuk cek skor. Game di mode ini tidak dicatat ke riwayat.</p>
-        </section>}
         <ContactLine />
       </div>
     </Modal>

@@ -5,7 +5,6 @@ import { SEAT_ORDER } from '../../src/core/tiles';
 import type { Tile } from '../../src/core/types';
 import { TableSession } from '../../src/session';
 import { DEFAULT_SETTINGS, TOURNAMENT_SETTINGS, MemoryStorage, SETTINGS_STORAGE_KEY, loadSettings, saveSettings } from '../../src/storage';
-import { MenuSolo } from '../../src/ui/components/MainMenu';
 import { RoomConfigFields } from '../../src/ui/components/RoomConfigFields';
 import { DEFAULT_ROOM_CONFIG } from '../../src/net/protocol';
 
@@ -89,11 +88,7 @@ describe('House rules, players 2026-11-16', () => {
     expect(loadSettings(store)).toMatchObject({ kimMode: 'off', minHuTay: 3 });
   });
 
-  it.each(['off', 'natural', 'dedicated'] as const)('menu and room choose the correct minimum for %s', mode => {
-    const change = vi.fn();
-    const menu = MenuSolo({ onPractice: () => {}, lastResult: null, onKimModeChange: change, onBack: () => {} });
-    findChoice(menu, 'Kim')!.onChange(mode as never);
-    expect(change).toHaveBeenCalledWith(mode, mode === 'off' ? 3 : 5);
+  it.each(['off', 'natural', 'dedicated'] as const)('room chooses the correct minimum for %s', mode => {
     let config = { ...DEFAULT_ROOM_CONFIG };
     const room = () => RoomConfigFields({ config, onChange: patch => { config = { ...config, ...patch }; } });
     findChoice(room(), 'Kim')!.onChange(mode as never);

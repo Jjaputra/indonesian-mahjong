@@ -4,6 +4,7 @@ Every report from the WhatsApp group: what was asked, what we did, and the test 
 
 | Date | Report (group's words) | Status | Version | Guard |
 | --- | --- | --- | --- | --- |
+| 2026-11-22 | "tambah menu chat juga … di kanan atas, bisa di hide kaya OPSI … chat / emo notif gak usah di show di meja" (mockup) | Done: collapsible chat panel, last 2 lines, no table bubbles | 1.8.0 | `tests/ui/online-chat.test.ts`, `tests/server/room.test.ts`, `tests/net/remote-table.test.ts` |
 | 2026-11-22 | "Mode main sendiri. Itu kalau ke refresh jadi balik ke awal" (video) | Jason: remove single player; a room with bots already comes back after a refresh | 1.8.0 | |
 | 2026-11-22 | "Knapa ini kecil banget … kalau buangan udah ke baris ke-2 buangannya mengecil" (Xiaomi tablet, landscape) | Fixed: the pool fits columns and scale to its real frame | 1.7.2 | `tests/ui/pool-fit.test.ts` |
 | 2026-11-22 | Hu popup on a tablet: "ga mau kebawah buttonnya ilang" (video) | Fixed: the modal body scrolls, the footer stays | 1.7.2 | `tests/ui/modal-short-viewport.test.ts` |

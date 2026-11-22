@@ -1,6 +1,13 @@
 import { keyToTile } from '../core/tiles';
 import type { Meld, Seat, Tile } from '../core/types';
-import type { GameController } from './game-controller';
+import { GameController } from './game-controller';
+import { createElement as h, Fragment, useCallback, useState, useSyncExternalStore } from 'react';
+import { loadSettings, withPracticeScoringDefaults } from '../storage';
+import { ActionHud, CenterArea, HumanArea, OpponentPanel, PracticeCoach, seatPositions } from './components/GameTable';
+import { DiceRoll } from './components/DiceRoll';
+import { HuResultModal } from './components/HuResultModal';
+import { MatchResultNote, MatchStandingsModal } from './components/MatchBoard';
+import { KongToast } from './components/CallToast';
 import { isMatchOver, recordHand, roundScore, kongPayment, type KongPayment } from './match';
 import { gameDeltas } from '../core/round-score';
 import type { DevHand } from '../dev/hand-code';
@@ -29,6 +36,50 @@ export function demoFromUrl(search: string): { mode: DemoMode; seed: number; win
   if (mode !== 'table' && mode !== 'late' && mode !== 'claim' && mode !== 'hu' && mode !== 'seri' && mode !== 'dice' && mode !== 'melds' && mode !== 'final') return null;
   const win = params.get('win');
   return { mode, seed: Number(params.get('seed') ?? 7) || 7, win: win === 'ce_mo' || win === 'buangan' || win === 'chiong_kong' ? win : null, kong: params.get('kong') === '1' };
+}
+
+/** Loaded by App only in development; no automation, saves, or player-facing entry. */
+export function DemoPreview({ search }: { search: string }) {
+  const [preview] = useState(() => {
+    const demo = demoFromUrl(search)!;
+    const controller = new GameController({ settings: withPracticeScoringDefaults(loadSettings()), autoStart: false, seed: demo.seed, saveHistory: false, devMode: true });
+    controller.startMatch('stay', null, 'none');
+    if (demo.mode !== 'dice') {
+      driveDemo(controller, demo.mode === 'melds' || demo.mode === 'seri' ? 'table' : demo.mode === 'final' ? 'hu' : demo.mode);
+      if (demo.mode === 'melds') stackDemoMelds(controller);
+      if (demo.mode === 'seri') seriDemo(controller);
+      if (demo.win) restyleDemoWin(controller, demo.win);
+      if (demo.kong) addDemoKongs(controller);
+      if (demo.mode === 'final') finishDemoMatch(controller);
+    }
+    return { demo, controller };
+  });
+  const { demo, controller } = preview;
+  useSyncExternalStore(useCallback((cb: () => void) => controller.subscribe(cb), [controller]), () => controller.version, () => controller.version);
+  const [selectedId, onSelect] = useState<string | null>(null);
+  const [resultOpen, setResultOpen] = useState(new URLSearchParams(search).get('result') !== 'closed');
+  const [standingsOpen, setStandingsOpen] = useState(demo.mode === 'final');
+  const [diceOpen, setDiceOpen] = useState(demo.mode === 'dice');
+  const actions = controller.getHumanActions();
+  const pos = seatPositions(controller.humanSeat);
+  const outcome = controller.outcome;
+  return h(Fragment, null,
+    h('main', { className: 'table-felt', inert: diceOpen || undefined },
+      h(OpponentPanel, { seat: pos.top, position: 'top', controller }),
+      h(OpponentPanel, { seat: pos.left, position: 'left', controller }),
+      h(CenterArea, { controller }),
+      h(OpponentPanel, { seat: pos.right, position: 'right', controller }),
+      h('div', { className: 'seat-bottom' }, h(HumanArea, { controller, actions, selectedId, onSelect,
+        hud: h(ActionHud, { controller, actions, selectedId, onSelect }),
+        coach: h(PracticeCoach, { controller, actions, selectedId }),
+      }), outcome && !resultOpen && h('button', { type: 'button', className: 'btn btn-gold result-reopen', onClick: () => setResultOpen(true) }, 'Lihat hasil game'))),
+    h(KongToast, { payments: controller.currentKongPayments }),
+    outcome && resultOpen && !standingsOpen && h(HuResultModal, { outcome, onClose: () => setResultOpen(false), onNewGame: () => setResultOpen(false),
+      onStandings: controller.matchOver ? () => { setResultOpen(false); setStandingsOpen(true); } : undefined,
+      matchSummary: controller.match ? h(MatchResultNote, { match: controller.match }) : undefined,
+    }),
+    standingsOpen && controller.match && h(MatchStandingsModal, { match: controller.match, onPlayAgain: () => setStandingsOpen(false), onMenu: () => setStandingsOpen(false) }),
+    diceOpen && h(DiceRoll, { roll: controller.match?.openingRoll ?? DEMO_OPENING_ROLL, humanSeat: controller.humanSeat, onDone: () => setDiceOpen(false) }));
 }
 
 /** `?demo=seri`: ends the current hand as a wall-out Seri (fabricated, for screenshots). */

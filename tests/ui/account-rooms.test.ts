@@ -4,6 +4,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { openAuth, signOut } from '../../src/net/auth';
 import { AccountPanel, OnlineScreen } from '../../src/ui/components/OnlineScreen';
+import App from '../../src/App';
 
 afterEach(() => vi.unstubAllGlobals());
 const noop = () => {};
@@ -13,7 +14,9 @@ it('offers the account room on a device without a local seat token and keeps ema
     ? Response.json({ loginRequired: true })
     : Response.json({ id: 'u', name: 'Jason', picture: null, premium: false, remainingMatches: 5, currentRoom: { code: 'ABCDEF', phase: 'playing' }, newsOptIn: false })));
   await openAuth('https://mp.example');
-  const html = renderToStaticMarkup(createElement(OnlineScreen, { server: 'https://mp.example', inviteCode: null, resume: false, onTableChange: noop, optionsOpen: false, onOptionsOpenChange: noop, onExit: noop }));
+  vi.stubEnv('VITE_MP_SERVER', 'https://mp.example');
+  const html = renderToStaticMarkup(createElement(App));
+  vi.unstubAllEnvs();
   expect(html).toContain('Lanjut room ABCDEF');
   const panel = renderToStaticMarkup(createElement(AccountPanel, { onError: noop }));
   expect(panel).toContain('Kabari lewat email soal Premium dan update maciokYU!');

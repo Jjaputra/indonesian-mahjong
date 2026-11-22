@@ -2,7 +2,7 @@ import { SEAT_ORDER } from '../src/core/tiles';
 import type { Seat } from '../src/core/types';
 import { TableSession, type SerializedSession, type HandSeed } from '../src/session';
 import { DEFAULT_SETTINGS, practiceScoringSettings } from '../src/storage';
-import { DEFAULT_ROOM_CONFIG, REACTIONS, MAX_SPECTATORS, NAME_MAX_LENGTH, normalizeName, type SeatDice, type RoomConfig, type RoomInfo, type ServerMessage, type ErrorCode, type ClientMessage } from '../src/net/protocol';
+import { DEFAULT_ROOM_CONFIG, REACTIONS, MAX_SPECTATORS, NAME_MAX_LENGTH, CHAT_MAX_LENGTH, CHAT_HISTORY, CHAT_INTERVAL_MS, normalizeName, normalizeChat, type ChatLine, type SeatDice, type RoomConfig, type RoomInfo, type ServerMessage, type ErrorCode, type ClientMessage } from '../src/net/protocol';
 
 const RATE_BURST = 10;
 
@@ -27,6 +27,7 @@ export interface Socket {
   /** Token bucket for the per-socket rate limit; refilled from lastMessage. */
   burst?: number;
   lastActivity?: number;
+  /** When this person last sent a chat line or reaction; survives reconnects through the attachment. */
   lastReaction?: number;
 }
 export interface RoomData {
@@ -46,6 +47,8 @@ export interface RoomData {
   handEndedAt: number | null;
   ready?: string[];
   takeovers?: Seat[];
+  /** The last CHAT_HISTORY chat lines. Persisted with the room, never in D1 or logs, gone with the room. */
+  chat?: ChatLine[];
   seatDice?: SeatDice | null;
   schedule: { version: number; deadline: number | null; botAt: number | null } | null;
 }
@@ -58,7 +61,8 @@ export interface RoomIO {
   token(): string;
   seed(): HandSeed;
   log(message: string): void;
-  put(data: RoomData): Promise<void>;
+  /** `chatOnly` marks a write that only added a chat line, so the adapter can skip the D1 account bookkeeping. */
+  put(data: RoomData, opts?: { chatOnly?: boolean }): Promise<void>;
   deleteAll(): Promise<void>;
   setAlarm(at: number | null): Promise<void>;
   send(socket: Socket, message: ServerMessage): void;
@@ -78,6 +82,9 @@ export function validConfig(value: unknown): value is RoomConfig {
 }
 
 /** All authoritative mutations are serialized, including across asynchronous storage calls. */
+/** Chat and reaction limits follow the account, so a new token or socket doesn't reset them. */
+const rateKey = (s: Pick<Socket, 'userId' | 'token'>): string | undefined => s.userId ?? s.token;
+
 export class Room {
   data: RoomData | null;
   session: TableSession | null;
@@ -88,7 +95,7 @@ export class Room {
     this.data = data ? structuredClone(data) : null;
     this.session = data?.session ? TableSession.deserialize(data.session, io.now, io.seed) : null;
     if (this.session && this.data && !this.data.matchNames) this.captureMatchNames();
-    for (const socket of sockets) { this.sockets.set(socket.id, socket); if (socket.token && socket.lastReaction != null) this.reactionTimes.set(socket.token, socket.lastReaction); }
+    for (const socket of sockets) { this.sockets.set(socket.id, socket); const key = rateKey(socket); if (key && socket.lastReaction != null) this.reactionTimes.set(key, socket.lastReaction); }
   }
   private exclusive<T>(fn: () => Promise<T>): Promise<T> {
     const task = this.tail.then(fn);
@@ -201,12 +208,14 @@ export class Room {
         const name = normalizeName(m.name).slice(0, NAME_MAX_LENGTH).trimEnd();
         if (!name) { this.error(socket, 'bad_message', 'Isi nama dulu.'); return; }
         const owned = socket.userId ? Object.entries(d.people).find(([, p]) => p.userId === socket.userId && p.seat) : undefined;
-        let token = owned?.[0] ?? (m.token && Object.hasOwn(d.people, m.token) ? m.token : this.io.token());
+        // A logged-in spectator who lost the token comes back to the same unseated entry, not a new one each time.
+        const watching = socket.userId && !(m.token && Object.hasOwn(d.people, m.token)) ? Object.entries(d.people).find(([, p]) => p.userId === socket.userId && !p.seat) : undefined;
+        let token = owned?.[0] ?? (m.token && Object.hasOwn(d.people, m.token) ? m.token : watching?.[0] ?? this.io.token());
         const existing = d.people[token];
         // A room token can reconnect its account, never replace it with another account or anonymity.
         if (existing?.userId && existing.userId !== socket.userId) { this.error(socket, 'login_required', 'Masuk pakai akun yang dipakai buat kursi ini.'); return; }
         if (existing && !existing.userId && socket.userId && d.seatDice) { this.error(socket, 'wrong_phase', 'Tunggu match mulai dulu sebelum menghubungkan akun.'); return; }
-        if (!socket.userId && ((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired) && !existing) { this.error(socket, 'login_required', 'Masuk pakai Google dulu buat main bareng.'); return; }
+        if (!socket.userId && ((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired) && !existing) { this.error(socket, 'login_required', 'Masuk pakai Google dulu buat main online.'); return; }
         if (existing?.userId && existing.seat && this.connected(token) && m.token !== token && m.reclaim !== true) {
           this.safeSend(socket, { type: 'kicked', reason: 'replaced' });
           this.sockets.delete(socket.id); this.io.close(socket, 'replaced'); return;
@@ -236,6 +245,8 @@ export class Room {
           delete d.people[token];
           if (d.host === token) d.host = fresh;
           d.ready = d.ready?.map(t => t === token ? fresh : t);
+          const sent = this.reactionTimes.get(token);
+          if (sent !== undefined) this.reactionTimes.set(fresh, sent);
           this.reactionTimes.delete(token);
           token = fresh;
         }
@@ -244,7 +255,7 @@ export class Room {
           if (d.people[token]!.seat) { d.host = token; d.hostTransferPending = false; }
         }
         if (socket.userId === d.creatorUserId) d.creatorPending = false;
-        socket.token = token; socket.lastReaction = this.reactionTimes.get(token); socket.lastActivity = now; socket.seat = d.people[token]!.seat; this.io.attach(socket);
+        socket.token = token; socket.lastReaction = this.reactionTimes.get(rateKey({ userId: socket.userId, token })!); socket.lastActivity = now; socket.seat = d.people[token]!.seat; this.io.attach(socket);
         const seat = d.people[token]!.seat;
         if (seat) {
           this.session?.setConnected(seat, true);
@@ -257,7 +268,9 @@ export class Room {
         this.handoverHost();
         if (token === d.host && !d.hostTransferPending) d.hostOfflineAt = null;
         d.lastActivity = now; await this.save();
-        this.safeSend(socket, { type: 'welcome', token, seat, host: this.isHost(token), serverNow: now, room: this.info(), name: d.people[token]!.name }); this.broadcast(true); return;
+        this.safeSend(socket, { type: 'welcome', token, seat, host: this.isHost(token), serverNow: now, room: this.info(), name: d.people[token]!.name });
+        this.safeSend(socket, { type: 'chatHistory', lines: structuredClone(d.chat ?? []) });
+        this.broadcast(true); return;
       }
       const person = socket.token ? d.people[socket.token] : undefined;
       if (!person) { this.error(socket, 'bad_message', 'Sambungan belum siap. Refresh halaman.'); return; }
@@ -273,13 +286,24 @@ export class Room {
         }
         await this.save(); this.broadcast(true); try { this.io.close(socket); } catch { /* closed */ } return;
       }
-      if (m.type === 'reaction') {
-        if (!person.seat) { this.error(socket, 'not_seated', 'Penonton nggak bisa kirim reaksi.'); return; }
-        if (!this.session) { this.error(socket, 'wrong_phase', 'Game belum mulai.'); return; }
-        if (!Number.isInteger(m.preset) || m.preset < 0 || m.preset >= REACTIONS.length || Object.keys(m).length !== 2) { this.error(socket, 'bad_message', 'Reaksi nggak valid.'); return; }
-        if (now - (this.reactionTimes.get(socket.token!) ?? -Infinity) < 2000) { this.error(socket, 'rate_limited', 'Tunggu bentar sebelum kirim reaksi lagi.'); return; }
-        this.reactionTimes.set(socket.token!, now); socket.lastReaction = now; this.io.attach(socket);
-        for (const s of this.sockets.values()) this.safeSend(s, { type: 'event', text: REACTIONS[m.preset], seat: person.seat, reaction: m.preset });
+      if (m.type === 'reaction' || m.type === 'chat') {
+        let body: Pick<ChatLine, 'text' | 'reaction'>;
+        if (m.type === 'reaction') {
+          if (!Number.isInteger(m.preset) || m.preset < 0 || m.preset >= REACTIONS.length || Object.keys(m).length !== 2) { this.error(socket, 'bad_message', 'Reaksinya nggak valid.'); return; }
+          body = { reaction: m.preset };
+        } else {
+          const text = typeof m.text === 'string' ? normalizeChat(m.text) : '';
+          if (Object.keys(m).length !== 2 || !text) { this.error(socket, 'bad_message', 'Tulis pesannya dulu.'); return; }
+          if ([...text].length > CHAT_MAX_LENGTH) { this.error(socket, 'bad_message', `Pesan maksimal ${CHAT_MAX_LENGTH} karakter.`); return; }
+          body = { text };
+        }
+        const key = rateKey(socket)!;
+        if (now - (this.reactionTimes.get(key) ?? -Infinity) < CHAT_INTERVAL_MS) { this.error(socket, 'rate_limited', 'Pesan terlalu cepat. Tunggu bentar.'); return; }
+        this.reactionTimes.set(key, now); socket.lastReaction = now; this.io.attach(socket);
+        const line: ChatLine = { id: (d.chat?.at(-1)?.id ?? 0) + 1, at: now, seat: person.seat, name: (person.seat && d.matchNames?.[person.seat]) || person.name, ...body };
+        d.chat = [...(d.chat ?? []), line].slice(-CHAT_HISTORY);
+        await this.io.put(structuredClone(d), { chatOnly: true });
+        for (const s of this.sockets.values()) if (s.token && d.people[s.token]) this.safeSend(s, { type: 'chat', line });
         return;
       }
       if (m.type === 'rename') {
@@ -444,7 +468,7 @@ export class Room {
   private async authorize(socket: Socket | undefined, key?: string): Promise<boolean> {
     const error = await this.io.authorize?.(socket, key);
     if (!error) return true;
-    if (socket) this.error(socket, error, error === 'login_required' ? 'Host perlu masuk dulu. Balik ke menu Main bareng, lalu Masuk pakai Google.' : `Jatah host ${(await this.io.settings?.())?.dailyMatchLimit ?? 3} match hari ini udah abis. Coba lagi setelah reset 00.00 WIB.`);
+    if (socket) this.error(socket, error, error === 'login_required' ? 'Host perlu masuk dulu. Balik ke menu, lalu Masuk pakai Google.' : `Jatah host ${(await this.io.settings?.())?.dailyMatchLimit ?? 3} match hari ini udah abis. Coba lagi setelah reset 00.00 WIB.`);
     return false;
   }
   private captureMatchNames(): void {

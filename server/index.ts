@@ -41,9 +41,9 @@ export class RoomDO implements DurableObject {
           return await remaining(env.DB!, user, Date.now(), settings.dailyMatchLimit) === 0 ? 'daily_limit' : null;
         }, now: () => Date.now(), token: () => crypto.randomUUID(),
         seed: () => Array.from(crypto.getRandomValues(new Uint32Array(148))), log: message => console.warn(message),
-        put: async data => {
+        put: async (data, opts) => {
           await ctx.storage.put('room', data);
-          if (env.DB) {
+          if (env.DB && !opts?.chatOnly) {
             const statements = [env.DB.prepare('DELETE FROM account_rooms WHERE code=?').bind(data.code)];
             if (data.creatorPending && data.creatorUserId)
               statements.push(env.DB.prepare('INSERT INTO account_rooms (user_id,code,seat,last_activity) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET code=excluded.code,seat=excluded.seat,last_activity=excluded.last_activity').bind(data.creatorUserId, data.code, 'dong', data.lastActivity));

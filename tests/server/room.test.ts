@@ -386,17 +386,106 @@ describe('online tidy ups', () => {
     await h.send(host, { type: 'leave' }); expect(h.blob.host).toBe(player.token);
     expect(h.blob.people[watcher.token!]!.seat).toBeNull();
   });
-  it('broadcasts only preset reactions, limits across reconnect, and rejects spectators', async () => {
+  it('turns preset reactions into chat lines, limits across reconnect, and lets spectators react', async () => {
     const h = harness(); await h.create(); const host = await h.join(); await h.send(host, { type: 'start' }); await finishSeating(h);
     const watcher = await h.join('Watcher');
     await h.send(host, { type: 'reaction', preset: 0 });
-    expect(h.frames.get(watcher.id)!.at(-1)).toMatchObject({ type: 'event', reaction: 0, seat: 'dong' });
-    await h.send(host, { type: 'reaction', preset: 1 }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'rate_limited' });
+    expect(h.frames.get(watcher.id)!.at(-1)).toMatchObject({ type: 'chat', line: { reaction: 0, seat: 'dong', name: 'Nama' } });
+    await h.send(host, { type: 'reaction', preset: 1 }); h.now -= 50; expect(errors(h, host).at(-1)).toMatchObject({ code: 'rate_limited' });
     h.rebuild(); const returned = await h.join('Again', host.token);
     await h.send(returned, { type: 'reaction', preset: 2 }); expect(errors(h, returned).at(-1)).toMatchObject({ code: 'rate_limited' });
-    h.now += 2000; await h.send(returned, { type: 'reaction', preset: 7 }); expect(h.frames.get(watcher.id)!.at(-1)).toMatchObject({ reaction: 7 });
-    await h.room.message(returned, JSON.stringify({ type: 'reaction', preset: 8 })); expect(errors(h, returned).at(-1)).toMatchObject({ code: 'bad_message' });
-    await h.send(watcher, { type: 'reaction', preset: 0 }); expect(errors(h, watcher).at(-1)).toMatchObject({ code: 'not_seated' });
+    h.now += 2000; await h.send(returned, { type: 'reaction', preset: 7 }); expect(h.frames.get(watcher.id)!.at(-1)).toMatchObject({ line: { reaction: 7 } });
+    h.now += 2000; await h.room.message(returned, JSON.stringify({ type: 'reaction', preset: 8 })); expect(errors(h, returned).at(-1)).toMatchObject({ code: 'bad_message' });
+    await h.send(watcher, { type: 'reaction', preset: 0 }); expect(h.frames.get(returned.id)!.at(-1)).toMatchObject({ type: 'chat', line: { reaction: 0, seat: null, name: 'Watcher' } });
+  });
+  it('validates chat text: trims, 120 characters, no empty or extra fields', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host');
+    const say = async (m: unknown) => { h.now += 1100; await h.room.message(host, JSON.stringify(m)); };
+    await say({ type: 'chat', text: `  halo ${String.fromCharCode(10, 0)} semua  ` });
+    expect(h.frames.get(host.id)!.at(-1)).toMatchObject({ type: 'chat', line: { text: 'halo semua', seat: 'dong', name: 'Host' } });
+    await say({ type: 'chat', text: 'a'.repeat(120) }); expect(h.frames.get(host.id)!.at(-1)).toMatchObject({ type: 'chat', line: { text: 'a'.repeat(120) } });
+    await say({ type: 'chat', text: '😂'.repeat(120) }); expect(h.frames.get(host.id)!.at(-1)).toMatchObject({ type: 'chat' });
+    for (const bad of [{ type: 'chat', text: 'a'.repeat(121) }, { type: 'chat', text: '   ' }, { type: 'chat', text: String.fromCharCode(0x200b) }, { type: 'chat' }, { type: 'chat', text: 5 }, { type: 'chat', text: 'x', extra: 1 }]) {
+      const before = h.room.data!.chat!.length;
+      await say(bad); expect(errors(h, host).at(-1)).toMatchObject({ code: 'bad_message' }); expect(h.room.data!.chat).toHaveLength(before);
+    }
+    console.log(h.room.data!.chat!.map(l => `${l.id} ${l.name}: ${l.text}`.slice(0, 40)));
+  });
+  it('rate limits chat to one per second per person, across reconnect, and only for people in the room', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host'); const other = await h.join('Other');
+    const at = async (s: Socket, text: string, ms: number) => { h.now += ms - 101; await h.send(s, { type: 'chat', text }); };
+    await at(host, 'satu', 1500); expect(h.room.data!.chat).toHaveLength(1);
+    await at(host, 'dua', 500); expect(errors(h, host).at(-1)).toMatchObject({ code: 'rate_limited' }); expect(h.room.data!.chat).toHaveLength(1);
+    await at(other, 'lain orang', 200); expect(h.room.data!.chat).toHaveLength(2);
+    await at(host, 'tiga', 1000); expect(h.room.data!.chat).toHaveLength(3);
+    h.rebuild(); const again = await h.join('Host', host.token);
+    await at(again, 'empat', 300); expect(errors(h, again).at(-1)).toMatchObject({ code: 'rate_limited' });
+    await at(again, 'empat', 1000); expect(h.room.data!.chat!.map(l => l.text)).toEqual(['satu', 'lain orang', 'tiga', 'empat']);
+    // Not in the room: no hello yet, or a token that was removed.
+    const stranger = h.connect(); await h.send(stranger, { type: 'chat', text: 'halo' });
+    expect(errors(h, stranger).at(-1)).toMatchObject({ code: 'bad_message' });
+    expect(h.frames.get(stranger.id)!.some(m => m.type === 'chat')).toBe(false);
+    expect(h.room.data!.chat).toHaveLength(4);
+  });
+  it('keeps the chat limit for an account across a reconnect without a token and a token rotation', async () => {
+    const h = harness(); await h.create();
+    const host = h.connect(); host.userId = 'u-host'; await h.send(host, { type: 'hello', name: 'Host' });
+    await h.send(host, { type: 'chat', text: 'satu' }); expect(h.room.data!.chat).toHaveLength(1);
+    // Account recovery without a token rotates the seat's token; the one-second window must carry over.
+    const again = h.connect(); again.userId = 'u-host'; await h.send(again, { type: 'hello', name: 'Host', reclaim: true });
+    expect(again.token).not.toBe(host.token);
+    await h.send(again, { type: 'chat', text: 'dua' }); expect(errors(h, again).at(-1)).toMatchObject({ code: 'rate_limited' });
+    await h.send(again, { type: 'reaction', preset: 0 }); expect(errors(h, again).filter(e => e.code === 'rate_limited')).toHaveLength(2);
+    // A second recovery after a rebuild (Durable Object hibernation) still remembers the last send.
+    h.rebuild(); const third = h.connect(); third.userId = 'u-host'; third.lastReaction = again.lastReaction; await h.send(third, { type: 'hello', name: 'Host', reclaim: true });
+    h.now += 2000; await h.send(third, { type: 'chat', text: 'tiga' }); expect(h.room.data!.chat!.map(l => l.text)).toEqual(['satu', 'tiga']);
+    expect(Object.keys(h.room.data!.people)).toHaveLength(1);
+  });
+  it('reuses the unseated entry of a logged-in spectator who reconnects without a token', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host'); await h.send(host, { type: 'start' }); await finishSeating(h);
+    const watch = async () => { const s = h.connect(); s.userId = 'u-watch'; await h.send(s, { type: 'hello', name: 'Watcher' }); return s; };
+    const first = await watch(); await h.send(first, { type: 'chat', text: 'halo' });
+    const second = await watch(), third = await watch();
+    expect(second.token).toBe(first.token); expect(third.token).toBe(first.token);
+    expect(Object.values(h.room.data!.people).filter(p => p.userId === 'u-watch')).toHaveLength(1);
+    expect(h.room.info().spectators).toBe(1);
+    await h.send(third, { type: 'chat', text: 'lagi' }); expect(errors(h, third).at(-1)).toMatchObject({ code: 'rate_limited' });
+    // A seated account still gets its own entry back, and a different account gets a new one.
+    const other = h.connect(); other.userId = 'u-other'; await h.send(other, { type: 'hello', name: 'Other' });
+    expect(other.token).not.toBe(first.token); expect(h.room.info().spectators).toBe(2);
+  });
+  it('stamps chat lines with the match name of the seat, not a later rename', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host'); await h.send(host, { type: 'start' }); await finishSeating(h);
+    expect(h.room.data!.matchNames!.dong).toBe('Host');
+    await h.send(host, { type: 'rename', name: 'Orang Lain' }); expect(h.room.data!.people[host.token!]!.name).toBe('Orang Lain');
+    h.now += 1100; await h.send(host, { type: 'chat', text: 'halo' });
+    expect(h.room.data!.chat!.at(-1)).toMatchObject({ seat: 'dong', name: 'Host', text: 'halo' });
+    const watcher = await h.join('Watcher'); await h.send(watcher, { type: 'chat', text: 'nonton' });
+    expect(h.room.data!.chat!.at(-1)).toMatchObject({ seat: null, name: 'Watcher' });
+  });
+  it('sends the last 50 lines on join and reconnect, to players and spectators, and caps the history', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host');
+    for (let i = 1; i <= 55; i++) { h.now += 1100; await h.room.message(host, JSON.stringify({ type: 'chat', text: `pesan ${i}` })); }
+    expect(h.room.data!.chat).toHaveLength(50); expect(h.blob.chat).toHaveLength(50);
+    expect(h.room.data!.chat![0]).toMatchObject({ id: 6, text: 'pesan 6' });
+    const joiner = await h.join('Joiner'); await h.send(joiner, { type: 'stand' });
+    const history = (s: Socket) => h.frames.get(s.id)!.find(m => m.type === 'chatHistory') as Extract<ServerMessage, { type: 'chatHistory' }>;
+    expect(history(joiner).lines).toHaveLength(50); expect(history(joiner).lines.at(-1)).toMatchObject({ text: 'pesan 55', name: 'Host', seat: 'dong' });
+    const frames = h.frames.get(joiner.id)!; expect(frames.findIndex(m => m.type === 'welcome')).toBeLessThan(frames.findIndex(m => m.type === 'chatHistory'));
+    const refreshed = await h.join('Joiner', joiner.token);
+    expect(history(refreshed).lines.map(l => l.id)).toEqual(h.room.data!.chat!.map(l => l.id));
+    expect(h.frames.get(host.id)!.filter(m => m.type === 'chat')).toHaveLength(55);
+  });
+  it('keeps chat across a Durable Object hibernation and deletes it with the room', async () => {
+    const h = harness(); await h.create(); const host = await h.join('Host'); await h.send(host, { type: 'stand' });
+    const writes = h.writes;
+    h.now += 1100; await h.room.message(host, JSON.stringify({ type: 'chat', text: 'masih ada?' }));
+    expect(h.writes).toBe(writes + 1);
+    h.rebuild(); expect(h.room.data!.chat).toMatchObject([{ text: 'masih ada?', name: 'Host', seat: null }]);
+    const returned = await h.join('Host', host.token);
+    expect(h.frames.get(returned.id)!.find(m => m.type === 'chatHistory')).toMatchObject({ lines: [{ text: 'masih ada?' }] });
+    h.now = h.room.data!.createdAt! + 2 * 86400000; await h.room.alarm();
+    expect(h.room.data).toBeNull(); expect(h.blob).toBeNull();
   });
 });
 
@@ -649,9 +738,12 @@ it('prevents a second seat through a previously connected spectator socket', asy
   await h.send(spectator, { type: 'stand' });
   const seat = h.connect(); seat.userId = 'u';
   await h.send(seat, { type: 'hello', name: 'Second' });
-  await h.send(spectator, { type: 'sit', seat: 'nan' });
-  expect(errors(h, spectator).at(-1)?.code).toBe('seat_taken');
-  expect(Object.values(h.blob.people).filter(p => p.userId === 'u' && p.seat)).toHaveLength(1);
+  // The reconnecting account gets its own unseated entry back, so there is nothing to seat twice.
+  expect(seat.token).toBe(spectator.token);
+  expect(Object.values(h.blob.people).filter(p => p.userId === 'u')).toHaveLength(1);
+  await h.send(seat, { type: 'sit', seat: 'nan' });
+  await h.send(spectator, { type: 'sit', seat: 'xi' });
+  expect(Object.values(h.blob.people).filter(p => p.userId === 'u' && p.seat).map(p => p.seat)).toEqual(['nan']);
 });
 
 it('expires grandfathered anonymous seats before the next match while keeping logged-in players', async () => {

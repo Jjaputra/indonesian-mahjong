@@ -316,3 +316,46 @@ it('saves every online hand with column, flowers, nicknames and duration, dedupi
   expect(loadGameHistory(storage)).toHaveLength(2);
   table.disconnect();
 });
+
+describe('room chat', () => {
+  const line = (id: number, text: string, extra = {}) => ({ id, at: 1000 * id, seat: 'dong' as const, name: 'Jason', text, ...extra });
+
+  it('replaces its copy with the history after every welcome and appends new lines without duplicates', () => {
+    const { net, table, clock } = joined();
+    expect(table.getState().chat).toEqual([]);
+    net.last.receive({ type: 'chatHistory', lines: [line(1, 'satu'), line(2, 'dua')] });
+    net.last.receive({ type: 'chat', line: line(3, 'tiga') });
+    net.last.receive({ type: 'chat', line: line(3, 'tiga') });
+    net.last.receive({ type: 'chat', line: { id: 4, at: 4000, seat: null, name: 'Nonton', reaction: 0 } });
+    expect(table.getState().chat.map(l => l.id)).toEqual([1, 2, 3, 4]);
+    // Reconnect: the server replays its history, which replaces a stale copy.
+    net.last.drop(); clock.advance(500); net.last.open();
+    net.last.receive({ type: 'welcome', token: 't', seat: 'dong', host: true, serverNow: 0, room: roomInfo() });
+    net.last.receive({ type: 'chatHistory', lines: [line(2, 'dua'), line(3, 'tiga'), line(4, 'empat'), line(5, 'lima')] });
+    expect(table.getState().chat.map(l => l.text)).toEqual(['dua', 'tiga', 'empat', 'lima']);
+    table.disconnect();
+  });
+
+  it('keeps 50 lines, survives lobby and rematch room messages, and adds nothing to the activity log', () => {
+    const { net, table } = joined();
+    for (let i = 1; i <= 55; i++) net.last.receive({ type: 'chat', line: line(i, `p${i}`) });
+    expect(table.getState().chat).toHaveLength(50);
+    expect(table.getState().chat[0]).toMatchObject({ id: 6 });
+    net.last.receive({ type: 'room', room: roomInfo({ phase: 'seating' }), seat: 'dong', host: true });
+    expect(table.getState().chat).toHaveLength(50);
+    expect(table.getState().log).toEqual([]);
+    table.disconnect();
+  });
+
+  it('sends trimmed text, refuses empty or over-long text, and lets a spectator chat and react', () => {
+    const { net, table } = joined();
+    expect(table.chat('  halo semua  ')).toBe(true);
+    expect(table.chat('   ')).toBe(false);
+    expect(table.chat('x'.repeat(121))).toBe(false);
+    net.last.receive({ type: 'room', room: roomInfo(), seat: null, host: false });
+    table.react(3);
+    expect(net.last.ofType('chat')).toEqual([{ type: 'chat', text: 'halo semua' }]);
+    expect(net.last.ofType('reaction')).toEqual([{ type: 'reaction', preset: 3 }]);
+    table.disconnect();
+  });
+});

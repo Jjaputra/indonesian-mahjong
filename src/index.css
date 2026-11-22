@@ -3097,7 +3097,7 @@ select {
 }
 
 /* ==========================================================================
-   Online play (Main bareng teman): menu forms, lobby, remote table extras.
+   Online rooms: menu forms, lobby, remote table extras.
    ========================================================================== */
 .menu-online { min-height: 72px; }
 .mp-bar { display: flex; justify-content: space-between; gap: 8px; margin: -6px 0 10px; }

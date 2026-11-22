@@ -11,7 +11,7 @@ export function PremiumModal({ onClose }: { onClose: () => void }) {
       footer={<button type="button" className="btn btn-primary" onClick={onClose}>Oke</button>}
     >
       <div className="premium-modal">
-        <p>Premium: host main bareng tanpa jatah harian. Tanpa Premium, jatah host {dailyMatchLimit} match online per hari. Teman yang gabung tetap gratis.</p>
+        <p>Premium: host room tanpa jatah harian. Tanpa Premium, jatah host {dailyMatchLimit} match online per hari. Teman yang gabung tetap gratis.</p>
       </div>
     </Modal>
   );

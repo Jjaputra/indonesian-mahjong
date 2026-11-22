@@ -10,6 +10,26 @@ export const ROOM_CODE_LENGTH = 6;
 export const MAX_SPECTATORS = 8;
 export const REACTIONS = ['👍', '😂', '😮', '😭', '🔥', 'Ayo cepet!', 'Nice Hu!', 'Hoki banget!'] as const;
 export type ReactionId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export const CHAT_MAX_LENGTH = 120;
+/** Lines the room keeps and replays on join or reconnect. */
+export const CHAT_HISTORY = 50;
+/** Minimum gap between two chat messages or reactions from one person. */
+export const CHAT_INTERVAL_MS = 1000;
+
+/** Canonical chat text: one line, trimmed, no control or invisible format characters (emoji joiners stay). */
+export const normalizeChat = (text: string): string =>
+  text.normalize('NFC').replace(/\p{Cc}/gu, ' ').replace(/(?!\u200d)\p{Cf}/gu, '').replace(/\s+/gu, ' ').trim();
+
+/** One line in the room chat. Either free `text` or a preset `reaction`. `seat` is null for a spectator. */
+export interface ChatLine {
+  id: number;
+  /** Server clock, ms. */
+  at: number;
+  seat: Seat | null;
+  name: string;
+  text?: string;
+  reaction?: ReactionId;
+}
 export const NAME_MAX_LENGTH = 20;
 
 /** Canonical room names: no invisible format characters or lookalike whitespace. */
@@ -77,6 +97,7 @@ export interface RoomInfo {
 export type ClientMessage =
   | { type: 'hello'; token?: string; name: string; reclaim?: boolean; switchRoom?: boolean }
   | { type: 'reaction'; preset: ReactionId }
+  | { type: 'chat'; text: string }
   | { type: 'leave' }
   | { type: 'rename'; name: string }
   | { type: 'sit'; seat: Seat }
@@ -103,7 +124,11 @@ export type ServerMessage =
   /** Lobby state, personalized: `seat` and `host` describe the receiving socket. */
   | { type: 'room'; room: RoomInfo; seat: Seat | null; host: boolean; name?: string }
   | { type: 'view'; view: SeatView; serverNow: number }
-  | { type: 'event'; text: string; seat?: Seat; reaction?: ReactionId }
+  | { type: 'event'; text: string; seat?: Seat }
+  /** One new chat line, for everyone in the room: seated players and spectators. */
+  | { type: 'chat'; line: ChatLine }
+  /** The last lines of the room chat, sent after every welcome (join and reconnect). Replaces the client's copy. */
+  | { type: 'chatHistory'; lines: ChatLine[] }
   | { type: 'error'; code: ErrorCode; message: string }
   | { type: 'pong'; serverNow: number }
   /** The server closes this socket next, e.g. the same seat opened on another device. */

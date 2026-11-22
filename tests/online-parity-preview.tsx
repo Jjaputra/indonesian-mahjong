@@ -13,6 +13,6 @@ data.state.players.dong.flowers = parseTileHand('F1');
 import { TableSession } from '../src/session';
 const s = TableSession.deserialize(data, () => 51000);
 s.apply('dong', { type: 'selfHu', version: s.version });
-const state = { view: s.viewFor('dong'), room: { ...roomInfo(), continueAt: 171000 }, seat: 'dong', host: false, reactions: {}, log: [] } as unknown as RemoteState;
+const state = { view: s.viewFor('dong'), room: { ...roomInfo(), continueAt: 171000 }, seat: 'dong', host: false, chat: [], log: [] } as unknown as RemoteState;
 const table = { getState: () => state, now: () => 51000, serverNow: () => 51000, ready: () => {}, react: () => {} } as unknown as RemoteTable;
 createRoot(document.getElementById('root')!).render(<HandResult table={table} state={state} onClose={() => {}} onLeave={() => {}} />);

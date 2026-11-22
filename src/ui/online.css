@@ -53,16 +53,6 @@
 .mp-result-note { margin: 0; text-align: center; }
 @media (max-height: 420px) { .mp-result .hu-banner { font-size: 30px; } }
 
-.mp-reactions { position: fixed; right: 1rem; bottom: 1rem; z-index: 150; }
-.mp-reaction-popover { position: absolute; right: 0; bottom: 3rem; width: min(300px, 85vw); padding: .75rem; background: #183a31; color: white; border: 1px solid #9dba94; border-radius: 12px; box-shadow: 0 4px 20px #0008; }
-.mp-reaction-popover > div { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .75rem; }
-.mp-reaction-popover label { display: flex; gap: .5rem; align-items: center; }
-.mp-reaction-bubble { position: fixed; z-index: 149; padding: .6rem 1rem; border-radius: 16px; background: #fff8df; color: #183a31; box-shadow: 0 3px 12px #0005; pointer-events: none; font-size: 1.4rem; }
-.mp-reaction-bubble small { display: block; font-size: .7rem; }
-.mp-reaction-top { top: 15%; left: 50%; transform: translateX(-50%); }
-.mp-reaction-left { left: 3%; top: 45%; }
-.mp-reaction-right { right: 3%; top: 45%; }
-.mp-reaction-bottom { bottom: 15%; left: 50%; transform: translateX(-50%); }
 .online-daily-limit { font-size: .85rem; text-align: center; }
 .online-daily-limit p { margin: .4rem 0; }
 
@@ -115,3 +105,73 @@
 .admin-settings label { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .5rem 0; }
 .admin-settings p { font-size: .85rem; }
 .admin-settings input:not([type="checkbox"]) { min-width: 0; max-width: 100%; }
+
+/* Room chat: a card in the table's info column (top right on a wide table, under the table info below it).
+   Collapsed it is two lines; opened it is the history, the input and the emoji row. */
+.table-hud .play-progress > .chat-panel { order: -8; flex: none; padding: 0; overflow: hidden; }
+.chat-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 12px; line-height: 1.35; color: var(--text); }
+.chat-line { min-width: 0; overflow-wrap: anywhere; }
+.chat-line b { font-weight: 800; color: #7d0e13; }
+.chat-line.is-own b { color: #1d5a3a; }
+.chat-empty { color: var(--muted); }
+.chat-peek { display: block; position: relative; width: 100%; margin: 0; padding: 6px 24px 6px 10px; border: 0; border-radius: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.chat-peek:focus-visible, .chat-close:focus-visible, .chat-emoji-btn:focus-visible { outline: 3px solid #ffd56b; outline-offset: -3px; }
+.is-collapsed .chat-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-mark { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); font-size: 10px; color: #c8141c; }
+.chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px 4px 10px; background: linear-gradient(#d41a22, #9e0f16); color: #fff8e8; }
+.chat-head h2 { margin: 0; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+.chat-close { display: grid; place-items: center; min-width: 28px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; font-size: 10px; cursor: pointer; }
+.chat-close:hover { background: rgba(255, 255, 255, .18); }
+.chat-history { min-height: 56px; max-height: 100px; padding: 6px 10px; overflow-y: auto; align-content: start; overscroll-behavior: contain; scrollbar-width: thin; }
+.chat-emoji { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 6px; }
+.chat-emoji .btn { min-height: 28px; padding: 2px 8px; font-size: 13px; }
+.chat-form { display: flex; gap: 6px; padding: 0 8px 8px; }
+.chat-form input { flex: 1 1 auto; min-width: 0; height: 32px; padding: 0 8px; border: 1px solid #c9b88f; border-radius: 8px; background: #fff; color: #1e1a12; font: inherit; font-size: 13px; }
+.chat-emoji-btn { flex: none; width: 36px; height: 32px; padding: 0; border: 1px solid #c9b88f; border-radius: 8px; background: #f6e8c8; font-size: 16px; line-height: 1; cursor: pointer; }
+@media (pointer: coarse) { .chat-form input { font-size: 16px; } }
+
+/* Options closed on a wide table: the rail is only a thin tab, so the info card floats on the felt (see options-panel.css).
+   The chat card floats under it at the same width, and the tab starts below the chat.
+   The right seat sits left of the rail, so the card must never reach it: an opened chat widens the rail (like the Opsi panel
+   does), and on a short screen a collapsed chat becomes a vertical tab in the rail, above the Opsi tab. */
+@media (min-width: 901px) and (min-height: 501px) {
+  .app.is-table.options-hidden .table-hud .play-progress > .chat-panel { position: absolute; z-index: 6; top: 136px; right: 12px; width: 236px; }
+  .app.is-table.options-hidden .table-hud { padding-top: 192px; }
+  .app.is-table.options-hidden .table-hud:has(.chat-panel.is-open) { padding-top: 372px; }
+  .app.is-table.options-hidden .table-hud:has(.chat-emoji) { padding-top: 440px; }
+  .app.is-table.options-hidden:has(.chat-panel.is-open) { --hud-rail: 252px; }
+  .app.is-table.options-hidden:has(.chat-panel.is-open) .table-hud .play-progress { align-self: flex-end; width: 34px; }
+}
+/* Short screens: a lower history keeps the opened card compact. */
+@media (max-height: 640px) {
+  .chat-history { min-height: 40px; max-height: 64px; }
+}
+@media (min-width: 901px) and (min-height: 501px) and (max-height: 640px) {
+  .app.is-table.options-hidden .table-hud:has(.chat-panel.is-open) { padding-top: 336px; }
+  .app.is-table.options-hidden .table-hud:has(.chat-emoji) { padding-top: 404px; }
+  .app.is-table.options-hidden .table-hud:has(.chat-panel.is-collapsed) { padding-top: 296px; }
+  .app.is-table.options-hidden .table-hud .play-progress > .chat-panel.is-collapsed { top: 196px; right: 15px; width: 32px; border: 1px solid #e3d5b4; border-radius: 10px; background: linear-gradient(#fff8e8, #f0e2c4); box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+  .is-collapsed .chat-lines { display: none; }
+  .is-collapsed .chat-peek { min-height: 96px; padding: 10px 4px 24px; }
+  .is-collapsed .chat-tab-label { display: block; }
+  .is-collapsed .chat-mark { top: auto; bottom: 8px; right: 50%; transform: translateX(50%); }
+}
+.chat-tab-label { display: none; writing-mode: vertical-rl; transform: rotate(180deg); margin: 0 auto; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #4a1206; }
+/* Phone landscape: the info column is a small overlay in the felt's corner, so the card is compact there. */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Out of the corner overlay and left of the right seat's 76px column (see index.css), below the top seat's row. */
+  .app.is-table.is-table .table-hud .play-progress > .chat-panel { position: absolute; z-index: 6; top: 30px; right: 80px; width: 210px; }
+  .app.is-table.is-table .table-hud .play-progress > .chat-panel.is-collapsed { top: 0; right: 76px; width: 160px; }
+  .is-collapsed .chat-line:not(:last-child) { display: none; }
+  .chat-lines { font-size: 10px; line-height: 1.25; }
+  .chat-peek { padding: 3px 18px 3px 8px; }
+  .chat-mark { right: 6px; font-size: 8px; }
+  .chat-head { padding: 1px 4px 1px 8px; }
+  .chat-head h2 { font-size: 10px; }
+  .chat-close { height: 18px; }
+  .chat-history { min-height: 36px; max-height: 56px; padding: 3px 8px; }
+  .chat-form { padding: 0 6px 6px; }
+  .chat-form input, .chat-emoji-btn { height: 26px; }
+  .chat-emoji { padding: 0 6px 4px; }
+  .chat-emoji .btn { min-height: 22px; padding: 0 6px; font-size: 11px; }
+}

@@ -1,15 +1,16 @@
 import { deviceLimitFallback, useAccount } from '../../net/auth';
 import { ConnectionIndicator } from './RoomLobby';
+import '../options-panel.css';
 import '../online.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import type { RemoteState, RemoteTable } from '../../net/remote-table';
-import { SEAT_ORDER } from '../../core/tiles';
 import type { Seat } from '../../core/types';
-import { REACTIONS, type ReactionId, type RoomSeat } from '../../net/protocol';
+import type { RoomSeat } from '../../net/protocol';
 import { SEAT_SHORT, tileText } from '../labels';
 import { seatWindOf } from '../../session/win-context';
 import { ActionHud, CenterArea, HumanArea, OpponentPanel, seatPositions } from './GameTable';
+import { ChatPanel } from './ChatPanel';
 import { ContactLine } from './ContactLine';
 import { MatchScoreboard, MatchStandingsModal, StandingsTable, TableInfo } from './MatchBoard';
 import { WinningHandReceipt, RoundScoreBlock } from './HuResultModal';
@@ -50,29 +51,6 @@ function Countdown({ table, state }: { table: RemoteTable; state: RemoteState })
       <b>{Math.ceil(left / 1000)}</b>
     </div>
   </>);
-}
-
-function Reactions({ table, state }: { table: RemoteTable; state: RemoteState }) {
-  const [open, setOpen] = useState(false);
-  const [muted, setMuted] = useState(() => { try { return localStorage.getItem('itm.reactions-muted') === 'true'; } catch { return false; } });
-  const [, tick] = useState(0);
-  useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
-  const pos = seatPositions(state.seat ?? 'dong');
-  return <>
-    <div className="mp-reactions">
-      <button type="button" className="btn" aria-label="Reaksi" aria-expanded={open} onClick={() => setOpen(!open)}>😊</button>
-      {open && <div className="mp-reaction-popover">
-        {state.seat && <div>{REACTIONS.map((text, id) => <button type="button" className="btn" key={id} onClick={() => { table.react(id as ReactionId); setOpen(false); }}>{text}</button>)}</div>}
-        <label><input type="checkbox" checked={muted} onChange={e => { setMuted(e.target.checked); try { localStorage.setItem('itm.reactions-muted', String(e.target.checked)); } catch { /* unavailable */ } }} /> Bisukan reaksi pemain lain</label>
-      </div>}
-    </div>
-    {SEAT_ORDER.map(seat => {
-      const r = state.reactions?.[seat];
-      if (!r || table.now() - r.at >= 3000 || (muted && seat !== state.seat)) return null;
-      const position = seat === (state.seat ?? 'dong') ? 'bottom' : seat === pos.left ? 'left' : seat === pos.right ? 'right' : 'top';
-      return <div key={seat} role="status" className={`mp-reaction-bubble mp-reaction-${position}`}><small>{seatName(table, seat)}</small>{REACTIONS[r.preset]}</div>;
-    })}
-  </>;
 }
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
@@ -149,7 +127,6 @@ export function HandResult({ table, state, onClose, onLeave, onStandings }: { ta
         <button type="button" className="btn" onClick={onClose}>Lihat meja</button>
       </>
     }>
-      <Reactions table={table} state={state} />
       <div className="mp-result">
         <p className={`hu-banner${lewFit || !winner ? ' is-lew-fit' : ''}`} aria-hidden="true">
           {banner}
@@ -250,6 +227,7 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
         <CenterArea controller={controller} names={names} progress={
           <div className="play-progress">
             <TableInfo roundWind={view.roundWind} kimEnabled={kimEnabled} kimFace={view.kimFace} kimIndicator={view.indicator} minHuTay={view.match.minHuTay} />
+            <ChatPanel table={table} state={state} />
             {!optionsOpen && (
               <button type="button" className="options-tab" id="table-options-trigger" aria-controls="table-options-panel" aria-expanded={false} aria-label="Buka panel Opsi" onClick={() => onOptionsOpenChange(true)}>
                 <span className="options-tab-mark" aria-hidden="true">◀</span>
@@ -285,7 +263,6 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
           )}
         </div>
       </main>
-      {!standingsOpen && !(finished && resultOpen) && <Reactions table={table} state={state} />}
       {finished && resultOpen && <HandResult table={table} state={state} onClose={() => setResultOpen(false)} onStandings={showStandings} onLeave={onLeave} />}
       {view.matchOver && standingsOpen && <OnlineStandings table={table} state={state} onClose={() => setStandingsOpen(false)} onLeave={onLeave} onLastHand={() => { setStandingsOpen(false); setResultOpen(true); }} />}
     </>

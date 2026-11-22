@@ -1,23 +1,22 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
 import { DEFAULT_ROOM_CONFIG, NAME_MAX_LENGTH, ROOM_CODE_LENGTH, isRoomCode, type RoomConfig } from '../../net/protocol';
-import { cleanName, loadPlayerName, normalizeRoomCode, savePlayerName, type StoredRoom } from '../../net/room-store';
+import { cleanName, loadPlayerName, normalizeRoomCode, savePlayerName } from '../../net/room-store';
 import { RoomConfigFields } from './RoomConfigFields';
 import { InviteHelp } from './InviteHelp';
 
-type Screen = 'home' | 'create' | 'join';
+export type OnlineStep = 'create' | 'join';
 
 export interface OnlineMenuProps {
   /** From a `?room=CODE` invite: opens the join form with the code filled in. */
   inviteCode: string | null;
-  lastRoom: StoredRoom | null;
+  initialStep?: OnlineStep;
   busy: boolean;
   error: string | null;
   /** The account row, shown inside the card under the Kembali bar. */
   account?: ReactNode;
   onCreate: (config: RoomConfig, name: string) => void;
   onJoin: (code: string, name: string) => void;
-  onResume: () => void;
   onBack: () => void;
 }
 
@@ -30,15 +29,14 @@ function NameField({ value, onChange }: { value: string; onChange: (value: strin
   );
 }
 
-export function OnlineMenu({ inviteCode, lastRoom, busy, error, account, onCreate, onJoin, onResume, onBack }: OnlineMenuProps) {
-  const [screen, setScreen] = useState<Screen>(inviteCode ? 'join' : 'home');
+export function OnlineMenu({ inviteCode, initialStep = 'create', busy, error, account, onCreate, onJoin, onBack }: OnlineMenuProps) {
+  const screen = inviteCode ? 'join' : initialStep;
   const [name, setName] = useState(loadPlayerName);
   const [code, setCode] = useState(inviteCode ?? '');
   const [config, setConfig] = useState<RoomConfig>(DEFAULT_ROOM_CONFIG);
   const [help, setHelp] = useState(false);
   const patch = (next: Partial<RoomConfig>) => setConfig(c => ({ ...c, ...next }));
   const nameOk = cleanName(name).length > 0;
-  const back = () => (screen === 'home' || inviteCode ? onBack() : setScreen('home'));
 
   const submitCreate = (e: FormEvent) => {
     e.preventDefault();
@@ -55,32 +53,14 @@ export function OnlineMenu({ inviteCode, lastRoom, busy, error, account, onCreat
 
   return (
     <main className="main-menu">
-      <section className="menu-card mp-card" aria-label="Main bareng">
+      <section className="menu-card mp-card" aria-label={screen === 'create' ? 'Buat room' : 'Gabung room'}>
         <div className="mp-bar">
-          <button type="button" className="mp-link" onClick={back}><ArrowLeft size={16} aria-hidden="true" /> Kembali</button>
+          <button type="button" className="mp-link" onClick={onBack}><ArrowLeft size={16} aria-hidden="true" /> Kembali</button>
           <button type="button" className="mp-link" onClick={() => setHelp(true)}><HelpCircle size={16} aria-hidden="true" /> Cara undang teman</button>
         </div>
         {account}
-        <p className="menu-eyebrow">Main bareng</p>
         {error && <p className="mp-error" role="alert">{error}</p>}
 
-        {screen === 'home' && (
-          <>
-            <h2>Room pribadi buat empat orang.</h2>
-            <p className="muted">Bikin room, kirim link-nya ke grup WA, atau gabung pakai kode dari teman.</p>
-            <div className="menu-choices">
-              <button type="button" className="btn btn-primary menu-choice" onClick={() => setScreen('create')}>
-                <strong>Buat room</strong><span>Atur aturan, undang teman</span>
-              </button>
-              <button type="button" className="btn btn-primary menu-choice" onClick={() => setScreen('join')}>
-                <strong>Gabung</strong><span>Isi kode room</span>
-              </button>
-              {lastRoom && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onResume} disabled={busy}>
-                <strong>Lanjut room {lastRoom.code}</strong><span>Kursi masih disimpan</span>
-              </button>}
-            </div>
-          </>
-        )}
 
         {screen === 'create' && (
           <form onSubmit={submitCreate}>
@@ -97,7 +77,7 @@ export function OnlineMenu({ inviteCode, lastRoom, busy, error, account, onCreat
 
         {screen === 'join' && (
           <form onSubmit={submitJoin}>
-            <h2>Gabung</h2>
+            <h2>Gabung room</h2>
             <label className="mp-field">
               <span className="menu-option-label">Kode room</span>
               <input className="mp-code-input" type="text" value={code} inputMode="text" autoCapitalize="characters" autoComplete="off" spellCheck={false}
