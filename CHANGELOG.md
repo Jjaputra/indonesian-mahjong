@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-11-22
+### Fixed
+- On a phone held sideways, chat no longer covers the table. Collapsed, it is a small CHAT tab next to Opsi with a dot for new messages. Opened, it is a narrow drawer on the right, and the pool, the hand, the claim buttons and every seat stay visible. The quick reactions scroll in one row.
+
 ## [1.8.0] - 2026-11-22
 ### Changed
 - Single player is gone; the game is online only. The front menu has two buttons, Buat room and Gabung room, plus Lanjut room when a seat is still held. To play alone, make a room and turn on "Isi pakai bot". A refresh brings you back to the room.

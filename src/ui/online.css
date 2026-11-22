@@ -156,22 +156,39 @@
   .is-collapsed .chat-tab-label { display: block; }
   .is-collapsed .chat-mark { top: auto; bottom: 8px; right: 50%; transform: translateX(50%); }
 }
+.chat-dot { display: none; }
 .chat-tab-label { display: none; writing-mode: vertical-rl; transform: rotate(180deg); margin: 0 auto; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #4a1206; }
-/* Phone landscape: the info column is a small overlay in the felt's corner, so the card is compact there. */
+/* Phone landscape: nothing of the chat may sit on the felt's centre or on a seat.
+   Collapsed: a CHAT tab in the corner strip, left of the Opsi tab (the top seat reserves room for both).
+   Opened: a drawer in its own fourth grid column right of the right seat, so the pool and the seats shrink instead of being covered.
+   While Opsi is open the panel sits under it, so the chat is hidden then and the layout is the plain three columns. */
 @media (orientation: landscape) and (max-height: 500px) {
-  /* Out of the corner overlay and left of the right seat's 76px column (see index.css), below the top seat's row. */
-  .app.is-table.is-table .table-hud .play-progress > .chat-panel { position: absolute; z-index: 6; top: 30px; right: 80px; width: 210px; }
-  .app.is-table.is-table .table-hud .play-progress > .chat-panel.is-collapsed { top: 0; right: 76px; width: 160px; }
-  .is-collapsed .chat-line:not(:last-child) { display: none; }
+  .app.is-table.is-table .table-felt.is-online .seat-top { padding-right: 154px; }
+  .app.is-table.is-table .table-hud .play-progress > .chat-panel { position: absolute; z-index: 6; top: 0; right: 76px; width: 56px; height: 20px; border-radius: 6px; }
+  .app.is-table.is-table .table-hud .play-progress > .chat-panel.is-collapsed { border: 1px solid #e3d5b4; background: linear-gradient(#fff8e8, #f0e2c4); box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+  .is-collapsed .chat-lines { display: none; }
+  .is-collapsed .chat-tab-label { display: block; writing-mode: horizontal-tb; transform: none; margin: 0; font-size: 10px; line-height: 18px; }
+  .chat-peek { height: 18px; padding: 0 8px; }
+  .chat-mark { display: none; }
+  .chat-dot { display: block; position: absolute; top: 3px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: #c8141c; box-shadow: 0 0 0 1px #fff8e8; }
   .chat-lines { font-size: 10px; line-height: 1.25; }
-  .chat-peek { padding: 3px 18px 3px 8px; }
-  .chat-mark { right: 6px; font-size: 8px; }
   .chat-head { padding: 1px 4px 1px 8px; }
   .chat-head h2 { font-size: 10px; }
   .chat-close { height: 18px; }
-  .chat-history { min-height: 36px; max-height: 56px; padding: 3px 8px; }
+  .chat-history { flex: 1 1 auto; min-height: 24px; max-height: 56px; padding: 3px 8px; }
+  .chat-head, .chat-emoji, .chat-form { flex: none; }
   .chat-form { padding: 0 6px 6px; }
   .chat-form input, .chat-emoji-btn { height: 26px; }
-  .chat-emoji { padding: 0 6px 4px; }
-  .chat-emoji .btn { min-height: 22px; padding: 0 6px; font-size: 11px; }
+  .chat-emoji { flex-wrap: nowrap; gap: 3px; padding: 0 6px 4px; overflow-x: auto; scrollbar-width: none; }
+  .chat-emoji .btn { flex: none; min-height: 22px; padding: 0 6px; font-size: 11px; }
+
+  .app.is-table.is-table.options-hidden .table-felt.is-online:has(.chat-panel.is-open) {
+    grid-template-columns: 76px minmax(0, 1fr) 76px 184px;
+    grid-template-areas: 'top top top top' 'left center right chat' 'bottom bottom bottom bottom';
+  }
+  .app.is-table.is-table.options-hidden .table-felt.is-online:has(.chat-panel.is-open) .seat-top { padding-left: 100px; padding-right: 192px; }
+  .app.is-table.is-table.options-hidden .table-felt.is-online:has(.chat-panel.is-open) .seat-top .rack { padding-bottom: 0; }
+  .app.is-table.is-table.options-hidden .table-felt.is-online:has(.chat-panel.is-open) .seat-top :is(.seat-sets, .melds) { flex-wrap: nowrap; gap: 3px; }
+  .app.is-table.is-table.options-hidden .table-hud .play-progress > .chat-panel.is-open { display: flex; flex-direction: column; top: 26px; right: 0; width: 184px; height: auto; max-height: 150px; border-radius: 10px; overflow: hidden; background: #fbf5e6; box-shadow: 0 4px 14px rgba(0, 0, 0, .5); }
+  .app.is-table.is-table:not(.options-hidden) .table-hud .play-progress > .chat-panel { display: none; }
 }

@@ -33,6 +33,9 @@ export function ChatPanel({ table, state, storage }: { table: RemoteTable; state
   const lines = state.chat;
   const toggle = (next: boolean) => { toggled.current = true; setOpen(next); setEmoji(false); saveChatOpen(next, storage); };
   const lastId = lines.at(-1)?.id;
+  // Newest line the viewer has had on screen: the collapsed tab shows a dot (phone landscape only) while someone else's line is newer.
+  const [seenId, setSeenId] = useState(-1);
+  useEffect(() => { if (open && lastId !== undefined) setSeenId(lastId); }, [open, lastId]);
   useEffect(() => {
     const list = listRef.current;
     if (open && list) list.scrollTop = list.scrollHeight;
@@ -50,10 +53,12 @@ export function ChatPanel({ table, state, storage }: { table: RemoteTable; state
   // Seat lines show the match's name for that seat, as the table does; a bot that took over keeps the sender's own name.
   const nameOf = (line: ChatLine) => line.seat === null ? `${line.name} (nonton)` : state.room?.seats.find(r => r.seat === line.seat)?.bot ? line.name : seatName(table, line.seat);
 
+  const lastLine = lines.at(-1);
+  const unread = !open && lastLine !== undefined && lastLine.id > seenId && !own(lastLine);
   if (!open) {
     return (
       <section className="chat-panel is-collapsed" aria-label="Chat room">
-        <button type="button" className="chat-peek" aria-expanded={false} aria-controls="chat-panel-body" aria-label="Buka chat" onClick={() => toggle(true)}>
+        <button type="button" className="chat-peek" aria-expanded={false} aria-controls="chat-panel-body" aria-label={unread ? 'Buka chat, ada pesan baru' : 'Buka chat'} onClick={() => toggle(true)}>
           <ol className="chat-lines" aria-hidden="true">
             {lines.length === 0
               ? <li className="chat-empty">Belum ada chat</li>
@@ -61,6 +66,7 @@ export function ChatPanel({ table, state, storage }: { table: RemoteTable; state
           </ol>
           <span className="chat-tab-label" aria-hidden="true">Chat</span>
           <span className="chat-mark" aria-hidden="true">▼</span>
+          {unread && <span className="chat-dot" aria-hidden="true" />}
         </button>
       </section>
     );

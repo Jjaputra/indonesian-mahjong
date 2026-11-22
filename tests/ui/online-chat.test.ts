@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -103,5 +104,26 @@ describe('online chat panel', () => {
     expect(html.indexOf('chat-panel')).toBeGreaterThan(html.indexOf('table-info'));
     expect(html.indexOf('chat-panel')).toBeLessThan(html.indexOf('options-tab'));
     t.disconnect();
+  });
+
+  it('the collapsed tab shows an unread dot only while the newest line is another player\'s', () => {
+    const t = table();
+    const st = t.getState();
+    const html = (chat: ChatLine[]) => renderToStaticMarkup(createElement(ChatPanel, { table: t, state: { ...st, chat }, storage: new MemoryStorage() }));
+    expect(html(lines)).toContain('chat-dot');
+    expect(html(lines)).toContain('Buka chat, ada pesan baru');
+    expect(html(lines.slice(0, 1))).not.toContain('chat-dot');
+    expect(html([])).not.toContain('chat-dot');
+    t.disconnect();
+  });
+
+  it('phone landscape CSS: a tab in the corner strip, a fourth grid column for the open drawer, hidden while Opsi is open', () => {
+    const css = readFileSync('src/ui/online.css', 'utf8');
+    const block = css.slice(css.indexOf('/* Phone landscape: nothing of the chat'));
+    expect(block).toContain('grid-template-columns: 76px minmax(0, 1fr) 76px 184px');
+    expect(block).toMatch(/:not\(\.options-hidden\) \.table-hud \.play-progress > \.chat-panel \{ display: none; \}/);
+    // The drawer is anchored to the right edge of the felt, never inside the centre column.
+    expect(block).toMatch(/\.chat-panel\.is-open \{ display: flex; flex-direction: column; top: \d+px; right: 0; width: 184px;/);
+    expect(css).toMatch(/\.chat-dot \{ display: none; \}/);
   });
 });
