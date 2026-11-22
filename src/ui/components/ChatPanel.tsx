@@ -22,16 +22,59 @@ function Line({ line, name, own }: { line: ChatLine; name: string; own: boolean 
   return <li className={`chat-line${own ? ' is-own' : ''}`}><b>{name}</b>{': '}<span>{chatLineText(line)}</span></li>;
 }
 
+/** Phone landscape: Opsi and chat share the corner, so only one of them is open at a time. */
+export const PHONE_LANDSCAPE = '(orientation: landscape) and (max-height: 500px) and (min-width: 500px)';
+const phoneLandscape = (): boolean => { try { return window.matchMedia(PHONE_LANDSCAPE).matches; } catch { return false; } };
+/** Follows rotation and resizing, so a phone turned sideways with Opsi open also drops the chat. */
+export function usePhoneLandscape(): boolean {
+  const [phone, setPhone] = useState(phoneLandscape);
+  useEffect(() => {
+    let query: MediaQueryList;
+    try { query = window.matchMedia(PHONE_LANDSCAPE); } catch { return; }
+    const sync = () => setPhone(query.matches);
+    sync();
+    query.addEventListener?.('change', sync);
+    return () => query.removeEventListener?.('change', sync);
+  }, []);
+  return phone;
+}
+
 /** Room chat in the table's top-right column: collapsed it shows the last two lines, opened it shows the history and the input. */
-export function ChatPanel({ table, state, storage }: { table: RemoteTable; state: RemoteState; storage?: StorageLike }) {
-  const [open, setOpen] = useState(() => loadChatOpen(storage));
+export function ChatPanel({ table, state, storage, optionsOpen = false, onOptionsOpenChange }: { table: RemoteTable; state: RemoteState; storage?: StorageLike; optionsOpen?: boolean; onOptionsOpenChange?: (open: boolean, persist?: boolean) => void }) {
+  const phone = usePhoneLandscape();
+  const [openWanted, setOpen] = useState(() => loadChatOpen(storage));
+  const [panelFocused, setPanelFocused] = useState(false);
+  // Never render both: on a phone in landscape an open Opsi wins over a chat that was open before it,
+  // unless focus is anywhere inside the panel (an active interaction must never unmount).
+  const open = openWanted && (!(optionsOpen && phone) || panelFocused);
   const [emoji, setEmoji] = useState(false);
   const [text, setText] = useState('');
   const listRef = useRef<HTMLOListElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const toggled = useRef(false);
+  const prevPhone = useRef(phone);
   const lines = state.chat;
-  const toggle = (next: boolean) => { toggled.current = true; setOpen(next); setEmoji(false); saveChatOpen(next, storage); };
+  const toggle = (next: boolean) => {
+    toggled.current = true; setOpen(next); setEmoji(false); if (!next) setPanelFocused(false); saveChatOpen(next, storage);
+    if (next && optionsOpen && phone) onOptionsOpenChange?.(false, false);
+  };
+  // Leaving phone landscape restores the stored preference without writing to storage.
+  useEffect(() => {
+    const wasPhone = prevPhone.current;
+    prevPhone.current = phone;
+    if (wasPhone && !phone) setOpen(loadChatOpen(storage));
+  }, [phone, storage]);
+  // In phone landscape, an open Opsi suppresses chat without overwriting the saved preference;
+  // rotating into landscape with Opsi open also clears any stale openWanted so closing Opsi won't pop chat back open,
+  // but only once focus has left the panel.
+  useEffect(() => {
+    if (phone && optionsOpen && openWanted && !panelFocused) { setOpen(false); setEmoji(false); }
+  }, [phone, optionsOpen, openWanted, panelFocused]);
+  useEffect(() => {
+    if (!emoji && panelFocused && typeof document !== 'undefined' && panelRef.current && !panelRef.current.contains(document.activeElement)) {
+      setPanelFocused(false);
+    }
+  }, [emoji, panelFocused]);
   const lastId = lines.at(-1)?.id;
   // Newest line the viewer has had on screen: the collapsed tab shows a dot (phone landscape only) while someone else's line is newer.
   const [seenId, setSeenId] = useState(-1);
@@ -72,7 +115,19 @@ export function ChatPanel({ table, state, storage }: { table: RemoteTable; state
     );
   }
   return (
-    <section className="chat-panel is-open" ref={panelRef} id="chat-panel-body" aria-label="Chat room">
+    <section
+      className="chat-panel is-open"
+      ref={panelRef}
+      id="chat-panel-body"
+      aria-label="Chat room"
+      onFocus={() => setPanelFocused(true)}
+      onBlur={(e) => {
+        const root = panelRef.current ?? e?.currentTarget;
+        const next = e?.relatedTarget as Node | null | undefined;
+        if (next && root?.contains?.(next)) return;
+        setPanelFocused(false);
+      }}
+    >
       <header className="chat-head">
         <h2>Chat</h2>
         <button type="button" className="chat-close" aria-expanded aria-controls="chat-panel-body" aria-label="Tutup chat" onClick={() => toggle(false)}>

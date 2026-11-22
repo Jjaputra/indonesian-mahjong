@@ -117,11 +117,16 @@ describe('online chat panel', () => {
     t.disconnect();
   });
 
-  it('phone landscape CSS: a tab in the corner strip, a fourth grid column for the open drawer, hidden while Opsi is open', () => {
+  it('phone landscape CSS: a tab in the corner strip, a fourth grid column for the open drawer, tab stays on the Opsi panel head while it is open', () => {
     const css = readFileSync('src/ui/online.css', 'utf8');
     const block = css.slice(css.indexOf('/* Phone landscape: nothing of the chat'));
     expect(block).toContain('grid-template-columns: 76px minmax(0, 1fr) 76px 184px');
-    expect(block).toMatch(/:not\(\.options-hidden\) \.table-hud \.play-progress > \.chat-panel \{ display: none; \}/);
+    // Opsi and chat are exclusive, so the collapsed tab stays visible beside the Opsi panel instead of being hidden.
+    expect(block).not.toMatch(/:not\(\.options-hidden\) \.table-hud \.play-progress > \.chat-panel \{ display: none; \}/);
+    expect(block).toMatch(/:not\(\.options-hidden\) \.table-hud \.play-progress > \.chat-panel \{ right: 8px; \}/);
+    expect(block).toMatch(/:not\(\.options-hidden\) \.options-panel-head \{ padding-right: 72px;/);
+    expect(css).toMatch(/pointer: coarse\) \{.*\.chat-peek \{ min-height: 32px; \}/);
+    expect(block).toMatch(/\.options-tab \{ min-height: 32px; \}/);
     // The drawer is anchored to the right edge of the felt, never inside the centre column.
     expect(block).toMatch(/\.chat-panel\.is-open \{ display: flex; flex-direction: column; top: \d+px; right: 0; width: 184px;/);
     expect(css).toMatch(/\.chat-dot \{ display: none; \}/);

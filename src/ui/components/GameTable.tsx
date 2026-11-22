@@ -169,6 +169,49 @@ export function fitDiscardPool({ width, height, count, gap, rowGap, baseCols, mi
 /** Reads a computed px length (`row-gap` can be "normal" before layout), falling back to `or`. */
 const px = (value: string, or: number) => (Number.isFinite(parseFloat(value)) ? parseFloat(value) : or);
 
+export interface PoolFitCache {
+  width: number;
+  height: number;
+  count: number;
+  baseCols: number;
+}
+
+/** Measures `pool` and updates `--pool-cols`/`--pool-scale`/`row-gap`, skipping 0-size frames and unchanged inputs. */
+export function fitPoolElement(pool: HTMLElement, prev?: PoolFitCache | null): PoolFitCache | null {
+  const rect = pool.getBoundingClientRect();
+  const width = Math.floor(rect.width);
+  const height = Math.floor(rect.height);
+  if (width <= 0 || height <= 0) return null;
+  const count = pool.querySelectorAll('.pool-tile').length;
+  const prevCols = pool.style.getPropertyValue('--pool-cols');
+  pool.style.removeProperty('--pool-cols');
+  const css = getComputedStyle(pool);
+  const baseCols = Number(css.getPropertyValue('--pool-cols')) || 17;
+  if (prev && prev.width === width && prev.height === height && prev.count === count && prev.baseCols === baseCols) {
+    if (prevCols) pool.style.setProperty('--pool-cols', prevCols);
+    return null;
+  }
+  pool.style.removeProperty('row-gap');
+  const result = fitDiscardPool({
+    width,
+    height,
+    count,
+    gap: px(css.columnGap, 3),
+    rowGap: px(css.rowGap, 8),
+    baseCols,
+  });
+  let scale = Math.floor(result.scale * 1000) / 1000;
+  pool.style.setProperty('--pool-cols', String(result.cols));
+  pool.style.setProperty('--pool-scale', String(scale));
+  pool.style.setProperty('row-gap', `${result.rowGap}px`);
+  // Rounding or an odd frame can still leave a row over: shrink in small steps as a last resort.
+  while (scale > 0.3 && pool.scrollHeight > height + 1) {
+    scale = Math.floor((scale - 0.03) * 1000) / 1000;
+    pool.style.setProperty('--pool-scale', String(scale));
+  }
+  return { width, height, count, baseCols };
+}
+
 export function CenterArea({ controller, progress, names = PLAYER_NAME }: { controller: GameController; progress?: ReactNode; names?: SeatNames }) {
   const s = controller.getState();
   const pending = s.discardPending;
@@ -185,28 +228,10 @@ export function CenterArea({ controller, progress, names = PLAYER_NAME }: { cont
     const pool = poolRef.current;
     if (!pool) return;
     // Columns and scale come from the frame's real width and height (fitDiscardPool), so tiles stay as large as every discard allows.
+    let last: PoolFitCache | null = null;
     const fit = () => {
-      pool.style.removeProperty('--pool-cols');
-      pool.style.removeProperty('row-gap');
-      pool.style.setProperty('--pool-scale', '1');
-      const css = getComputedStyle(pool);
-      const result = fitDiscardPool({
-        width: pool.clientWidth,
-        height: pool.clientHeight,
-        count: pool.querySelectorAll('.pool-tile').length,
-        gap: px(css.columnGap, 3),
-        rowGap: px(css.rowGap, 8),
-        baseCols: Number(css.getPropertyValue('--pool-cols')) || 17,
-      });
-      pool.style.setProperty('--pool-cols', String(result.cols));
-      pool.style.setProperty('--pool-scale', String(Math.round(result.scale * 1000) / 1000));
-      pool.style.setProperty('row-gap', `${result.rowGap}px`);
-      // Rounding or an odd frame can still leave a row over: shrink in small steps as a last resort.
-      let scale = result.scale;
-      while (scale > 0.3 && pool.scrollHeight > pool.clientHeight + 1) {
-        scale = Math.round((scale - 0.03) * 1000) / 1000;
-        pool.style.setProperty('--pool-scale', String(scale));
-      }
+      const next = fitPoolElement(pool, last);
+      if (next) last = next;
     };
     fit();
     if (typeof ResizeObserver === 'undefined') return;

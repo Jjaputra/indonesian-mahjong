@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { fitDiscardPool, type PoolFitInput } from '@/ui/components/GameTable';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fitDiscardPool, fitPoolElement, type PoolFitInput } from '@/ui/components/GameTable';
 
 const RATIO = 1.34;
 const rowsOf = (count: number, cols: number) => Math.ceil(count / cols);
@@ -26,6 +26,8 @@ const FRAMES: Record<string, Omit<PoolFitInput, 'count'>> = {
   'iPad 820x1180': { width: 522, height: 378, gap: 3, rowGap: 8, baseCols: 11 },
   'phone 390x844': { width: 193, height: 207, gap: 2, rowGap: 5, baseCols: 10 },
   'phone 844x390': { width: 634, height: 110, gap: 1, rowGap: 3, baseCols: 20 },
+  'phone 640x360 crowded': { width: 430, height: 72, gap: 1, rowGap: 3, baseCols: 20 },
+  'phone 740x360 crowded': { width: 530, height: 72, gap: 1, rowGap: 3, baseCols: 20 },
   'desktop 1440x900': { width: 643, height: 394, gap: 3, rowGap: 8, baseCols: 17 },
   'wide strip 760x100 (group photo)': { width: 760, height: 100, gap: 3, rowGap: 8, baseCols: 17 },
 };
@@ -90,5 +92,96 @@ describe('fitDiscardPool', () => {
       }
     }
     console.table(rows);
+  });
+});
+
+function mockPool({ width, height, count, baseCols = 17, columnGap = '3px', rowGap = '8px', scrollHeight = 0 }: {
+  width: number;
+  height: number;
+  count: number;
+  baseCols?: number;
+  columnGap?: string;
+  rowGap?: string;
+  scrollHeight?: number | ((scale: string) => number);
+}) {
+  const vars = new Map<string, string>();
+  const ops: string[] = [];
+  const style = {
+    getPropertyValue: (k: string) => vars.get(k) ?? '',
+    setProperty: (k: string, v: string) => { vars.set(k, v); ops.push(`set:${k}=${v}`); },
+    removeProperty: (k: string) => { vars.delete(k); ops.push(`del:${k}`); return ''; },
+  };
+  let tiles = count;
+  let cols = baseCols;
+  vi.stubGlobal('getComputedStyle', () => ({
+    columnGap,
+    rowGap,
+    getPropertyValue: (k: string) => (k === '--pool-cols' ? (vars.get('--pool-cols') ?? String(cols)) : ''),
+  }));
+  const el = {
+    style,
+    getBoundingClientRect: () => ({ width, height }),
+    querySelectorAll: () => ({ length: tiles }),
+    get scrollHeight() {
+      return typeof scrollHeight === 'function' ? scrollHeight(vars.get('--pool-scale') ?? '1') : scrollHeight;
+    },
+  } as unknown as HTMLElement;
+  return {
+    el,
+    vars,
+    ops,
+    setCount: (n: number) => { tiles = n; },
+    setBaseCols: (n: number) => { cols = n; },
+    setSize: (w: number, h: number) => { width = w; height = h; },
+  };
+}
+
+describe('fitPoolElement', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('returns null on a 0-size frame without touching styles', () => {
+    const zeroW = mockPool({ width: 0, height: 100, count: 12 });
+    expect(fitPoolElement(zeroW.el)).toBeNull();
+    expect(zeroW.ops).toEqual([]);
+
+    const zeroH = mockPool({ width: 300, height: 0, count: 12 });
+    expect(fitPoolElement(zeroH.el)).toBeNull();
+    expect(zeroH.ops).toEqual([]);
+  });
+
+  it('skips the refit when width, height, count and baseCols are unchanged', () => {
+    const pool = mockPool({ width: 430.9, height: 72.9, count: 40, baseCols: 20 });
+    const first = fitPoolElement(pool.el);
+    expect(first).toEqual({ width: 430, height: 72, count: 40, baseCols: 20 });
+    const scaleAfterFirst = pool.vars.get('--pool-scale');
+    const colsAfterFirst = pool.vars.get('--pool-cols');
+    expect(scaleAfterFirst).toBeDefined();
+
+    pool.ops.length = 0;
+    const second = fitPoolElement(pool.el, first);
+    expect(second).toBeNull();
+    expect(pool.ops).not.toContainEqual(expect.stringMatching(/^set:--pool-scale=/));
+    expect(pool.ops).not.toContainEqual(expect.stringMatching(/^set:row-gap=/));
+    expect(pool.vars.get('--pool-cols')).toBe(colsAfterFirst);
+    expect(pool.vars.get('--pool-scale')).toBe(scaleAfterFirst);
+
+    // Changing any tracked input refits.
+    pool.setBaseCols(17);
+    expect(fitPoolElement(pool.el, first)).toEqual({ width: 430, height: 72, count: 40, baseCols: 17 });
+    pool.setSize(420, 72.9);
+    expect(fitPoolElement(pool.el, { width: 430, height: 72, count: 40, baseCols: 17 })).toEqual({ width: 420, height: 72, count: 40, baseCols: 17 });
+  });
+
+  it('floors scrollHeight fallback steps rather than rounding up', () => {
+    const pool = mockPool({
+      width: 500,
+      height: 100,
+      count: 10,
+      scrollHeight: (scale) => (Number(scale) > 0.95 ? 105 : 98),
+    });
+    fitPoolElement(pool.el);
+    const finalScale = Number(pool.vars.get('--pool-scale'));
+    expect(finalScale).toBeLessThanOrEqual(0.95);
+    expect(Math.round(finalScale * 1000)).toBe(Math.floor(finalScale * 1000));
   });
 });

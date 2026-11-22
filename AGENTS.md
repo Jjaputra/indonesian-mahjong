@@ -34,6 +34,8 @@ Don't bring in other variants (Fuzhou "gold", Riichi, ...). `RULES.md` is the im
 
 Multiplayer locally: `npm run server:dev` (room server on :8787), then `VITE_MP_SERVER=http://localhost:8787 npx vite --port 5199 --strictPort`. Use a second port for a second player; each origin has its own seat token.
 
+Layout audit: `node scripts/layout-audit.mjs [--state x] [--viewport WxH] [--page id]` measures `?demo=online&state=…` fixtures (`src/ui/dev-online-demo.ts`, dev builds only) at 21 sizes. Output goes to `.agents/layout-audit/`. Run it before any UI release. One audit at a time: it drives the shared Orca browser.
+
 Dev preview (dev builds only): `npx vite --port 5199 --strictPort`, then open `?demo=table|late|claim|hu|seri|dice|melds|final` for fixed table states. Production builds exclude this entry.
 
 ## Checks

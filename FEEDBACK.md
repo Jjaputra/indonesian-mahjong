@@ -4,6 +4,7 @@ Every report from the WhatsApp group: what was asked, what we did, and the test 
 
 | Date | Report (group's words) | Status | Version | Guard |
 | --- | --- | --- | --- | --- |
+| 2026-11-22 | Jason: "check everything related the asset to dimension to screen and layout, since this is complained few times" | Done: full audit (35 states × 21 sizes) plus fixes; assets were already fine | 1.8.2 | `scripts/layout-audit.mjs`, `tests/ui/pool-fit.test.ts`, `tests/ui/online-chat-behavior.test.ts` |
 | 2026-11-22 | "tambah menu chat juga … di kanan atas, bisa di hide kaya OPSI … chat / emo notif gak usah di show di meja" (mockup) | Done: collapsible chat panel, last 2 lines, no table bubbles | 1.8.0 | `tests/ui/online-chat.test.ts`, `tests/server/room.test.ts`, `tests/net/remote-table.test.ts` |
 | 2026-11-22 | "Mode main sendiri. Itu kalau ke refresh jadi balik ke awal" (video) | Jason: remove single player; a room with bots already comes back after a refresh | 1.8.0 | |
 | 2026-11-22 | "Knapa ini kecil banget … kalau buangan udah ke baris ke-2 buangannya mengecil" (Xiaomi tablet, landscape) | Fixed: the pool fits columns and scale to its real frame | 1.7.2 | `tests/ui/pool-fit.test.ts` |
@@ -25,4 +26,5 @@ Every report from the WhatsApp group: what was asked, what we did, and the test 
 - **Parity:** a feature in single player should exist online too, and the other way round (standings, Tay rules, history). Both 1.5.1 and the open Tay report were parity gaps.
 - **Every screen in a real browser:** unit tests passed while the admin page was blank. Open each new or changed screen once before release.
 - **Real device sizes:** test landscape tablets (1280x560 to 1280x800) and short phones, not just desktop and portrait phone. Tablet reports 1.7.2 all came from that gap.
+- **Layout audit before UI releases:** run `node scripts/layout-audit.mjs` (vite on :5199, a pinned `--page`, nobody else driving the Orca browser) and compare against the last report. The DEV fixtures in `src/ui/dev-online-demo.ts` cover the real online table.
 - **Ends of flows:** the end of a match, leaving, coming back and a second device are where bugs hide. Test them, not just the middle of a hand.

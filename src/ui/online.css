@@ -21,7 +21,7 @@
 @media (min-width: 901px) and (min-height: 501px) {
   .online-table-connection { right: calc(var(--hud-rail) + 20px); }
 }
-@media (orientation: landscape) and (max-height: 500px) {
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 500px) {
   .app.is-table.is-table .table-felt.is-online .table-hud { top: 40px; }
 }
 
@@ -128,7 +128,7 @@
 .chat-form { display: flex; gap: 6px; padding: 0 8px 8px; }
 .chat-form input { flex: 1 1 auto; min-width: 0; height: 32px; padding: 0 8px; border: 1px solid #c9b88f; border-radius: 8px; background: #fff; color: #1e1a12; font: inherit; font-size: 13px; }
 .chat-emoji-btn { flex: none; width: 36px; height: 32px; padding: 0; border: 1px solid #c9b88f; border-radius: 8px; background: #f6e8c8; font-size: 16px; line-height: 1; cursor: pointer; }
-@media (pointer: coarse) { .chat-form input { font-size: 16px; } }
+@media (pointer: coarse) { .chat-form input { font-size: 16px; } .chat-peek { min-height: 32px; } }
 
 /* Options closed on a wide table: the rail is only a thin tab, so the info card floats on the felt (see options-panel.css).
    The chat card floats under it at the same width, and the tab starts below the chat.
@@ -142,6 +142,10 @@
   .app.is-table.options-hidden:has(.chat-panel.is-open) { --hud-rail: 252px; }
   .app.is-table.options-hidden:has(.chat-panel.is-open) .table-hud .play-progress { align-self: flex-end; width: 34px; }
 }
+@media (min-width: 901px) and (min-height: 691px) {
+  /* A tall right seat (4 melds) would start under the floating card: nudge it down. */
+  .app.is-table.options-hidden .table-felt.is-online .seat-right { margin-top: 40px; }
+}
 /* Short screens: a lower history keeps the opened card compact. */
 @media (max-height: 640px) {
   .chat-history { min-height: 40px; max-height: 64px; }
@@ -149,21 +153,25 @@
 @media (min-width: 901px) and (min-height: 501px) and (max-height: 640px) {
   .app.is-table.options-hidden .table-hud:has(.chat-panel.is-open) { padding-top: 336px; }
   .app.is-table.options-hidden .table-hud:has(.chat-emoji) { padding-top: 404px; }
+}
+/* Short desktop: the wide collapsed card would cover the right seat's name, so it becomes a vertical tab in the rail. */
+@media (min-width: 901px) and (min-height: 501px) and (max-height: 690px) {
   .app.is-table.options-hidden .table-hud:has(.chat-panel.is-collapsed) { padding-top: 296px; }
   .app.is-table.options-hidden .table-hud .play-progress > .chat-panel.is-collapsed { top: 196px; right: 15px; width: 32px; border: 1px solid #e3d5b4; border-radius: 10px; background: linear-gradient(#fff8e8, #f0e2c4); box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
-  .is-collapsed .chat-lines { display: none; }
-  .is-collapsed .chat-peek { min-height: 96px; padding: 10px 4px 24px; }
-  .is-collapsed .chat-tab-label { display: block; }
-  .is-collapsed .chat-mark { top: auto; bottom: 8px; right: 50%; transform: translateX(50%); }
+  .options-hidden .is-collapsed .chat-lines { display: none; }
+  .options-hidden .is-collapsed .chat-peek { min-height: 96px; padding: 10px 4px 24px; }
+  .options-hidden .is-collapsed .chat-tab-label { display: block; }
+  .options-hidden .is-collapsed .chat-mark { top: auto; bottom: 8px; right: 50%; transform: translateX(50%); }
 }
 .chat-dot { display: none; }
 .chat-tab-label { display: none; writing-mode: vertical-rl; transform: rotate(180deg); margin: 0 auto; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #4a1206; }
 /* Phone landscape: nothing of the chat may sit on the felt's centre or on a seat.
    Collapsed: a CHAT tab in the corner strip, left of the Opsi tab (the top seat reserves room for both).
    Opened: a drawer in its own fourth grid column right of the right seat, so the pool and the seats shrink instead of being covered.
-   While Opsi is open the panel sits under it, so the chat is hidden then and the layout is the plain three columns. */
-@media (orientation: landscape) and (max-height: 500px) {
-  .app.is-table.is-table .table-felt.is-online .seat-top { padding-right: 154px; }
+   Opsi and chat are mutually exclusive here, so an open chat always sits in the four-column layout with Opsi closed. */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 500px) {
+  .app.is-table.is-table .table-felt.is-online .seat-top { padding-left: 8px; padding-right: 144px; }
+  .app.is-table.is-table .table-felt.is-online:has(> .kim-indicator) .seat-top { padding-left: 80px; }
   .app.is-table.is-table .table-hud .play-progress > .chat-panel { position: absolute; z-index: 6; top: 0; right: 76px; width: 56px; height: 20px; border-radius: 6px; }
   .app.is-table.is-table .table-hud .play-progress > .chat-panel.is-collapsed { border: 1px solid #e3d5b4; background: linear-gradient(#fff8e8, #f0e2c4); box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
   .is-collapsed .chat-lines { display: none; }
@@ -188,7 +196,23 @@
   }
   .app.is-table.is-table.options-hidden .table-felt.is-online:has(.chat-panel.is-open) .seat-top { padding-left: 100px; padding-right: 192px; }
   .app.is-table.is-table.options-hidden .table-felt.is-online:has(.chat-panel.is-open) .seat-top .rack { padding-bottom: 0; }
-  .app.is-table.is-table.options-hidden .table-felt.is-online:has(.chat-panel.is-open) .seat-top :is(.seat-sets, .melds) { flex-wrap: nowrap; gap: 3px; }
+  .app.is-table.is-table.options-hidden .table-felt.is-online:has(.chat-panel.is-open) .seat-top :is(.seat-sets, .melds) { gap: 3px; }
   .app.is-table.is-table.options-hidden .table-hud .play-progress > .chat-panel.is-open { display: flex; flex-direction: column; top: 26px; right: 0; width: 184px; height: auto; max-height: 150px; border-radius: 10px; overflow: hidden; background: #fbf5e6; box-shadow: 0 4px 14px rgba(0, 0, 0, .5); }
-  .app.is-table.is-table:not(.options-hidden) .table-hud .play-progress > .chat-panel { display: none; }
+  /* Opsi open: the panel covers the corner strip, so the CHAT tab stays on top of the panel head, which leaves room for it.
+     Opening chat closes Opsi (ChatPanel). */
+  .app.is-table.is-table:not(.options-hidden) .table-hud .play-progress > .chat-panel { right: 8px; }
+  .app.is-table.is-table:not(.options-hidden) .options-panel-head { padding-right: 72px; min-height: 28px; }
 }
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 500px) and (pointer: coarse) {
+  .app.is-table.is-table .table-hud .options-tab { min-height: 32px; }
+  .app.is-table.is-table .table-hud .play-progress > .chat-panel.is-collapsed { height: 34px; }
+  .app.is-table.is-table.options-hidden .table-hud .play-progress > .chat-panel.is-open { top: 38px; }
+  .chat-peek { height: 32px; min-height: 32px; }
+  .is-collapsed .chat-tab-label { line-height: 30px; }
+  .chat-dot { top: 6px; }
+}
+/* Join form: the room code field must not outgrow a 360px card. */
+.mp-field { min-width: 0; }
+.mp-field > * { min-width: 0; max-width: 100%; }
+.mp-field input { box-sizing: border-box; width: 100%; max-width: 100%; }
+.mp-code-input { letter-spacing: .3em; padding-inline: 8px; }

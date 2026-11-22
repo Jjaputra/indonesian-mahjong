@@ -179,7 +179,7 @@ export interface RemoteTableViewProps {
   table: RemoteTable;
   state: RemoteState;
   optionsOpen: boolean;
-  onOptionsOpenChange: (open: boolean) => void;
+  onOptionsOpenChange: (open: boolean, persist?: boolean) => void;
   onLeave: () => void;
 }
 
@@ -227,7 +227,7 @@ export function RemoteTableView({ table, state, optionsOpen, onOptionsOpenChange
         <CenterArea controller={controller} names={names} progress={
           <div className="play-progress">
             <TableInfo roundWind={view.roundWind} kimEnabled={kimEnabled} kimFace={view.kimFace} kimIndicator={view.indicator} minHuTay={view.match.minHuTay} />
-            <ChatPanel table={table} state={state} />
+            <ChatPanel table={table} state={state} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} />
             {!optionsOpen && (
               <button type="button" className="options-tab" id="table-options-trigger" aria-controls="table-options-panel" aria-expanded={false} aria-label="Buka panel Opsi" onClick={() => onOptionsOpenChange(true)}>
                 <span className="options-tab-mark" aria-hidden="true">◀</span>
