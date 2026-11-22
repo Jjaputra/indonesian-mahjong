@@ -5,6 +5,8 @@ const h = vi.hoisted(() => ({
   slots: [] as unknown[], index: 0, effects: [] as (() => unknown)[],
   account: null as null | { id: string; name: string; currentRoom: { code: string } | null },
   tables: [] as { code: string; options: { switchRoom?: boolean }; state: Record<string, unknown>; leave: ReturnType<typeof vi.fn> }[],
+  lastRoom: null as null | { code: string; name: string; token: string },
+  exit: vi.fn(),
   openAuth: vi.fn(), leaveRoom: vi.fn(), createRoom: vi.fn(),
 }));
 vi.mock('react', async original => ({
@@ -24,6 +26,10 @@ vi.mock('../../src/net/auth', () => ({
   refreshAccount: async () => {}, leaveCurrentRoom: h.leaveRoom,
   authStore: { get: () => h.account },
 }));
+vi.mock('../../src/net/room-store', async original => ({
+  ...await original<typeof import('../../src/net/room-store')>(),
+  loadLastRoom: () => h.lastRoom, loadRoom: (code: string) => h.lastRoom?.code === code ? h.lastRoom : null,
+}));
 vi.mock('../../src/net/remote-table', () => ({
   createRoom: h.createRoom,
   RemoteTable: class {
@@ -32,12 +38,14 @@ vi.mock('../../src/net/remote-table', () => ({
     connect() {} disconnect() {} subscribe = () => () => {}; getState = () => this.state;
   },
 }));
+import App from '../../src/App';
+import { MainMenu } from '../../src/ui/components/MainMenu';
 import { OnlineScreen } from '../../src/ui/components/OnlineScreen';
 
 const noop = () => {};
-function render(inviteCode: string | null = 'GHJKLM') {
+function render(inviteCode: string | null = 'GHJKLM', resume = false) {
   h.index = 0; h.effects = [];
-  return OnlineScreen({ server: 'https://mp.example', inviteCode, resume: false, onTableChange: noop, optionsOpen: false, onOptionsOpenChange: noop, onExit: noop });
+  return OnlineScreen({ server: 'https://mp.example', inviteCode, resume, onTableChange: noop, optionsOpen: false, onOptionsOpenChange: noop, onExit: h.exit });
 }
 async function effects() { for (const fn of h.effects) fn(); for (let i = 0; i < 6; i++) await Promise.resolve(); }
 function find(node: ReactNode, predicate: (e: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined {
@@ -46,8 +54,8 @@ function find(node: ReactNode, predicate: (e: ReactElement<Record<string, unknow
   const e = node as ReactElement<Record<string, unknown>>;
   return predicate(e) ? e : find(e.props.children as ReactNode, predicate);
 }
-beforeEach(() => { h.slots = []; h.tables = []; h.account = null; h.openAuth.mockReset().mockResolvedValue(undefined); h.leaveRoom.mockReset().mockResolvedValue(undefined); });
-afterEach(() => vi.clearAllMocks());
+beforeEach(() => { h.slots = []; h.tables = []; h.account = null; h.lastRoom = null; h.exit.mockReset(); h.openAuth.mockReset().mockResolvedValue(undefined); h.leaveRoom.mockReset().mockResolvedValue(undefined); });
+afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 it('autojoins the retained invite after failed auth startup followed by Google sign-in', async () => {
   h.openAuth.mockRejectedValue(new Error('offline'));
@@ -60,6 +68,7 @@ it.each([
   { joined: false, seat: null, ended: null },
   { joined: true, seat: null, ended: null },
   { joined: true, seat: 'dong', ended: 'replaced' },
+  { joined: true, seat: 'dong', ended: 'room_closed' },
   { joined: true, seat: 'dong', ended: null },
 ])('only calls account leave for an active seated exit: %j', async state => {
   h.account = { id: 'u', name: 'Jason', currentRoom: null };
@@ -67,6 +76,7 @@ it.each([
   Object.assign(h.tables[0]!.state, state);
   const element = find(render(), e => !!e.props.table && typeof e.props.onLeave === 'function')!;
   (element.props.onLeave as () => void)();
+  expect(h.exit).toHaveBeenCalledOnce();
   if (state.joined && state.seat && !state.ended) expect(h.leaveRoom).toHaveBeenCalledWith('GHJKLM');
   else expect(h.leaveRoom).not.toHaveBeenCalled();
 });
@@ -138,4 +148,43 @@ it('still returns to the menu if account leave fails', async () => {
   await (element.props.onLeave as () => Promise<void>)();
   expect(h.tables[0]!.leave).toHaveBeenCalledOnce();
   expect(find(render(), e => !!e.props.table)).toBeUndefined();
+});
+
+
+it('retains a logged-out stored-room resume, shows its login prompt and joins after sign-in', async () => {
+  h.lastRoom = { code: 'ABC234', name: 'Stored player', token: 'saved-seat' };
+  render(null, true); await effects();
+  render(null, true); await effects();
+  const menu = find(render(null, true), e => typeof e.props.onJoin === 'function')!;
+  const prompt = find(menu.props.account as ReactNode, e => e.type === 'p')!;
+  expect(prompt.props.children).toEqual(['Masuk pakai Google dulu buat gabung ke room ', 'ABC234']);
+  await effects();
+  expect(h.tables).toHaveLength(0);
+  h.account = { id: 'u', name: 'Jason', currentRoom: null };
+  render(null, true); await effects();
+  expect(h.tables).toHaveLength(1);
+  expect(h.tables[0]!.options).toMatchObject({ code: 'ABC234', name: 'Stored player', token: 'saved-seat' });
+  render(null, true); await effects();
+  expect(h.tables).toHaveLength(1);
+});
+
+
+it.each(['invite', 'resume'])('App clears the %s destination after returning to the front menu', source => {
+  vi.stubEnv('VITE_MP_SERVER', 'https://mp.example');
+  vi.stubGlobal('window', { location: { search: source === 'invite' ? '?room=ABC234' : '' }, matchMedia: () => ({ matches: false }) });
+  const app = () => { h.index = 0; h.effects = []; return App(); };
+  if (source === 'resume') {
+    const menu = find(app(), e => e.type === MainMenu)!;
+    (menu.props.onResumeRoom as () => void)();
+  }
+  const online = find(app(), e => e.type === OnlineScreen)!;
+  expect(online.props[source === 'invite' ? 'inviteCode' : 'resume']).toBe(source === 'invite' ? 'ABC234' : true);
+  (online.props.onExit as () => void)();
+  const menu = find(app(), e => e.type === MainMenu)!;
+  expect(menu).toBeDefined();
+  (menu.props.onOnline as (step: string) => void)('create');
+  const fresh = find(app(), e => e.type === OnlineScreen)!;
+  expect(fresh.props.inviteCode).toBeNull();
+  expect(fresh.props.resume).toBe(false);
+  expect(fresh.props.initialStep).toBe('create');
 });

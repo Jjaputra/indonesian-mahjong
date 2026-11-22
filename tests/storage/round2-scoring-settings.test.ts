@@ -27,7 +27,6 @@ import {
 import { GameController } from '@/ui/game-controller';
 import { toFullRules } from '@/ui/win-context';
 import { activeRulesSummary, buildHuReceipt, historyColumnLabel, scoringColumnSummary } from '@/ui/tay-calculator';
-import { MainMenu } from '@/ui/components/MainMenu';
 import { HistoryModal } from '@/ui/components/HistoryModal';
 import { SettingsModal } from '@/ui/components/SettingsModal';
 import { scoringEngine } from '@/scoring';
@@ -191,15 +190,7 @@ describe('Round 2 · results and history explain the column vs actual Kim usage'
 });
 
 describe('Public preferences preserve advanced scoring configuration', () => {
-  it('pregame offers only the Kim choice and game start', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, {
-      difficultyLabel: 'Normal', lastResult: null, onPractice: noop,
-      kimEnabled: true, onKimChange: noop, initialStep: 'solo',
-    }));
-    expect(html).toContain('Kim dari tile');
-    expect(html).toContain('Tanpa Kim');
-    expect(html).not.toMatch(/PDF|aturan rumah|Bunga:|dealer|Tabel:/);
-  });
+
 
   it('settings render compact preferences without mutating the full configuration', () => {
     const settings = Object.freeze({ ...HOUSE_SETTINGS, minHuTay: 12, scoringBasis: 'hand_kim_usage' as const });

@@ -69,9 +69,9 @@ describe('admin api wrappers', () => {
 describe('admin entry', () => {
   it('shows the Admin button on the front menu only for admins and links to ?admin=1', async () => {
     await loginAs(false);
-    expect(renderToStaticMarkup(createElement(MenuFront, { lastResult: null, onSolo: () => {}, onPremium: () => {} }))).not.toContain('Admin');
+    expect(renderToStaticMarkup(createElement(MenuFront, { onPremium: () => {} }))).not.toContain('Admin');
     await loginAs(true);
-    const html = renderToStaticMarkup(createElement(MenuFront, { lastResult: null, onSolo: () => {}, onPremium: () => {} }));
+    const html = renderToStaticMarkup(createElement(MenuFront, { onPremium: () => {} }));
     expect(html).toContain('href="?admin=1"');
     expect(html).toContain('>Admin<');
     await signOut();

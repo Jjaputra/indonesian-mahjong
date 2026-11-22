@@ -1,18 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createElement } from 'react';
+import { createElement, type ReactElement, type ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
-import { MemoryStorage, getPreset } from '@/storage';
+import { RemoteTableView } from '@/ui/components/RemoteTableView';
+import { RemoteTable } from '@/net/remote-table';
+import { TableSession } from '@/session';
+import { fakeNetwork, roomInfo } from '../net/fake-transport';
+import { DEFAULT_SETTINGS, MemoryStorage } from '@/storage';
 import App, { OPTIONS_OPEN_KEY, loadOptionsOpen, saveOptionsOpen, appClass } from '@/App';
-import { PlayProgress } from '@/ui/components/PlayProgress';
-import { GameController } from '@/ui/game-controller';
-
-const noop = () => undefined;
-
-function startedController(): GameController {
-  const c = new GameController({ settings: { ...getPreset('tournament'), soundEnabled: false }, seed: 3, saveHistory: false });
-  c.startMatch('stay', null, 'none');
-  return c;
-}
 
 describe('options panel', () => {
   it('defaults open, persists under itm.options-open.v1, and ignores junk', () => {
@@ -49,29 +43,45 @@ describe('options panel', () => {
     expect(appClass('menu', false)).not.toContain('options-hidden');
   });
 
-  it('keeps TableInfo visible while collapsed and exposes toggle buttons', () => {
-    const controller = startedController();
-    const closed = renderToString(createElement(PlayProgress, {
-      controller, paused: false, blocked: false, pace: 'learn', onPaceChange: noop, onToggleMotion: noop,
-      onPause: noop, onStep: noop, optionsOpen: false, onOptionsOpenChange: noop,
-    }));
-    expect(closed).toContain('Angin meja');
-    expect(closed).toContain('aria-label="Buka panel Opsi"');
-    expect(closed).toMatch(/aria-expanded="false"/);
-    expect(closed).toMatch(/id="table-options-panel"[^>]*hidden/);
 
-    const open = renderToString(createElement(PlayProgress, {
-      controller, paused: false, blocked: false, pace: 'learn', onPaceChange: noop, onToggleMotion: noop,
-      onPause: noop, onStep: noop, optionsOpen: true, onOptionsOpenChange: noop,
-    }));
-    expect(open).toContain('Tabel Total Poin');
-    expect(open).toContain('Tempo &amp; aktivitas');
-    expect(open).toMatch(/aria-expanded="true"/);
-    expect(open).not.toContain('hidden=""');
-  });
 
   it('App menu shell does not advertise options-hidden', () => {
     const html = renderToString(createElement(App));
     expect(html).not.toContain('options-hidden');
   });
+});
+
+
+it('keeps online TableInfo visible while collapsed and wires both option buttons', () => {
+  const network = fakeNetwork();
+  const table = new RemoteTable({ server: 'https://mp.example', code: 'ABC234', name: 'Jason', storage: new MemoryStorage(), socketFactory: network.factory });
+  table.connect(); network.last.open();
+  const session = new TableSession({ settings: DEFAULT_SETTINGS, seats: { dong: 'human', nan: 'bot', xi: 'bot', bei: 'bot' }, seed: 5, now: () => 1000 });
+  network.last.receive({ type: 'welcome', token: 't', seat: 'dong', host: true, serverNow: 1000, room: roomInfo({ phase: 'playing' }) });
+  network.last.receive({ type: 'view', view: session.viewFor('dong'), serverNow: 1000 });
+  const toggle = vi.fn();
+  function buttons(node: ReactNode): ReactElement<any>[] {
+    if (Array.isArray(node)) return node.flatMap(buttons);
+    if (!node || typeof node !== 'object' || !('props' in node)) return [];
+    const e = node as ReactElement<any>;
+    return [...(e.type === 'button' ? [e] : []), ...buttons(e.props.children), ...buttons(e.props.progress)];
+  }
+  try {
+    for (const open of [false, true]) {
+      let tree: ReactNode;
+      function Probe() {
+        tree = RemoteTableView({ table, state: table.getState(), optionsOpen: open, onOptionsOpenChange: toggle, onLeave: () => {} });
+        return tree;
+      }
+      const html = renderToString(createElement(Probe));
+      expect(html).toContain('table-info');
+      expect(html.indexOf('table-info')).toBeLessThan(html.indexOf('id="table-options-panel"'));
+      expect(html).toContain(open ? 'class="options-panel is-open"' : 'class="options-panel" hidden=""');
+      const label = open ? 'Sembunyikan panel Opsi' : 'Buka panel Opsi';
+      const button = buttons(tree!).find(e => e.props['aria-label'] === label)!;
+      expect(button.props['aria-expanded']).toBe(open);
+      button.props.onClick();
+      expect(toggle).toHaveBeenLastCalledWith(!open);
+    }
+  } finally { table.disconnect(); }
 });

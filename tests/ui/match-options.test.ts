@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createMatch, nextSeating, recordHand, countedGames, isMatchOver, standings, rollOpeningDealer, migrateMatchLengthPreference, loadDeadWall, saveDeadWall } from '@/ui/match';
@@ -10,8 +10,10 @@ import { parseTileHand, createCompleteTileSet } from '@/core/tiles';
 import { MemoryStorage, getPreset, sanitizeSettings, updateSettings, loadSettings } from '@/storage';
 import { MatchScoreboard, MatchResultNote, MatchStandingsModal, TableInfo } from '@/ui/components/MatchBoard';
 import { HuResultModal } from '@/ui/components/HuResultModal';
-import { MainMenu } from '@/ui/components/MainMenu';
 import { seatWindOf } from '@/ui/win-context';
+
+import { RoomConfigFields } from '@/ui/components/RoomConfigFields';
+import { DEFAULT_ROOM_CONFIG } from '@/net/protocol';
 
 const options = { settings: { ...getPreset('tournament'), kimEnabled: false, kimMode: 'off' as const }, autoStart: false, saveHistory: false };
 const noop = () => {};
@@ -131,10 +133,7 @@ describe('v0.4.2 match options', () => {
       updateSettings({ kimMode }, store); expect(loadSettings(store).kimMode).toBe(kimMode);
     }
   });
-  it('renders the three Kim choices and two wall choices together in the menu', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, kimMode: 'natural', onKimModeChange: noop, deadWall: 'none', onDeadWallChange: noop, initialStep: 'solo' }));
-    for (const label of ['Kim dari tile', 'Kim tambahan (pemula)', 'Tanpa Kim', 'Sampai abis (turnamen)', 'Sisa 14 tile (dead wall)']) expect(html).toContain(label);
-  });
+
 });
 
 describe('table info panel', () => {
@@ -151,5 +150,30 @@ describe('table info panel', () => {
     const off = renderToStaticMarkup(createElement(TableInfo, { roundWind: 'dong', kimEnabled: false, kimFace: null, minHuTay: 5 }));
     expect(off).toContain('Tanpa Kim');
     expect((off.match(/class="tile tile-sm/g) ?? []).length).toBe(1);
+  });
+});
+
+
+describe('room pregame options', () => {
+  it('offers all Kim modes, turn limits, the match limits and fixed 16 games without dealer-win control', () => {
+    const html = renderToStaticMarkup(createElement(RoomConfigFields, { config: DEFAULT_ROOM_CONFIG, onChange: noop }));
+    for (const label of ['Kim dari tile', 'Kim tambahan', 'Tanpa Kim', 'Tanpa batas (latihan)', '5 dtk', '10 dtk', '15 dtk', '20 dtk', '30 dtk', '60 dtk', '90 menit', 'Tanpa batas', '16 game']) expect(html).toContain(label);
+    expect(html).not.toMatch(/dealer|bandar|Dong menang|lanjut terus|endless/i);
+  });
+  it('changes Kim and its default minimum, turn limits and match limits through the room fields', () => {
+    const onChange = vi.fn();
+    const fields = RoomConfigFields({ config: DEFAULT_ROOM_CONFIG, onChange }).props.children;
+    for (const mode of ['natural', 'dedicated', 'off']) {
+      fields[0].props.onChange(mode);
+      expect(onChange).toHaveBeenLastCalledWith({ kimMode: mode, minHuTay: mode === 'off' ? 3 : 5 });
+    }
+    for (const turnSeconds of [null, 5, 10, 15, 20, 30, 60]) {
+      fields[2].props.onChange(turnSeconds);
+      expect(onChange).toHaveBeenLastCalledWith({ turnSeconds });
+    }
+    for (const timeLimitMinutes of [null, 90]) {
+      fields[3].props.onChange(timeLimitMinutes);
+      expect(onChange).toHaveBeenLastCalledWith({ timeLimitMinutes });
+    }
   });
 });

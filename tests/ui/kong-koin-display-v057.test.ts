@@ -9,14 +9,12 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { keyToTile } from '@/core/tiles';
 import { gameDeltas, kongPayment, roundScore } from '@/core/round-score';
-import { getPreset, type MatchHistoryRecord } from '@/storage';
+import { type MatchHistoryRecord } from '@/storage';
 import { HistoryModal } from '@/ui/components/HistoryModal';
 import { HuResultModal, RoundScoreBlock } from '@/ui/components/HuResultModal';
-import { HandSandbox } from '@/ui/components/HandSandbox';
 import { MatchScoreboard, MatchStandingsModal } from '@/ui/components/MatchBoard';
 import { KONG_KIND_LABEL, gameDeltasOf, kongNote, kongToastText, recordDeltas, tayKoinText } from '@/ui/components/points';
 import { createMatch, recordHand } from '@/ui/match';
-import { DEMO_KONG_HAND } from '@/ui/dev-demo';
 
 const noop = () => undefined;
 const MINUS = '−';
@@ -104,12 +102,5 @@ describe('v0.5.7 Kong koin display', () => {
     expect(html).toContain('6 Tay · +32 koin · Kong Bot Kanan +12');
   });
 
-  it('Uji Tangan shows the sandbox hand’s Kong payments', () => {
-    const settings = { ...getPreset('tournament'), soundEnabled: false };
-    const html = renderToStaticMarkup(createElement(HandSandbox, { settings, initial: DEMO_KONG_HAND, onClose: noop }));
-    expect(html).toContain('Pembayaran Kong');
-    expect(html).toContain('<b>Kursi Selatan</b> · Kong Zhong di dalam');
-    expect(html).toContain('<b>Kursi Selatan</b> · Kong makan dari orang');
-    expect(html).toContain('Σ 0 · kit-kit ✓');
-  });
+
 });

@@ -2,6 +2,12 @@
 
 Player requests noted for later. Not scheduled yet.
 
+## Open (2026-11-22)
+
+- **Chat on phone landscape (844x390):** an open chat panel covers part of the discard pool. The collapsed pill can touch the top seat's melds when that seat has several melds (`seat-top` reserves only 86px on the right). Hydrogen review of v1.8.0.
+- **Host quota without single player:** playing alone with 3 bots uses one of the 3 daily host matches. Proposed: rooms with only one human don't count. Waiting for Jason.
+- **Solo resume patch:** kept in `.agents/solo-resume.patch` in case single player ever comes back.
+
 ## Done in v0.6.0 (2026-11-14)
 
 - Bigger discards in a framed rectangle, 17 per row (20 with OPTION hidden), "SISA: n TILES", wind labels on the edges.

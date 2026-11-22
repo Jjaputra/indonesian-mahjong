@@ -9,7 +9,6 @@ import { createMatch, isMatchOver, nextSeating, recordHand, standings, loadDeale
 import { seatWindOf } from '@/ui/win-context';
 import { MatchStandingsModal, MatchScoreboard, MatchResultNote } from '@/ui/components/MatchBoard';
 import { PLAYER_NAME } from '@/ui/labels';
-import { MainMenu } from '@/ui/components/MainMenu';
 import { HuResultModal } from '@/ui/components/HuResultModal';
 import { matchProgressLabel } from '@/ui/labels';
 import { Wall, createGameWall } from '@/core/wall';
@@ -244,12 +243,7 @@ describe('GameController continuous match', () => {
 
 describe('match UI wiring', () => {
   const noop = () => {};
-  it('menu describes 16 games without a length choice', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: noop, initialStep: 'solo' }));
-    expect(html).toContain('16 game');
-    expect(html).not.toContain('Panjang pertandingan');
-    for (const label of ['8 game', '16 game ++', 'Tanpa batas']) expect(html).not.toContain(label);
-  });
+
 
   it('result modal offers the next hand or the final standings', () => {
     const seri = { kind: 'seri' as const, kongPayments: [], gameDeltas: { dong: 0, nan: 0, xi: 0, bei: 0 }, durationSeconds: 1 };
@@ -434,8 +428,5 @@ describe('legacy dealer-win migration', () => {
     for (let i = 0; i < 4; i++) match = recordHand(match, 'dong', true, 5);
     expect(match.seating).toEqual({ dealer: 'dong', prevailingWind: 'nan', dealerPasses: 0 });
   });
-  it('does not render the removed dealer control', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Normal', lastResult: null, onPractice: () => {}, dealerWinRule: 'stay', onDealerWinRuleChange: () => {}, initialStep: 'solo' }));
-    expect(html).not.toContain('Dealer menang');
-  });
+
 });

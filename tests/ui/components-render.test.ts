@@ -43,7 +43,8 @@ describe('UI render smoke tests', () => {
     expect(html).toContain('alt="maciokYU!"');
     expect(html).toContain('Mahjong Indonesia di browser');
     expect(html).not.toContain('Mahjong Tradisional Indonesia');
-    expect(html).toContain('Main sendiri');
+    expect(html).toContain('Room belum tersedia. Coba lagi nanti.');
+    expect(html).not.toContain('Main sendiri');
     expect(html).toContain('Premium · segera hadir');
     expect(html).not.toContain('<strong>Mulai <');
     expect(html).not.toMatch(/Kalkulator|Rulebook|ver06|PDF|aturan rumah|model lama/);
@@ -145,13 +146,13 @@ describe('UI render smoke tests', () => {
   it('Settings modal exposes only preferences; maintainer presets keep preferences', () => {
     const s = settings({ aiDifficulty: 'hard', soundEnabled: true });
     const html = renderToString(createElement(SettingsModal, { settings: s, onSave: noop, onClose: noop }));
-    for (const label of ['Level bot', 'Animasi tile: nyala', 'Suara', 'Simpan']) {
+    for (const label of ['Layar tetap nyala saat main', 'Suara', 'Simpan']) {
       expect(html).toContain(label);
     }
-    expect(html).not.toMatch(/Kim aktif|Minimum Tay|Dealer awal|Bunga.Musim|PDF|Preset|Aturan rumah/);
+    expect(html).not.toMatch(/Animasi tile|Kim aktif|Minimum Tay|Dealer awal|Bunga.Musim|PDF|Preset|Aturan rumah/);
     // Kim is chosen once, on the main menu; settings only point there.
     expect(html).not.toMatch(/Mode Kim|<select/);
-    expect(html).toContain('Kim diatur di menu utama');
+    expect(html).not.toMatch(/Level bot|Developer|Kim diatur di menu utama/);
     const casual = withPreset(s, 'casual');
     expect(casual.allowKimInMeldClaim).toBe(getPreset('casual').allowKimInMeldClaim);
     expect(casual.aiDifficulty).toBe('hard');

@@ -5,7 +5,7 @@ import type { Seat } from '../core/types';
 import type { SeatView, SessionAction } from '../session';
 import { historyScoringFields, saveGameRecord, type StorageLike } from '../storage';
 import { Connection, type ConnectionStatus, type SocketLike, type Timers } from './connection';
-import type { ReactionId, ErrorCode, RoomConfig, RoomInfo, ServerMessage } from './protocol';
+import { CHAT_HISTORY, CHAT_MAX_LENGTH, normalizeChat, type ChatLine, type ReactionId, type ErrorCode, type RoomConfig, type RoomInfo, type ServerMessage } from './protocol';
 import { forgetRoom, roomSocketUrl, saveRoom } from './room-store';
 import { countHostedMatch, identifyHostedMatch, loadHostBoundary, saveHostBoundary, remainingMatches, type HostBoundary } from './daily-limit';
 
@@ -26,7 +26,8 @@ export interface RemoteState {
   host: boolean;
   view: SeatView | null;
   log: LogLine[];
-  reactions?: Partial<Record<Seat, { preset: ReactionId; at: number }>>;
+  /** Room chat, oldest first, at most CHAT_HISTORY lines. Replaced by the history the server sends after every welcome. */
+  chat: ChatLine[];
   /** Last non-fatal server error, shown as a toast. `id` changes per error so repeats re-trigger. */
   error: { id: number; code: ErrorCode; message: string } | null;
   /** When (local clock) the current hand finished, for local hand-result presentation. Null while a hand is on. */
@@ -56,7 +57,7 @@ const MAX_LOG = 60;
 
 export class RemoteTable {
   readonly code: string;
-  private state: RemoteState = { status: 'idle', room: null, seat: null, host: false, handEndedAt: null, view: null, log: [], error: null, ended: null, joined: false };
+  private state: RemoteState = { status: 'idle', room: null, seat: null, host: false, handEndedAt: null, view: null, log: [], chat: [], error: null, ended: null, joined: false };
   private readonly listeners = new Set<() => void>();
   private readonly actionListeners = new Set<(action: ActionInput) => void>();
   private readonly conn: Connection;
@@ -123,7 +124,13 @@ export class RemoteTable {
 
   leave(): void { this.conn.send({ type: 'leave' }); this.conn.stop(); if (this.state.view?.matchOver) forgetRoom(this.code, this.options.storage); void refreshAccount().catch(() => {}); }
   reclaim(): void { this.reclaimRequested = true; this.token = undefined; this.patch({ ended: null, joined: false }); this.conn.restart(); }
-  react(preset: ReactionId): void { if (this.state.seat) this.conn.send({ type: 'reaction', preset }); }
+  react(preset: ReactionId): void { this.conn.send({ type: 'reaction', preset }); }
+  /** Send a chat line. False when the text is empty or too long. */
+  chat(text: string): boolean {
+    const clean = normalizeChat(text);
+    if (!clean || [...clean].length > CHAT_MAX_LENGTH) return false;
+    return this.conn.send({ type: 'chat', text: clean });
+  }
   rename(name: string): void { this.conn.send({ type: 'rename', name }); }
   sit(seat: Seat): void { this.conn.send({ type: 'sit', seat }); }
   stand(): void { this.conn.send({ type: 'stand' }); }
@@ -211,8 +218,13 @@ export class RemoteTable {
         break;
       }
       case 'event':
-        if (message.reaction !== undefined && message.seat) { this.patch({ reactions: { ...this.state.reactions, [message.seat]: { preset: message.reaction, at: this.now() } } }); break; }
         this.patch({ log: [...this.state.log, { id: ++this.logSeq, text: message.text, seat: message.seat }].slice(-MAX_LOG) });
+        break;
+      case 'chat':
+        if (!this.state.chat.some(l => l.id === message.line.id)) this.patch({ chat: [...this.state.chat, message.line].slice(-CHAT_HISTORY) });
+        break;
+      case 'chatHistory':
+        this.patch({ chat: message.lines.slice(-CHAT_HISTORY) });
         break;
       case 'error':
         if (message.code === 'stale_version') { this.conn.resync(); break; }

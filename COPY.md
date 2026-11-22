@@ -21,7 +21,7 @@ How maciokYU! talks to players. Every agent follows it for player-facing text (U
 
 | Use | Not |
 | --- | --- |
-| Main sendiri / Main bareng | Mode pemain tunggal / Mode multipemain |
+| Buat room / Gabung room | Mode pemain tunggal / Mode multipemain |
 | room, kode room, link undangan | ruang, tautan |
 | Masuk pakai Google / Keluar | Login dengan akun Google / Sign out |
 | jatah host (3 match sehari) | kuota, batas harian |

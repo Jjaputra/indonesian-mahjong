@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { createRoom, RemoteTable } from '../../net/remote-table';
 import type { RoomConfig } from '../../net/protocol';
 import { forgetRoom, inviteLink, loadLastRoom, loadRoom } from '../../net/room-store';
-import { OnlineMenu } from './OnlineMenu';
+import { OnlineMenu, type OnlineStep } from './OnlineMenu';
 import { RemoteTableView } from './RemoteTableView';
 import '../online.css';
 import { ConnectionIndicator, RoomLobby } from './RoomLobby';
@@ -13,6 +13,7 @@ import { startTurnAlerts } from '../turn-alert';
 
 export interface OnlineScreenProps {
   server: string;
+  initialStep?: OnlineStep;
   /** From `?room=CODE`. */
   inviteCode: string | null;
   /** Rejoin the stored room straight away ("Lanjutkan room" on the main menu). */
@@ -72,7 +73,7 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
         })}>Hapus akun</button>
       </span>
     </> : <>
-      <p className="mp-account-note">Main bareng harus masuk pakai Google.</p>
+      <p className="mp-account-note">Masuk pakai Google dulu buat main.</p>
       <div className="mp-google" ref={button} />
       {config.facebookEnabled && <button type="button" className="btn" onClick={attempt(() => { void facebookLogin().catch(error => onError(error.message)); })}>Masuk pakai Facebook</button>}
     </>}
@@ -151,7 +152,7 @@ function RoomScreen({ table, optionsOpen, onOptionsOpenChange, onLeave, toast }:
   );
 }
 
-export function OnlineScreen({ server, inviteCode, resume, onTableChange, optionsOpen, onOptionsOpenChange, onExit }: OnlineScreenProps) {
+export function OnlineScreen({ server, inviteCode, resume, initialStep, onTableChange, optionsOpen, onOptionsOpenChange, onExit }: OnlineScreenProps) {
   const account = useAccount();
   const [authReady, setAuthReady] = useState(false);
   const [pendingCreate, setPendingCreate] = useState<{ config: RoomConfig; name: string } | null>(null);
@@ -197,19 +198,21 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
     setTable(null);
     setLastRoom(loadLastRoom());
     try { window.history.replaceState(null, '', window.location.pathname); } catch { /* sandboxed frame */ }
-  }, [table, account]);
+    onExit();
+  }, [table, account, onExit]);
 
   // A stored seat for the invited room (or "Lanjutkan room") rejoins directly instead of showing the form.
   const autoJoined = useRef(false);
   useEffect(() => {
-    if (table || (autoJoined.current && !pendingJoin) || !authReady || (!account && onlineLoginRequired())) return;
+    if (table || (autoJoined.current && !pendingJoin) || !authReady) return;
+    if (pendingJoin && !account && onlineLoginRequired()) return;
     const code = pendingJoin?.code ?? inviteCode ?? (resume ? account ? account.currentRoom?.code : loadLastRoom()?.code : null);
     if (!code) return;
     const stored = loadRoom(code);
     if (!account && !stored && !pendingJoin) return;
     autoJoined.current = true;
     join({ code, name: pendingJoin?.name ?? stored?.name ?? account?.name ?? 'Pemain', token: stored?.token });
-    setPendingJoin(null);
+    if (account || !onlineLoginRequired()) setPendingJoin(null);
   }, [inviteCode, resume, join, account, authReady, pendingJoin, table]);
 
   useEffect(() => () => table?.disconnect(), [table]);
@@ -268,10 +271,10 @@ export function OnlineScreen({ server, inviteCode, resume, onTableChange, option
       {table && error && <p className="mp-error" role="alert">{error}</p>}
       {table
         ? <RoomScreen table={table} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} onLeave={leave} toast={toast} />
-        : <OnlineMenu inviteCode={inviteCode} lastRoom={resumeRoom} busy={busy} error={error}
+        : <OnlineMenu inviteCode={inviteCode} initialStep={initialStep} busy={busy} error={error}
             account={<>{!account && (inviteCode || pendingJoin) && <p>Masuk pakai Google dulu buat gabung ke room {inviteCode ?? pendingJoin?.code}</p>}<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></>}
             onCreate={create} onJoin={(code, name) => join({ code, name, token: loadRoom(code)?.token })}
-            onResume={() => resumeRoom && join(resumeRoom)} onBack={onExit} />}
+            onBack={onExit} />}
       {toastText && <div className="mp-toast-wrap"><p className="mp-toast" role="status">{toastText}</p></div>}
     </>
   );

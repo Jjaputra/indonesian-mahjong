@@ -1,235 +1,75 @@
-import { createElement, useState } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { AIDifficulty } from '@/storage';
-import { DIFFICULTY_LABEL } from '@/ui/labels';
-import { AbandonMatchDialog } from '@/ui/components/AbandonMatchDialog';
-import { DIFFICULTY_NOTE, MainMenu, MenuFront, MenuSolo } from '@/ui/components/MainMenu';
+import { createElement, type ReactElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { MainMenu, MenuFront } from '@/ui/components/MainMenu';
 import { PremiumModal } from '@/ui/components/PremiumModal';
+import { SettingsModal } from '@/ui/components/SettingsModal';
+import { DEFAULT_SETTINGS } from '@/storage';
+import { OnlineMenu } from '@/ui/components/OnlineMenu';
 
-const noop = () => undefined;
+vi.mock('react', async original => ({
+  ...await original<typeof import('react')>(),
+  useState: (initial: unknown) => [typeof initial === 'function' ? initial() : initial, () => {}],
+}));
 
-/** The options screen ("Main sendiri"); the front screen is covered separately below. */
-function renderMenu(lastResult: string | null = null) {
-  return renderToStaticMarkup(createElement(MainMenu, {
-    difficultyLabel: 'Sulit',
-    lastResult,
-    onPractice: noop,
-    initialStep: 'solo',
-  }));
-}
-
-/** Every element in an unexpanded React tree (components are not rendered). */
-function elements(node: any): any[] {
+const noop = () => {};
+function buttons(node: any): ReactElement<any>[] {
   if (!node || typeof node !== 'object') return [];
-  if (Array.isArray(node)) return node.flatMap(elements);
-  return [node, ...elements(node.props?.children)];
+  if (Array.isArray(node)) return node.flatMap(buttons);
+  return [...(node.type === 'button' ? [node] : []), ...buttons(node.props?.children)];
 }
-function textOf(node: any): string {
-  if (Array.isArray(node)) return node.map(textOf).join('');
-  if (node && typeof node === 'object') return textOf(node.props?.children);
-  return typeof node === 'string' ? node : '';
-}
-function buttonWith(node: any, text: string): any {
-  return elements(node).find((e) => e.type === 'button' && textOf(e).includes(text));
-}
-
-describe('MainMenu', () => {
-  it('renders a focused game start with current difficulty', () => {
-    const html = renderMenu();
-    expect(html).toContain('aria-label="Main sendiri"');
-    expect(html).toContain('<strong>Mulai <');
-    expect(html).toContain('Tiga bot · Sulit');
-    expect(html).not.toMatch(/Rulebook|Kalkulator|PDF|ver06|tile-legend|aturan rumah/);
+describe('room menu', () => {
+  it('offers create and join directly, with no solo or developer entry', () => {
+    const html = renderToStaticMarkup(createElement(MainMenu, { onOnline: noop }));
+    for (const text of ['Buat room', 'Gabung room', 'Atur aturan, undang lewat link', 'Isi kode dari teman', 'Premium']) expect(html).toContain(text);
+    expect(html).not.toMatch(/Main sendiri|Main bareng|Terakhir:|Developer|Uji Tangan|Level bot/);
+    const open = vi.fn();
+    const tree = MenuFront({ onOnline: open, onPremium: noop });
+    const choices = buttons(tree);
+    choices[0]!.props.onClick();
+    choices[1]!.props.onClick();
+    expect(open.mock.calls).toEqual([['create'], ['join']]);
   });
-
-  it('shows the last result only on the front screen', () => {
-    const front = renderToStaticMarkup(createElement(MainMenu, { lastResult: '24 Tay', onPractice: noop }));
-    expect(front).toContain('>Terakhir: 24 Tay</p>');
-    expect(renderMenu('24 Tay')).not.toContain('Terakhir:');
+  it('keeps room resume and Premium, and explains an unavailable server', () => {
+    const html = renderToStaticMarkup(createElement(MainMenu, { resumeRoomCode: 'ABC234', onResumeRoom: noop }));
+    expect(html).toContain('Lanjut room ABC234');
+    expect(html).toContain('Room belum tersedia. Coba lagi nanti.');
+    expect(html).not.toContain('Gabung room');
+    expect(renderToStaticMarkup(createElement(MainMenu, { initialPremiumOpen: true }))).toContain('maciokYU! Premium');
   });
-
-  it('omits the last-result line when there is no result', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, { lastResult: null, onPractice: noop }));
-    expect(html).not.toContain('Terakhir:');
-    expect(html).not.toContain('24 Tay');
+  it.each(['create', 'join'] as const)('opens %s immediately and returns to the front menu', initialStep => {
+    const props = { initialStep, inviteCode: null, busy: false, error: null, onCreate: noop, onJoin: noop, onBack: vi.fn() };
+    const html = renderToStaticMarkup(createElement(OnlineMenu, props));
+    expect(html).toContain(initialStep === 'create' ? '<h2>Buat room</h2>' : '<h2>Gabung room</h2>');
+    expect(html).not.toContain('Main bareng');
+    const back = buttons(OnlineMenu(props)).find(button => button.props.onClick === props.onBack)!;
+    back.props.onClick();
+    expect(props.onBack).toHaveBeenCalledOnce();
   });
-
-  it('reads as a practice screen: calm primary action and no online/multiplayer entry', () => {
-    const html = renderMenu();
-    expect(html).toContain('btn btn-primary menu-choice');
-    expect(html).not.toContain('btn-gold');
-    expect(html).not.toMatch(/online|multiplayer|daring/i);
-  });
-
-  it('omits the Kim choice unless both kimEnabled and onKimChange are supplied', () => {
-    expect(renderMenu()).not.toContain('Ada Kim');
-    const partial = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: true, initialStep: 'solo' }));
-    expect(partial).not.toContain('Ada Kim');
-  });
-
-  it('renders the pregame three-mode Kim choice without development explanations', () => {
-    const on = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: true, onKimChange: noop, initialStep: 'solo' }));
-    expect(on).toContain('role="radiogroup" aria-label="Kim"');
-    expect(on).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Kim dari tile</button>');
-    expect(on).toContain('<button type="button" role="radio" aria-checked="false">Tanpa Kim</button>');
-    expect(on).toContain('keempat kopinya jadi Kim');
-    expect(on).not.toMatch(/model lama|belum diterapkan|menunggu konfirmasi/);
-    const off = renderToStaticMarkup(createElement(MainMenu, { difficultyLabel: 'Sulit', lastResult: null, onPractice: noop, kimEnabled: false, onKimChange: noop, initialStep: 'solo' }));
-    expect(off).toContain('<button type="button" role="radio" aria-checked="false">Kim dari tile</button>');
-    expect(off).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Tanpa Kim</button>');
-  });
-
-  it('renders bot difficulty choices with label, options, and one-line note', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, {
-      difficulty: 'normal',
-      onDifficultyChange: noop,
-      lastResult: null,
-      onPractice: noop,
-      initialStep: 'solo',
-    }));
-    expect(html).toContain('role="radiogroup" aria-label="Level bot"');
-    expect(html).toContain('<button type="button" role="radio" aria-checked="false">Mudah</button>');
-    expect(html).toContain('<button type="button" role="radio" aria-checked="true" class="is-on">Normal</button>');
-    expect(html).toContain('<button type="button" role="radio" aria-checked="false">Sulit</button>');
-    expect(html).toContain(DIFFICULTY_NOTE.normal);
-    expect(html).toContain('Tiga bot · Normal · 16 game');
-  });
-
-  it('omits bot difficulty choice if onDifficultyChange is not provided', () => {
-    const html = renderToStaticMarkup(createElement(MainMenu, {
-      difficulty: 'normal',
-      lastResult: null,
-      onPractice: noop,
-      initialStep: 'solo',
-    }));
-    expect(html).not.toContain('aria-label="Level bot"');
-  });
-
-  it('renders correct note and summary line for each difficulty level', () => {
-    for (const level of ['easy', 'normal', 'hard'] as const) {
-      const html = renderToStaticMarkup(createElement(MainMenu, {
-        difficulty: level,
-        onDifficultyChange: noop,
-        lastResult: null,
-        onPractice: noop,
-        initialStep: 'solo',
-      }));
-      expect(html).toContain(`aria-checked="true" class="is-on">${DIFFICULTY_LABEL[level]}</button>`);
-      expect(html).toContain(DIFFICULTY_NOTE[level]);
-      expect(html).toContain(`Tiga bot · ${DIFFICULTY_LABEL[level]} · 16 game`);
-    }
-  });
-
-  it('triggers onDifficultyChange callback when clicking difficulty buttons', () => {
-    const onDifficultyChange = vi.fn();
-    const tree = MenuSolo({ difficulty: 'normal', onDifficultyChange, lastResult: null, onPractice: noop, onBack: noop });
-    const difficultyChoice = elements(tree).find((c: any) => c.props?.label === 'Level bot');
-    expect(difficultyChoice).toBeDefined();
-
-    expect(difficultyChoice.props.value).toBe('normal');
-    difficultyChoice.props.onChange('hard');
-    expect(onDifficultyChange).toHaveBeenCalledWith('hard');
-
-    difficultyChoice.props.onChange('easy');
-    expect(onDifficultyChange).toHaveBeenCalledWith('easy');
-  });
-
-  it('updates label and note when difficulty changes in a stateful harness', () => {
-    function StatefulMenu() {
-      const [diff, setDiff] = useState<AIDifficulty>('easy');
-      return createElement(MainMenu, {
-        difficulty: diff,
-        onDifficultyChange: setDiff,
-        lastResult: null,
-        onPractice: noop,
-        initialStep: 'solo',
-      });
-    }
-    const initialHtml = renderToStaticMarkup(createElement(StatefulMenu));
-    expect(initialHtml).toContain('Tiga bot · Mudah · 16 game');
-    expect(initialHtml).toContain(DIFFICULTY_NOTE.easy);
+  it('invite links still open join with the room code', () => {
+    const html = renderToStaticMarkup(createElement(OnlineMenu, { initialStep: 'create', inviteCode: 'ABC234', busy: false, error: null, onCreate: noop, onJoin: noop, onBack: noop }));
+    expect(html).toContain('<h2>Gabung room</h2>');
+    expect(html).toContain('value="ABC234"');
   });
 });
 
-describe('MainMenu front screen', () => {
-  const front = (extra: Record<string, unknown> = {}) => renderToStaticMarkup(createElement(MainMenu, { lastResult: null, onPractice: noop, onOnline: noop, ...extra }));
 
-  it('opens on the three choices and none of the single-player options', () => {
-    const html = front();
-    expect(html).toContain('aria-label="Menu utama"');
-    expect(html).toContain('Main sendiri');
-    expect(html).toContain('Lawan tiga bot');
-    expect(html).toContain('Main bareng');
-    expect(html).toContain('Room pribadi · undang lewat link');
-    expect(html).toContain('Premium · segera hadir');
-    expect(html).toContain('Mahjong Indonesia di browser');
-    expect(html).not.toContain('<strong>Mulai <');
-    expect(html).not.toContain('role="radiogroup"');
-    expect(html).not.toContain('role="dialog"');
-  });
-
-  it('hides Main bareng teman without a room server, and keeps the room resume', () => {
-    const offline = front({ onOnline: undefined });
-    expect(offline).not.toContain('Room pribadi');
-    expect(offline).toContain('Main sendiri');
-    const resume = front({ resumeRoomCode: 'ABCD', onResumeRoom: noop });
-    expect(resume).toContain('Lanjut room ABCD');
-  });
-
-  it('Main sendiri reveals the options and Kembali returns to the front screen', () => {
-    const onSolo = vi.fn();
-    buttonWith(MenuFront({ lastResult: null, onSolo, onPremium: noop }), 'Main sendiri').props.onClick();
-    expect(onSolo).toHaveBeenCalledOnce();
-
-    const solo = renderToStaticMarkup(createElement(MainMenu, { difficulty: 'normal', onDifficultyChange: noop, lastResult: null, onPractice: noop, initialStep: 'solo', onOnline: noop }));
-    expect(solo).toContain('<h2>Main sendiri</h2>');
-    expect(solo).toContain('aria-label="Level bot"');
-    expect(solo).toContain('<strong>Mulai <');
-    expect(solo).toContain('Kembali');
-    expect(solo).not.toContain('Premium · segera hadir');
-
-    const onBack = vi.fn();
-    buttonWith(MenuSolo({ lastResult: null, onPractice: noop, onBack }), 'Kembali').props.onClick();
-    expect(onBack).toHaveBeenCalledOnce();
-  });
-
-  it('opens the Premium modal from the small Premium choice', () => {
-    const onPremium = vi.fn();
-    buttonWith(MenuFront({ lastResult: null, onSolo: noop, onPremium }), 'Premium · segera hadir').props.onClick();
-    expect(onPremium).toHaveBeenCalledOnce();
-    expect(front({ initialPremiumOpen: true })).toContain('maciokYU! Premium');
-  });
-});
-
-describe('PremiumModal', () => {
-  it('announces Premium without payment, prices or sign-up', () => {
+describe('Premium announcement', () => {
+  it('has no payment, price, form or email fields', () => {
     const html = renderToStaticMarkup(createElement(PremiumModal, { onClose: noop }));
-    expect(html).toContain('role="dialog"');
-    expect(html).toContain('maciokYU! Premium');
     expect(html).toContain('Segera hadir');
-    expect(html).toContain('Premium: host main bareng tanpa jatah harian. Tanpa Premium, jatah host 3 match online per hari. Teman yang gabung tetap gratis.');
-    expect(html).not.toContain('Fitur lain menyusul.');
-    expect(html).toMatch(/<button[^>]*>Oke<\/button>/);
-    expect(html).not.toMatch(/<input|<form|Rp|\$|bayar|email/i);
+    expect(html).not.toMatch(/<form|<input|<select|<textarea|type="email"|Rp|IDR|\$|bayar|pembayaran/i);
   });
-
-  it('closes from Oke and hands the same close to the shared Modal (Escape, backdrop, X)', () => {
+  it('Oke closes the announcement', () => {
     const onClose = vi.fn();
-    const modal: any = PremiumModal({ onClose });
-    expect(modal.props.onClose).toBe(onClose);
-    buttonWith(modal.props.footer, 'Oke').props.onClick();
+    const modal = PremiumModal({ onClose });
+    buttons(modal.props.footer).find(button => button.props.children === 'Oke')!.props.onClick();
     expect(onClose).toHaveBeenCalledOnce();
   });
 });
 
-describe('AbandonMatchDialog', () => {
-  it('asks about leaving the match and renders both dialog buttons', () => {
-    const html = renderToStaticMarkup(createElement(AbandonMatchDialog, { onStay: noop, onLeave: noop }));
-    expect(html).toContain('role="dialog"');
-    expect(html).toContain('aria-modal="true"');
-    expect(html).toContain('Tinggalkan match yang lagi jalan dan balik ke menu?');
-    expect(html).toMatch(/<button[^>]*>Tetap di meja<\/button>/);
-    expect(html).toMatch(/<button[^>]*>Ke menu<\/button>/);
-  });
+it('settings keep screen wake lock without the inactive animation toggle', () => {
+  const html = renderToStaticMarkup(createElement(SettingsModal, { settings: DEFAULT_SETTINGS, onSave: noop, onClose: noop }));
+  expect(html).toContain('Layar tetap nyala saat main');
+  expect(html).not.toContain('Animasi tile');
 });

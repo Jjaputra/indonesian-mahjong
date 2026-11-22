@@ -47,7 +47,7 @@ it('loads server policy, signs in with credentials, shows account UI and clears 
   expect(renderToStaticMarkup(createElement(AccountPanel, { onError: () => {}, error: 'Gagal masuk, coba lagi.' }))).toContain('<p class="mp-account-error" role="alert">Gagal masuk, coba lagi.</p>');
   await signOut(true); expect(authStore.get()).toBeNull(); expect(authHeaders()).toEqual({});
   const loggedOut = renderToStaticMarkup(createElement(AccountPanel, { onError: () => {} }));
-  expect(loggedOut).toContain('Main bareng harus masuk pakai Google.'); expect(loggedOut).toContain('class="mp-google"'); expect(loggedOut).not.toContain('Facebook');
+  expect(loggedOut).toContain('Masuk pakai Google dulu buat main.'); expect(loggedOut).toContain('class="mp-google"'); expect(loggedOut).not.toContain('Facebook');
   unsubscribe();
 });
 it('shows the initial when the account has no picture and "Jatah host: tanpa batas" for premium', async () => {

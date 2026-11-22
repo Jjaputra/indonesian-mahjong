@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ArrowRight, Check, Copy, FlaskConical, RotateCcw, Trophy } from 'lucide-react';
+import { ArrowRight, Check, Copy, RotateCcw, Trophy } from 'lucide-react';
 import type { Seat, Tile } from '../../core/types';
 import type { ScoringResult } from '../../scoring';
 import type { GameOutcome } from '../game-controller';
@@ -51,8 +51,6 @@ interface HuResultModalProps {
   onStandings?: () => void;
   /** Match status shown above the receipt, e.g. "Game 3/16 selesai" */
   matchSummary?: ReactNode;
-  /** Developer mode: reopen this hand in the Uji Tangan sandbox */
-  onOpenSandbox?: () => void;
 }
 
 function roundScoreLines(outcome: Extract<GameOutcome, { kind: 'hu' }>): string[] {
@@ -174,7 +172,7 @@ function KongSection({ payments, hu, order, nameOf }: { payments: readonly KongP
   </>;
 }
 
-export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStandings, matchSummary, onOpenSandbox }: HuResultModalProps) {
+export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStandings, matchSummary }: HuResultModalProps) {
   const inMatch = !!(onNextHand || onStandings);
   const [copied, setCopied] = useState(false);
 
@@ -195,11 +193,6 @@ export function HuResultModal({ outcome, onClose, onNewGame, onNextHand, onStand
           }}
         >
           {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Struk disalin' : 'Salin struk'}
-        </button>
-      )}
-      {outcome.kind === 'hu' && onOpenSandbox && (
-        <button type="button" className="btn btn-dev" onClick={onOpenSandbox}>
-          <FlaskConical size={14} /> Buka di Uji Tangan
         </button>
       )}
       <button type="button" className={inMatch ? 'btn' : 'btn btn-primary'} onClick={onNewGame}>
