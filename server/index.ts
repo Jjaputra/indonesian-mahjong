@@ -7,6 +7,7 @@ export { default } from './router';
 
 export class RoomDO implements DurableObject {
   private room!: Room;
+  private accountRoomsSignature?: string;
   private peers = new Map<string, WebSocket>();
   constructor(private ctx: DurableObjectState, env: Env) {
     ctx.blockConcurrencyWhile(async () => {
@@ -44,15 +45,21 @@ export class RoomDO implements DurableObject {
         put: async (data, opts) => {
           await ctx.storage.put('room', data);
           if (env.DB && !opts?.chatOnly) {
+            // Unchanged seats skip the D1 rewrite; the 10-minute bucket still rewrites now and then, so a row another room overwrote heals.
+            const signature = JSON.stringify([Math.floor(Date.now() / 600_000), data.code, data.creatorPending ? data.creatorUserId ?? null : null,
+              Object.values(data.people).filter(p => p.userId && p.seat).map(p => [p.userId, p.seat]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))]);
+            if (signature === this.accountRoomsSignature) return;
             const statements = [env.DB.prepare('DELETE FROM account_rooms WHERE code=?').bind(data.code)];
             if (data.creatorPending && data.creatorUserId)
               statements.push(env.DB.prepare('INSERT INTO account_rooms (user_id,code,seat,last_activity) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET code=excluded.code,seat=excluded.seat,last_activity=excluded.last_activity').bind(data.creatorUserId, data.code, 'dong', data.lastActivity));
             for (const p of Object.values(data.people)) if (p.userId && p.seat)
               statements.push(env.DB.prepare('INSERT INTO account_rooms (user_id,code,seat,last_activity) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET code=excluded.code,seat=excluded.seat,last_activity=excluded.last_activity').bind(p.userId, data.code, p.seat, data.lastActivity));
             await env.DB.batch(statements);
+            this.accountRoomsSignature = signature;
           }
         },
         deleteAll: async () => {
+          this.accountRoomsSignature = undefined;
           if (env.DB && this.room.data) await env.DB.prepare('DELETE FROM account_rooms WHERE code=?').bind(this.room.data.code).run();
           await ctx.storage.deleteAll();
         },

@@ -72,3 +72,5 @@ All three must pass before you report done. For scoring changes, add tests that 
    - **Game:** build with `VITE_MP_SERVER=https://api.maciokyu.com npx vite build`, delete `dist/**/*.map` and `dist/wrangler.json`, then `npx wrangler deploy --config web/wrangler.jsonc`. That is the assets-only Worker `maciokyu-web` at maciokyu.com and www.
    - **Old addresses:** deploy the same build to Pages `indomahjong` (from an empty directory: `npx wrangler pages deploy <dist> --project-name indomahjong --branch main`). GitHub Pages (`pages.yml`) also still publishes. Both only move players to maciokyu.com (`src/storage/domain-move.ts`).
    - **Check:** `node scripts/smoke.mjs`.
+
+Usage: set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then run `node scripts/usage.mjs` for today/yesterday UTC free-plan usage; it exits nonzero at 70% or on query errors and runs daily in GitHub Actions.
