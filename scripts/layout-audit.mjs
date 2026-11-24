@@ -6,7 +6,7 @@ import { resolve, relative, extname } from 'node:path';
 const root = resolve('.agents/layout-audit');
 mkdirSync(resolve(root, 'shots'), { recursive: true });
 const source = readFileSync('src/ui/dev-online-demo.ts', 'utf8');
-const states = ['early', 'mid', 'late', 'melds-0', 'melds-2', 'melds-4', 'flowers', 'spectator', 'pung', 'claims', 'kong', 'warning', 'turn', 'hu', 'seri', 'final', ...[0, 50].flatMap(n => ['open', 'closed'].flatMap(c => ['open', 'closed'].map(o => `chat-${n}-${c}-options-${o}`))), 'public-list', 'public-list-empty', 'lobby', 'menu', 'create', 'join', 'settings', 'history', 'premium', 'admin', 'admin-users', 'admin-settings', 'admin-audit'];
+const states = ['early', 'mid', 'late', 'melds-0', 'melds-2', 'melds-4', 'flowers', 'spectator', 'pung', 'claims', 'kong', 'warning', 'turn', 'hu', 'seri', 'final', ...[0, 50].flatMap(n => ['open', 'closed'].flatMap(c => ['open', 'closed'].map(o => `chat-${n}-${c}-options-${o}`))), 'pick-name', 'public-list', 'public-list-empty', 'lobby', 'menu', 'create', 'join', 'settings', 'history', 'premium', 'admin', 'admin-users', 'admin-settings', 'admin-audit'];
 if (!source.includes('ONLINE_AUDIT_STATES')) throw Error('Missing fixture catalogue');
 const viewports = ['360x640', '390x844', '412x915', '430x932', '640x360', '740x360', '844x390', '915x412', '932x430', '768x1024', '800x1280', '820x1180', '1024x768', '1180x820', '1280x800', '1340x800', '1280x560', '1280x690', '1366x768', '1440x900', '1920x1080'];
 const arg = name => { const i = process.argv.indexOf(name); return i < 0 ? null : process.argv[i + 1]; };

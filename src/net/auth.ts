@@ -2,7 +2,7 @@ import { acceptConfig, fetchConfig, getConfig } from './config';
 import { useSyncExternalStore } from 'react';
 
 export const GOOGLE_CLIENT_ID = '493683615084-apa5g3v01866pb8b9qfrgc75ii4pqtqk.apps.googleusercontent.com';
-export interface Account { admin?: boolean; dailyMatchLimit?: number; resetAt?: number; serverNow?: number; id: string; name: string; picture: string | null; premium: boolean; remainingMatches: number | null; currentRoom?: { code: string; phase: string } | null; newsOptIn?: boolean }
+export interface Account { admin?: boolean; dailyMatchLimit?: number; resetAt?: number; serverNow?: number; id: string; username?: string | null; name: string; picture: string | null; premium: boolean; remainingMatches: number | null; currentRoom?: { code: string; phase: string } | null; newsOptIn?: boolean }
 interface Google { accounts: { id: { initialize(options: { client_id: string; callback: (result: { credential: string }) => void }): void; renderButton(element: HTMLElement, options: { type: string; text: string; locale: string; theme: string; size: string }): void } } }
 interface Facebook { init(options: { appId: string; version: string }): void; login(callback: (response: { authResponse?: { accessToken: string } }) => void, options: { scope: string }): void }
 let me: Account | null = null;
@@ -49,6 +49,17 @@ export async function signIn(provider: 'google' | 'facebook', credential: string
   if (bearer) try { sessionStorage.setItem(`itm.auth:${server}`, bearer); } catch { /* blocked storage */ }
   const { token: _token, ...account } = value;
   update(account);
+}
+export async function setUsername(username: string): Promise<void> {
+  const response = await fetch(`${server}/me/username`, { method: 'POST', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) });
+  const body = await response.json().catch(() => ({}));
+  if (response.ok && me) update({ ...me, name: body.username, username: body.username });
+  // A retry after a lost success answer gets username_locked; the reloaded account already has its name.
+  if (response.ok || body.code === 'username_locked') {
+    try { await refreshAccount(); } catch { /* keep the local name */ }
+    if (me?.username) return;
+  }
+  throw new Error(body.message ?? 'Nama belum tersimpan. Coba lagi.');
 }
 export async function setNewsOptIn(newsOptIn: boolean): Promise<void> {
   const response = await fetch(`${server}/me`, { method: 'POST', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ newsOptIn }) });

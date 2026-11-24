@@ -1,3 +1,5 @@
+import { UsernamePicker } from './UsernamePicker';
+import { PremiumBadge } from './GameTable';
 import { AllowanceReset } from './AllowanceReset';
 import { useConfig } from '../../net/config';
 import { openAuth, refreshAccount, renderGoogle, signOut, useAccount, facebookLogin, onlineLoginRequired, setNewsOptIn, leaveCurrentRoom, authStore } from '../../net/auth';
@@ -63,7 +65,7 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
   }, [account, onError]);
   return <div className={`mp-account ${account ? 'is-in' : 'is-out'}`} role="group" aria-label="Akun pemain">
     {account ? <>
-      <span className="mp-account-who"><Avatar name={account.name} picture={account.picture} /><span className="mp-account-name" title={account.name}>{account.name}</span></span>
+      <span className="mp-account-who"><Avatar name={account.username ?? 'Pemain'} picture={account.picture} /><span className="mp-account-name" title={account.username ?? undefined}>{account.username ?? 'Pilih nama'}</span>{account.premium && <PremiumBadge />}</span>
       <span className="mp-account-allowance"><span className="mp-pill">{account.premium ? 'Jatah host: tanpa batas' : `Jatah host hari ini: sisa ${account.remainingMatches} dari ${config.dailyMatchLimit} match`}</span>
       <AllowanceReset remaining={account.remainingMatches ?? Infinity} /></span>
       <label className="mp-account-optin"><input type="checkbox" checked={account.newsOptIn === true} onChange={e => { void setNewsOptIn(e.target.checked).catch(error => onError(error.message)); }} /> Kabari lewat email soal Premium dan update maciokYU!</label>
@@ -158,6 +160,7 @@ export function OnlineScreen({ server, inviteCode, resume, initialStep, onTableC
   const [step, setStep] = useState(initialStep);
   const [createPublic, setCreatePublic] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [queuedCreate, setQueuedCreate] = useState<{ config: RoomConfig; name: string } | null>(null);
   const [pendingCreate, setPendingCreate] = useState<{ config: RoomConfig; name: string } | null>(null);
   const [pendingJoin, setPendingJoin] = useState<Join | null>(null);
   const [switchJoin, setSwitchJoin] = useState<Join | null>(null);
@@ -182,10 +185,11 @@ export function OnlineScreen({ server, inviteCode, resume, initialStep, onTableC
 
   const join = useCallback((j: Join) => {
     const current = authStore.get();
-    if (!current && onlineLoginRequired()) { setPendingJoin(j); return; }
+    const continuing = !!j.token || (current?.currentRoom?.code === j.code && current.currentRoom.phase === 'playing');
+    if ((!current && onlineLoginRequired()) || (current && !current.username && !continuing)) { setPendingJoin(j); return; }
     if (!j.switchRoom && current?.currentRoom && current.currentRoom.code !== j.code) { setSwitchJoin(j); return; }
     setError(null);
-    const next = new RemoteTable({ server, code: j.code, name: j.name, token: j.token, initialConfig: j.config, switchRoom: j.switchRoom });
+    const next = new RemoteTable({ server, code: j.code, name: current?.username ?? j.name, token: j.token, initialConfig: j.config, switchRoom: j.switchRoom });
     next.connect();
     setTable(next);
   }, [server, account]);
@@ -208,14 +212,15 @@ export function OnlineScreen({ server, inviteCode, resume, initialStep, onTableC
   const autoJoined = useRef(false);
   useEffect(() => {
     if (table || (autoJoined.current && !pendingJoin) || !authReady) return;
-    if (pendingJoin && !account && onlineLoginRequired()) return;
+    if (pendingJoin && ((!account && onlineLoginRequired()) || (account && !account.username))) return;
     const code = pendingJoin?.code ?? inviteCode ?? (resume ? account ? account.currentRoom?.code : loadLastRoom()?.code : null);
     if (!code) return;
     const stored = loadRoom(code);
+    if (account && !account.username && !stored?.token && !(account.currentRoom?.code === code && account.currentRoom.phase === 'playing')) return;
     if (!account && !stored && !pendingJoin) return;
     autoJoined.current = true;
     // A logged-out Gabung from the public list leaves the name empty, so the account name wins after sign-in.
-    join({ code, name: pendingJoin?.name || stored?.name || account?.name || 'Pemain', token: stored?.token });
+    join({ code, name: pendingJoin?.name || stored?.name || account?.username || 'Pemain', token: stored?.token });
     if (account || !onlineLoginRequired()) setPendingJoin(null);
   }, [inviteCode, resume, join, account, authReady, pendingJoin, table]);
 
@@ -237,7 +242,7 @@ export function OnlineScreen({ server, inviteCode, resume, initialStep, onTableC
       table.disconnect(); setTable(null);
       void refreshAccount().then(() => setSwitchJoin({ code: table.code, name: table.playerName })).catch(() => setError(state.error!.message));
     }
-    if (state?.error?.code === 'login_required' && !state.joined && table) {
+    if ((state?.error?.code === 'login_required' || state?.error?.code === 'username_required') && !state.joined && table) {
       setPendingJoin({ code: table.code, name: table.playerName });
       table.disconnect(); setTable(null); autoJoined.current = false;
       void refreshAccount().catch(() => {});
@@ -247,9 +252,10 @@ export function OnlineScreen({ server, inviteCode, resume, initialStep, onTableC
   useEffect(() => { onTableChange(onTable); }, [onTable, onTableChange]);
   useEffect(() => () => onTableChange(false), [onTableChange]);
 
-  const resumeRoom = account?.currentRoom ? { code: account.currentRoom.code, name: account.name, token: loadRoom(account.currentRoom.code)?.token ?? '' } : account ? null : lastRoom;
+  const resumeRoom = account?.currentRoom ? { code: account.currentRoom.code, name: account.username ?? 'Pemain', token: loadRoom(account.currentRoom.code)?.token ?? '' } : account ? null : lastRoom;
   const create = async (config: RoomConfig, name: string, replace = false) => {
-    if (!account && onlineLoginRequired()) { setError(LOGIN_TO_CREATE); return; }
+    if (!account && onlineLoginRequired()) { setQueuedCreate({ config, name }); setError(LOGIN_TO_CREATE); return; }
+    if (account && !account.username) { setQueuedCreate({ config, name }); return; }
     await refreshAccount().catch(() => {});
     if (!replace && authStore.get()?.currentRoom) { setPendingCreate({ config, name }); return; }
     setBusy(true);
@@ -267,16 +273,24 @@ export function OnlineScreen({ server, inviteCode, resume, initialStep, onTableC
     }
   };
 
+  useEffect(() => {
+    if (!queuedCreate || !authReady || !account?.username) return;
+    setQueuedCreate(null);
+    void create(queuedCreate.config, account.username);
+  }, [queuedCreate, authReady, account?.username]);
+
+  if (authReady && account && !account.username && !table) return <UsernamePicker />;
+
   return (
     <>
-      {switchJoin && account?.currentRoom && <div className="main-menu"><section className="menu-card mp-card" role="dialog" aria-modal="true" aria-label="Kursi masih aktif"><p>Kamu masih duduk di room {account.currentRoom.code}.</p><button type="button" onClick={() => { setSwitchJoin(null); join({ code: account.currentRoom!.code, name: account.name }); }}>Lanjut {account.currentRoom.code}</button><button type="button" onClick={() => { const next = switchJoin; setSwitchJoin(null); join({ ...next, switchRoom: true }); }}>Gabung {switchJoin.code}</button></section></div>}
+      {switchJoin && account?.currentRoom && <div className="main-menu"><section className="menu-card mp-card" role="dialog" aria-modal="true" aria-label="Kursi masih aktif"><p>Kamu masih duduk di room {account.currentRoom.code}.</p><button type="button" onClick={() => { setSwitchJoin(null); join({ code: account.currentRoom!.code, name: account.username ?? 'Pemain' }); }}>Lanjut {account.currentRoom.code}</button><button type="button" onClick={() => { const next = switchJoin; setSwitchJoin(null); join({ ...next, switchRoom: true }); }}>Gabung {switchJoin.code}</button></section></div>}
       {pendingCreate && <div className="main-menu"><section className="menu-card mp-card" role="dialog" aria-modal="true" aria-label="Room masih aktif"><p>Kamu masih punya room {resumeRoom?.code}.</p><button type="button" onClick={() => { setPendingCreate(null); if (resumeRoom) join(resumeRoom); }}>Lanjut</button><button type="button" disabled={busy} onClick={() => { void create(pendingCreate.config, pendingCreate.name, true); }}>Buat room baru</button></section></div>}
       {table && (state?.room?.phase === 'lobby' || state?.room?.phase === 'finished') && <div className="mp-account-standalone"><AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></div>}
       {table && error && <p className="mp-error" role="alert">{error}</p>}
       {table
         ? <RoomScreen table={table} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} onLeave={leave} toast={toast} />
-        : step === 'public' && !inviteCode ? <PublicTables server={server} onBack={onExit} onCreate={() => { setCreatePublic(true); setStep('create'); }} onJoin={code => join({ code, name: account?.name ?? (onlineLoginRequired() ? '' : loadPlayerName() || 'Pemain'), token: loadRoom(code)?.token })} account={<>{pendingJoin && <p>Masuk pakai Google dulu buat gabung ke room {pendingJoin.code}</p>}<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></>} />
-        : <OnlineMenu inviteCode={inviteCode} initialStep={step} initialPublic={createPublic} busy={busy} error={error}
+        : step === 'public' && !inviteCode ? <PublicTables server={server} onBack={onExit} onCreate={() => { setCreatePublic(true); setStep('create'); }} onJoin={code => join({ code, name: account?.username ?? (onlineLoginRequired() ? '' : loadPlayerName() || 'Pemain'), token: loadRoom(code)?.token })} account={<>{pendingJoin && <p>Masuk pakai Google dulu buat gabung ke room {pendingJoin.code}</p>}<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></>} />
+        : <OnlineMenu username={account ? account.username ?? null : undefined} inviteCode={inviteCode} initialStep={step} initialPublic={createPublic} busy={busy} error={error}
             account={<>{!account && (inviteCode || pendingJoin) && <p>Masuk pakai Google dulu buat gabung ke room {inviteCode ?? pendingJoin?.code}</p>}<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></>}
             onCreate={create} onJoin={(code, name) => join({ code, name, token: loadRoom(code)?.token })}
             onBack={onExit} />}

@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { authHeaders, authStore, deviceLimitFallback, leaveCurrentRoom, openAuth, refreshAccount, signIn, signOut } from '../../src/net/auth';
+import { authHeaders, authStore, deviceLimitFallback, leaveCurrentRoom, openAuth, refreshAccount, setUsername, signIn, signOut } from '../../src/net/auth';
 import { AccountPanel } from '../../src/ui/components/OnlineScreen';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -26,7 +26,7 @@ it.each(['leave', 'refresh'])('hides a left room after %s failure and retries le
   await signOut();
 });
 it('loads server policy, signs in with credentials, shows account UI and clears the store on logout/deletion', async () => {
-  const account = { id: 'u', name: 'Jason', picture: 'https://example.com/avatar', premium: false, remainingMatches: 3 };
+  const account = { id: 'u', name: 'Google Private', username: 'Jason', picture: 'https://example.com/avatar', premium: false, remainingMatches: 3 };
   const fetcher = vi.fn(async (url: string) => {
     if (url.endsWith('/config')) return Response.json({ loginRequired: true });
     if (url.endsWith('/auth/google')) return Response.json({ ...account, token: 'test-bearer' });
@@ -51,7 +51,7 @@ it('loads server policy, signs in with credentials, shows account UI and clears 
   unsubscribe();
 });
 it('shows the initial when the account has no picture and "Jatah host: tanpa batas" for premium', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/config') ? Response.json({ loginRequired: true }) : Response.json({ id: 'p', name: 'budi', picture: null, premium: true, remainingMatches: null, token: 't' })));
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/config') ? Response.json({ loginRequired: true }) : Response.json({ id: 'p', name: 'Google Private', username: 'budi', picture: null, premium: true, remainingMatches: null, token: 't' })));
   await openAuth('http://localhost:8787'); await signIn('google', 'credential');
   const html = renderToStaticMarkup(createElement(AccountPanel, { onError: () => {} }));
   expect(html).toContain('<span class="mp-avatar" aria-hidden="true">B</span>'); expect(html).not.toContain('<img'); expect(html).toContain('Jatah host: tanpa batas'); expect(html).not.toContain('Sisa');
@@ -62,4 +62,30 @@ it('handles anonymous sessions, rejects failed login and enables device fallback
   await openAuth('http://localhost:8787'); expect(authStore.get()).toBeNull(); expect(deviceLimitFallback()).toBe(true);
   await expect(signIn('google', 'bad')).rejects.toThrow();
   await refreshAccount(); expect(authStore.get()).toBeNull();
+});
+it('saves a username and recovers when a lost success answer comes back as username_locked', async () => {
+  const account: { id: string; name: string; username: string | null } = { id: 'picker', name: '', username: null };
+  let lostAnswer = true;
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.endsWith('/config')) return Response.json({ loginRequired: true });
+    if (url.endsWith('/me/username')) {
+      if (account.username) return Response.json({ code: 'username_locked', message: 'Nama ini permanen dan nggak bisa diganti sendiri.' }, { status: 409 });
+      account.username = account.name = 'Tomok';
+      if (lostAnswer) { lostAnswer = false; throw new Error('network'); }
+      return Response.json({ username: 'Tomok' });
+    }
+    if (url.endsWith('/me')) return Response.json(account);
+    return Response.json({ ok: true });
+  }));
+  await openAuth('http://localhost:8787');
+  await expect(setUsername('Tomok')).rejects.toThrow('network');
+  expect(authStore.get()?.username).toBeNull();
+  await setUsername('Tomok');
+  expect(authStore.get()).toMatchObject({ username: 'Tomok', name: 'Tomok' });
+  account.username = null; account.name = '';
+  await refreshAccount();
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/me/username')
+    ? Response.json({ code: 'username_taken', message: 'Nama itu udah dipakai, coba yang lain.' }, { status: 409 }) : Response.json(account)));
+  await expect(setUsername('Tomok')).rejects.toThrow('Nama itu udah dipakai');
+  await signOut();
 });

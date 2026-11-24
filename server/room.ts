@@ -55,11 +55,13 @@ export interface RoomData {
   schedule: { version: number; deadline: number | null; botAt: number | null } | null;
 }
 export interface RoomIO {
+  /** The verified account's username; null when it has none yet, undefined when the session no longer verifies. */
+  accountUsername?(socket: Socket): Promise<string | null | undefined>;
   accountPremium?(socket: Socket): Promise<boolean>;
   joinAccount?(userId: string, code: string, confirmed: boolean): Promise<string | null>;
   settings?(): Promise<{ dailyMatchLimit: number; discardRevealMs: number; loginRequired: boolean }>;
   loginRequired?: boolean;
-  authorize?(socket: Socket | undefined, key?: string): Promise<'login_required' | 'daily_limit' | null>;
+  authorize?(socket: Socket | undefined, key?: string): Promise<'username_required' | 'login_required' | 'daily_limit' | null>;
   now(): number;
   token(): string;
   seed(): HandSeed;
@@ -217,13 +219,19 @@ export class Room {
           this.safeSend(socket, { type: 'kicked', reason: 'kicked' }); this.sockets.delete(socket.id); this.io.close(socket, 'kicked'); return;
         }
         if (socket.token || typeof m.name !== 'string' || (m.token !== undefined && (typeof m.token !== 'string' || m.token.length > 128))) { this.error(socket, 'bad_message', 'Nama atau token nggak valid. Refresh, lalu coba lagi.'); return; }
-        const name = normalizeName(m.name).slice(0, NAME_MAX_LENGTH).trimEnd();
-        if (!name) { this.error(socket, 'bad_message', 'Isi nama dulu.'); return; }
+        const accountName = socket.userId && this.io.accountUsername ? await this.io.accountUsername(socket) : undefined;
+        // undefined: the session behind this socket expired or the account is gone; null: signed in without a username yet.
+        if (socket.userId && this.io.accountUsername && accountName === undefined) { this.error(socket, 'login_required', 'Masuk lagi pakai Google dulu.'); return; }
+        const name = accountName || normalizeName(m.name).slice(0, NAME_MAX_LENGTH).trimEnd();
         const owned = socket.userId ? Object.entries(d.people).find(([, p]) => p.userId === socket.userId && p.seat) : undefined;
         // A logged-in spectator who lost the token comes back to the same unseated entry, not a new one each time.
         const watching = socket.userId && !(m.token && Object.hasOwn(d.people, m.token)) ? Object.entries(d.people).find(([, p]) => p.userId === socket.userId && !p.seat) : undefined;
         let token = owned?.[0] ?? (m.token && Object.hasOwn(d.people, m.token) ? m.token : watching?.[0] ?? this.io.token());
         const existing = d.people[token];
+        const continuing = existing?.userId === socket.userId && !!this.session && !this.session.viewFor(null).matchOver;
+        if (accountName === null && !continuing) { this.error(socket, 'username_required', 'Pilih nama dulu sebelum main.'); return; }
+        // A known token keeps its stored name, so only a new person needs one.
+        if (!name && !existing) { this.error(socket, 'bad_message', 'Isi nama dulu.'); return; }
         // A room token can reconnect its account, never replace it with another account or anonymity.
         if (existing?.userId && existing.userId !== socket.userId) { this.error(socket, 'login_required', 'Masuk pakai akun yang dipakai buat kursi ini.'); return; }
         if (existing && !existing.userId && socket.userId && d.seatDice) { this.error(socket, 'wrong_phase', 'Tunggu match mulai dulu sebelum menghubungkan akun.'); return; }
@@ -243,7 +251,7 @@ export class Room {
           if (other) { this.error(socket, 'current_room', `Kamu masih duduk di room ${other}.`); return; }
         }
         if (!existing) {
-          d.people[token] = { name: uniqueName(name, d.people, token), seat: first ? 'dong' : empty, seatedAt: now };
+          d.people[token] = { name: accountName || uniqueName(name, d.people, token), seat: first ? 'dong' : empty, seatedAt: now };
           if (first) d.host = token;
         } // A known token keeps its assigned name on reconnect.
         for (const old of this.sockets.values()) if (old.token === token && old.id !== socket.id) {
@@ -261,6 +269,11 @@ export class Room {
           if (sent !== undefined) this.reactionTimes.set(fresh, sent);
           this.reactionTimes.delete(token);
           token = fresh;
+        }
+        if (accountName) {
+          d.people[token]!.name = accountName;
+          const seat = d.people[token]!.seat;
+          if (seat && d.matchNames) d.matchNames[seat] = accountName;
         }
         d.people[token]!.userId ??= socket.userId; d.people[token]!.sessionHash = socket.sessionHash;
         d.people[token]!.premium = socket.userId && await this.io.accountPremium?.(socket) ? true : undefined;
@@ -287,6 +300,11 @@ export class Room {
       }
       const person = socket.token ? d.people[socket.token] : undefined;
       if (!person) { this.error(socket, 'bad_message', 'Sambungan belum siap. Refresh halaman.'); return; }
+      if (socket.userId && this.io.accountUsername && ['sit', 'start', 'rematch'].includes(m.type)) {
+        const username = await this.io.accountUsername(socket);
+        if (username === undefined) { this.error(socket, 'login_required', 'Masuk lagi pakai Google dulu.'); return; }
+        if (!username) { this.error(socket, 'username_required', 'Pilih nama dulu sebelum main.'); return; }
+      }
       socket.lastActivity = now; this.io.attach(socket);
       if (m.type === 'leave') {
         this.sockets.delete(socket.id);
@@ -320,6 +338,7 @@ export class Room {
         return;
       }
       if (m.type === 'rename') {
+        if (socket.userId) { this.error(socket, 'username_locked', 'Nama ini permanen dan nggak bisa diganti sendiri.'); return; }
         if (typeof m.name !== 'string' || !normalizeName(m.name)) { this.error(socket, 'bad_message', 'Isi nama dulu.'); return; }
         person.name = uniqueName(m.name, d.people, socket.token!);
         this.handoverHost();
@@ -336,6 +355,16 @@ export class Room {
         if (((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired)) for (const [token, p] of Object.entries(d.people)) if (!p.userId) {
           for (const peer of this.sockets.values()) if (peer.token === token) {
             this.safeSend(peer, { type: 'error', code: 'login_required', message: 'Masuk pakai Google dulu buat Main lagi.' });
+            this.safeSend(peer, { type: 'kicked', reason: 'room_closed' });
+            this.sockets.delete(peer.id); this.io.close(peer);
+          }
+          delete d.people[token];
+        }
+        // Accounts still playing a match from before usernames pick one before the next match.
+        if (this.io.accountUsername) for (const [token, p] of Object.entries(d.people)) {
+          if (!p.userId || await this.io.accountUsername({ id: token, userId: p.userId, sessionHash: p.sessionHash }) !== null) continue;
+          for (const peer of this.sockets.values()) if (peer.token === token) {
+            this.safeSend(peer, { type: 'error', code: 'username_required', message: 'Pilih nama dulu sebelum main.' });
             this.safeSend(peer, { type: 'kicked', reason: 'room_closed' });
             this.sockets.delete(peer.id); this.io.close(peer);
           }
@@ -495,7 +524,7 @@ export class Room {
   private async authorize(socket: Socket | undefined, key?: string): Promise<boolean> {
     const error = await this.io.authorize?.(socket, key);
     if (!error) return true;
-    if (socket) this.error(socket, error, error === 'login_required' ? 'Host perlu masuk dulu. Balik ke menu, lalu Masuk pakai Google.' : `Jatah host ${(await this.io.settings?.())?.dailyMatchLimit ?? 3} match hari ini udah abis. Coba lagi setelah reset 00.00 WIB.`);
+    if (socket) this.error(socket, error, error === 'username_required' ? 'Pilih nama dulu sebelum main.' : error === 'login_required' ? 'Host perlu masuk dulu. Balik ke menu, lalu Masuk pakai Google.' : `Jatah host ${(await this.io.settings?.())?.dailyMatchLimit ?? 3} match hari ini udah abis. Coba lagi setelah reset 00.00 WIB.`);
     return false;
   }
   private captureMatchNames(): void {

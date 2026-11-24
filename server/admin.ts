@@ -1,3 +1,4 @@
+import { validUsername, usernameKey } from '../src/net/protocol';
 import { resolveUser, wibDay, type AuthEnv, type Database } from './auth';
 import { invalidateSettings, readSettings, validSettings } from './settings';
 
@@ -12,21 +13,21 @@ async function rows<T>(db: Database, query: string, fields: string[], values: un
   return JSON.parse(row?.data ?? '[]') as T[];
 }
 interface AdminUser {
-  id: string; name: string; email: string | null; picture: string | null; premium: boolean; newsOptIn: boolean;
+  id: string; username: string | null; name: string; email: string | null; picture: string | null; premium: boolean; newsOptIn: boolean;
   createdAt: number; lastSeenAt: number; matchesHosted: number; matchesToday: number; currentRoom: string | null;
 }
-const userFields = ['id', 'name', 'email', 'picture', 'premium', 'newsOptIn', 'createdAt', 'lastSeenAt', 'matchesHosted', 'matchesToday', 'currentRoom'];
+const userFields = ['id', 'username', 'name', 'email', 'picture', 'premium', 'newsOptIn', 'createdAt', 'lastSeenAt', 'matchesHosted', 'matchesToday', 'currentRoom'];
 function userQuery(url: URL) {
   const q = (url.searchParams.get('q') ?? '').slice(0, 200);
   const filter = url.searchParams.get('filter');
-  const where = `WHERE (instr(lower(u.email),lower(?))>0 OR instr(lower(u.name),lower(?))>0)${filter === 'premium' ? ' AND u.premium=1' : filter === 'optin' ? ' AND u.news_opt_in=1' : ''}`;
+  const where = `WHERE (instr(lower(u.email),lower(?))>0 OR instr(lower(u.name),lower(?))>0 OR instr(lower(u.username),lower(?))>0)${filter === 'premium' ? ' AND u.premium=1' : filter === 'optin' ? ' AND u.news_opt_in=1' : ''}`;
   const sorts: Record<string, string> = { newest: 'u.created_at DESC', oldest: 'u.created_at ASC', active: 'u.last_seen_at DESC', name: 'u.name COLLATE NOCASE ASC', matches: 'matchesHosted DESC' };
   const order = sorts[url.searchParams.get('sort') ?? 'newest'] ?? sorts.newest;
-  return { where, order: `${order},u.id ASC`, values: [q, q] };
+  return { where, order: `${order},u.id ASC`, values: [q, q, q] };
 }
 async function listUsers(db: Database, url: URL, day: string, page: number, size: number) {
   const { where, order, values } = userQuery(url);
-  const users = await rows<AdminUser>(db, `SELECT u.id,u.name,u.email,u.picture,u.premium,u.news_opt_in AS newsOptIn,
+  const users = await rows<AdminUser>(db, `SELECT u.id,u.username,u.name,u.email,u.picture,u.premium,u.news_opt_in AS newsOptIn,
     u.created_at AS createdAt,u.last_seen_at AS lastSeenAt,
     (SELECT COUNT(*) FROM daily_matches m WHERE m.user_id=u.id) AS matchesHosted,
     (SELECT COUNT(*) FROM daily_matches m WHERE m.user_id=u.id AND m.wib_day=?) AS matchesToday,
@@ -132,6 +133,24 @@ export async function adminRoute(request: Request, env: AuthEnv, cors: Record<st
   if (request.method === 'GET' && url.pathname === '/admin/news-emails') {
     const row = await db.prepare('SELECT json_group_array(email) AS data FROM (SELECT DISTINCT email FROM users WHERE news_opt_in=1 AND email IS NOT NULL ORDER BY email)').first<{ data: string }>();
     return reply(JSON.parse(row?.data ?? '[]'));
+  }
+  const rename = /^\/admin\/users\/([^/]+)\/username$/.exec(url.pathname);
+  if (request.method === 'PUT' && rename) {
+    const body = await request.json().catch(() => null) as { username?: unknown } | null;
+    if (!validUsername(body?.username)) return reply({ code: 'invalid_username', message: 'Nama nggak valid. Pakai 3–12 karakter sesuai aturan.' }, 400);
+    const target = await db.prepare('SELECT username FROM users WHERE id=?').bind(rename[1]).first<{ username: string | null }>();
+    if (!target) return reply({ message: 'Pemain nggak ketemu.' }, 404);
+    const username = body.username.trim().normalize('NFC');
+    try {
+      await db.batch([
+        db.prepare('UPDATE users SET username=?,username_key=? WHERE id=?').bind(username, usernameKey(username), rename[1]),
+        db.prepare('INSERT INTO setting_changes(key,value,updated_at,updated_by) VALUES(?,?,?,?)').bind('username:' + rename[1], JSON.stringify(`${target.username ?? '(belum dipilih)'} → ${username}`), Date.now(), user.id),
+      ]);
+    } catch (error) {
+      if (!String(error).includes('UNIQUE')) throw error;
+      return reply({ code: 'username_taken', message: 'Nama itu udah dipakai, coba yang lain.' }, 409);
+    }
+    return reply({ ok: true, username });
   }
   const match = /^\/admin\/users\/([^/]+)\/premium$/.exec(url.pathname);
   if (request.method === 'PUT' && match) {

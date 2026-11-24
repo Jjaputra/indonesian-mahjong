@@ -105,3 +105,11 @@ it('settings keep screen wake lock without the inactive animation toggle', () =>
   expect(html).toContain('Layar tetap nyala saat main');
   expect(html).not.toContain('Animasi tile');
 });
+
+it.each(['create', 'join'] as const)('shows a read-only account name in %s while anonymous names remain editable', initialStep => {
+  const props = { initialStep, inviteCode: null, busy: false, error: null, onCreate: noop, onJoin: noop, onBack: noop };
+  const html = renderToStaticMarkup(createElement(OnlineMenu, { ...props, username: 'Tomok' }));
+  expect(html).toContain('Main sebagai <strong>Tomok</strong>');
+  expect(html).not.toContain('autoComplete="nickname"');
+  expect(renderToStaticMarkup(createElement(OnlineMenu, props))).toContain('autoComplete="nickname"');
+});

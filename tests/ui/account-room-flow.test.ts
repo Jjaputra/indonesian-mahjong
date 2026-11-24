@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 const h = vi.hoisted(() => ({
   slots: [] as unknown[], index: 0, effects: [] as (() => unknown)[],
-  account: null as null | { id: string; name: string; currentRoom: { code: string } | null },
+  account: null as null | { id: string; name: string; username: string | null; currentRoom: { code: string; phase?: string } | null },
   tables: [] as { code: string; options: { switchRoom?: boolean }; state: Record<string, unknown>; leave: ReturnType<typeof vi.fn> }[],
   lastRoom: null as null | { code: string; name: string; token: string },
   exit: vi.fn(),
@@ -60,7 +60,7 @@ afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs();
 it('autojoins the retained invite after failed auth startup followed by Google sign-in', async () => {
   h.openAuth.mockRejectedValue(new Error('offline'));
   render(); await effects(); expect(h.tables).toHaveLength(0);
-  h.account = { id: 'u', name: 'Jason', currentRoom: null };
+  h.account = { id: 'u', name: 'Jason', username: 'Jason', currentRoom: null };
   render(); await effects(); expect(h.tables[0]?.code).toBe('GHJKLM');
 });
 
@@ -71,7 +71,7 @@ it.each([
   { joined: true, seat: 'dong', ended: 'room_closed' },
   { joined: true, seat: 'dong', ended: null },
 ])('only calls account leave for an active seated exit: %j', async state => {
-  h.account = { id: 'u', name: 'Jason', currentRoom: null };
+  h.account = { id: 'u', name: 'Jason', username: 'Jason', currentRoom: null };
   render(); await effects(); render(); await effects();
   Object.assign(h.tables[0]!.state, state);
   const element = find(render(), e => !!e.props.table && typeof e.props.onLeave === 'function')!;
@@ -82,7 +82,7 @@ it.each([
 });
 
 it('offers continue A or confirmed join B before opening another room', async () => {
-  h.account = { id: 'u', name: 'Jason', currentRoom: { code: 'ABCDEF' } };
+  h.account = { id: 'u', name: 'Jason', username: 'Jason', currentRoom: { code: 'ABCDEF' } };
   render(); await effects(); render(); await effects();
   expect(h.tables).toHaveLength(0);
   const dialog = find(render(), e => e.props.role === 'dialog')!;
@@ -95,7 +95,7 @@ it('offers continue A or confirmed join B before opening another room', async ()
 
 
 it('keeps the old room when Buat room baru fails', async () => {
-  h.account = { id: 'u', name: 'Jason', currentRoom: { code: 'ABCDEF' } };
+  h.account = { id: 'u', name: 'Jason', username: 'Jason', currentRoom: { code: 'ABCDEF' } };
   h.createRoom.mockRejectedValueOnce(new Error('Server sibuk. Coba lagi.'));
   const menu = find(render(null), e => typeof e.props.onCreate === 'function')!;
   await (menu.props.onCreate as (config: object, name: string) => Promise<void>)({}, 'Jason');
@@ -111,7 +111,7 @@ it('keeps the old room when Buat room baru fails', async () => {
 });
 
 it('opens the new room after Buat room baru succeeds instead of offering the old one', async () => {
-  h.account = { id: 'u', name: 'Jason', currentRoom: { code: 'ABCDEF' } };
+  h.account = { id: 'u', name: 'Jason', username: 'Jason', currentRoom: { code: 'ABCDEF' } };
   h.createRoom.mockResolvedValueOnce('NPQRST');
   const menu = find(render(null), e => typeof e.props.onCreate === 'function')!;
   await (menu.props.onCreate as (config: object, name: string) => Promise<void>)({}, 'Jason');
@@ -124,7 +124,7 @@ it('opens the new room after Buat room baru succeeds instead of offering the old
 });
 
 it('stops the socket before account leave and shows the menu immediately for a completed match', async () => {
-  h.account = { id: 'u', name: 'Jason', currentRoom: null };
+  h.account = { id: 'u', name: 'Jason', username: 'Jason', currentRoom: null };
   render(); await effects(); render(); await effects();
   Object.assign(h.tables[0]!.state, { joined: true, seat: 'dong', ended: null, view: { matchOver: true } });
   let complete!: () => void;
@@ -140,7 +140,7 @@ it('stops the socket before account leave and shows the menu immediately for a c
 });
 
 it('still returns to the menu if account leave fails', async () => {
-  h.account = { id: 'u', name: 'Jason', currentRoom: null };
+  h.account = { id: 'u', name: 'Jason', username: 'Jason', currentRoom: null };
   render(); await effects(); render(); await effects();
   Object.assign(h.tables[0]!.state, { joined: true, seat: 'dong', ended: null, view: { matchOver: true } });
   h.leaveRoom.mockRejectedValueOnce(new Error('offline'));
@@ -152,7 +152,7 @@ it('still returns to the menu if account leave fails', async () => {
 
 
 it('retains a logged-out stored-room resume, shows its login prompt and joins after sign-in', async () => {
-  h.lastRoom = { code: 'ABC234', name: 'Stored player', token: 'saved-seat' };
+  h.lastRoom = { code: 'ABC234', name: 'Jason', token: 'saved-seat' };
   render(null, true); await effects();
   render(null, true); await effects();
   const menu = find(render(null, true), e => typeof e.props.onJoin === 'function')!;
@@ -160,10 +160,10 @@ it('retains a logged-out stored-room resume, shows its login prompt and joins af
   expect(prompt.props.children).toEqual(['Masuk pakai Google dulu buat gabung ke room ', 'ABC234']);
   await effects();
   expect(h.tables).toHaveLength(0);
-  h.account = { id: 'u', name: 'Jason', currentRoom: null };
+  h.account = { id: 'u', name: 'Jason', username: 'Jason', currentRoom: null };
   render(null, true); await effects();
   expect(h.tables).toHaveLength(1);
-  expect(h.tables[0]!.options).toMatchObject({ code: 'ABC234', name: 'Stored player', token: 'saved-seat' });
+  expect(h.tables[0]!.options).toMatchObject({ code: 'ABC234', name: 'Jason', token: 'saved-seat' });
   render(null, true); await effects();
   expect(h.tables).toHaveLength(1);
 });
@@ -187,4 +187,36 @@ it.each(['invite', 'resume'])('App clears the %s destination after returning to 
   expect(fresh.props.inviteCode).toBeNull();
   expect(fresh.props.resume).toBe(false);
   expect(fresh.props.initialStep).toBe('create');
+});
+
+it('blocks an invite until the account picks a username, then continues to that room', async () => {
+  h.account = { id: 'u', name: 'Private', username: null, currentRoom: null };
+  render(); await effects();
+  const picker = render(); await effects();
+  expect((picker.type as { name?: string }).name).toBe('UsernamePicker');
+  expect(h.tables).toHaveLength(0);
+  h.account = { ...h.account, username: 'Tomok' };
+  render(); await effects();
+  expect(h.tables[0]?.options).toMatchObject({ code: 'GHJKLM', name: 'Tomok' });
+});
+
+it('resumes the existing match without a username so the picker does not interrupt play', async () => {
+  h.account = { id: 'u', name: '', username: null, currentRoom: { code: 'ABC234', phase: 'playing' } };
+  render(null, true); await effects();
+  render(null, true); await effects();
+  expect(h.tables[0]?.code).toBe('ABC234');
+});
+
+it('continues an explicit create attempt after login and username selection', async () => {
+  h.createRoom.mockReset().mockResolvedValue('ABC234');
+  render(null); await effects();
+  const menu = find(render(null), e => typeof e.props.onCreate === 'function')!;
+  await (menu.props.onCreate as (config: object, name: string) => Promise<void>)({ public: true }, 'Device name');
+  h.account = { id: 'u', name: '', username: null, currentRoom: null };
+  render(null); await effects();
+  expect(h.createRoom).not.toHaveBeenCalled();
+  h.account = { ...h.account, username: 'Tomok' };
+  render(null); await effects();
+  expect(h.createRoom).toHaveBeenCalledOnce();
+  expect(h.tables[0]?.options).toMatchObject({ code: 'ABC234', name: 'Tomok', initialConfig: { public: true } });
 });

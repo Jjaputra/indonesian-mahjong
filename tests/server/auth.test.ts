@@ -11,6 +11,7 @@ function database() {
   sqlite.exec(readFileSync('server/migrations/0002_account_rooms.sql', 'utf8'));
   sqlite.exec(readFileSync('server/migrations/0005_public_rooms.sql', 'utf8'));
   sqlite.exec(readFileSync('server/migrations/0006_public_rooms_premium.sql', 'utf8'));
+  sqlite.exec(readFileSync('server/migrations/0007_usernames.sql', 'utf8'));
   const db: Database = {
     prepare(sql) {
       let values: unknown[] = [];
@@ -187,6 +188,7 @@ it.each(['playing', 'finished'])('verifies /me room and clears explicit leave in
   const { db, sqlite } = database();
   const token = 'a'.repeat(43);
   sqlite.prepare("INSERT INTO users (id,provider,provider_sub,name,premium,created_at,last_seen_at) VALUES ('u','google','s','Name',0,0,0)").run();
+  sqlite.exec("UPDATE users SET username=name,username_key=lower(name) WHERE username IS NULL");
   sqlite.prepare('INSERT INTO sessions VALUES (?,?,?,?)').run(await tokenHash(token), 'u', 0, Date.now() + 100000);
   sqlite.prepare('INSERT INTO account_rooms VALUES (?,?,?,?)').run('u', 'ABCDEF', 'dong', Date.now());
   let live = true;
@@ -213,6 +215,8 @@ it.each(['playing', 'finished'])('verifies /me room and clears explicit leave in
 it('keeps the account room index consistent through DO persistence, leave and idle room deletion', async () => {
   const { db, sqlite } = database();
   sqlite.prepare("INSERT INTO users (id,provider,provider_sub,name,premium,created_at,last_seen_at) VALUES ('u','google','s','Name',0,0,0)").run();
+  sqlite.exec("UPDATE users SET username=name,username_key=lower(name) WHERE username IS NULL");
+  sqlite.prepare('INSERT INTO sessions(token_hash,user_id,created_at,expires_at) VALUES(?,?,?,?)').run('verified-session', 'u', 0, Date.now() + 60000);
   const memory = new Map<string, unknown>();
   let ready: Promise<unknown> = Promise.resolve();
   const ctx = {
@@ -241,7 +245,7 @@ it('keeps the account room index consistent through DO persistence, leave and id
   expect(await (await object.fetch(new Request('https://room/account', { headers: { 'X-User-Id': 'u' } }))).json()).toEqual({ code: 'ABCDEF', phase: 'lobby' });
   const room = (object as unknown as { room: Room }).room;
   const sit = async (switchRoom = false) => {
-    const socket: Socket = { id: crypto.randomUUID(), userId: 'u' };
+    const socket: Socket = { id: crypto.randomUUID(), userId: 'u', sessionHash: 'verified-session' };
     room.connect(socket); await room.message(socket, JSON.stringify({ type: 'hello', name: 'Name', switchRoom }));
     return socket;
   };
@@ -282,6 +286,7 @@ it('keeps the account room index consistent through DO persistence, leave and id
 it('keeps A when confirmed creation fails and leaves it only after successful creation', async () => {
   const { db, sqlite } = database(); const token = 'a'.repeat(43);
   sqlite.prepare("INSERT INTO users (id,provider,provider_sub,name,premium,created_at,last_seen_at) VALUES ('u','google','s','Name',0,0,0)").run();
+  sqlite.exec("UPDATE users SET username=name,username_key=lower(name) WHERE username IS NULL");
   sqlite.prepare('INSERT INTO sessions VALUES (?,?,?,?)').run(await tokenHash(token), 'u', 0, Date.now() + 100000);
   sqlite.prepare('INSERT INTO account_rooms VALUES (?,?,?,?)').run('u', 'ABCDEF', 'dong', Date.now());
   let fail = true, created = false, live = true;
@@ -299,4 +304,30 @@ it('keeps A when confirmed creation fails and leaves it only after successful cr
   fail = false;
   expect((await worker.fetch(request('/rooms', 'POST', token, { replace: true }), env)).status).toBe(201);
   expect(live).toBe(false); sqlite.close();
+});
+
+it('sets a unique username once, rejects invalid/taken values and resolves concurrent claims through the index', async () => {
+  const { db, sqlite } = database();
+  const tokens = ['a'.repeat(43), 'b'.repeat(43), 'c'.repeat(43), 'd'.repeat(43)];
+  for (let i = 0; i < tokens.length; i++) {
+    sqlite.prepare("INSERT INTO users(id,provider,provider_sub,name,premium,created_at,last_seen_at) VALUES(?,'google',?,'Private Google',0,0,0)").run(String(i), String(i));
+    sqlite.prepare('INSERT INTO sessions(token_hash,user_id,created_at,expires_at) VALUES(?,?,0,?)').run(await tokenHash(tokens[i]!), String(i), Date.now() + 60000);
+  }
+  const choose = (i: number, username: unknown) => authRoute(request('/me/username', 'POST', tokens[i], { username }), { DB: db }, {});
+  expect((await choose(0, '😀')).status).toBe(400);
+  expect((await (await choose(0, 'x')).json()).message).toContain('3–12 karakter');
+  expect((await (await choose(0, 'ADMIN')).json()).message).toBe('Nama itu nggak boleh dipakai, coba yang lain.');
+  expect((await choose(0, ' Tomok ')).status).toBe(200);
+  expect(await (await choose(1, 'TOMOK')).json()).toMatchObject({ code: 'username_taken' });
+  expect(await (await choose(0, 'Changed')).json()).toMatchObject({ code: 'username_locked' });
+  expect(await (await authRoute(request('/me', 'GET', tokens[0]), { DB: db }, {})).json()).toMatchObject({ username: 'Tomok', name: 'Tomok' });
+  const race = await Promise.all([choose(2, 'Race'), choose(3, 'race')]);
+  expect(race.map(r => r.status).sort()).toEqual([200, 409]);
+  const same = await Promise.all([choose(1, 'Once'), choose(1, 'Twice')]);
+  expect(same.map(r => r.status).sort()).toEqual([200, 409]);
+  const env = { DB: db, ROOMS: { idFromName: () => '', get: () => ({ fetch: async () => new Response() }) }, ROOM_CREATION_LIMITER: { limit: async () => ({ success: true }) }, AUTH_LIMITER: { limit: async () => ({ success: false }) } };
+  expect((await worker.fetch(request('/me/username', 'POST', tokens[0], { username: 'Other' }), env)).status).toBe(429);
+  sqlite.prepare('UPDATE users SET username=NULL,username_key=NULL WHERE id=?').run('1');
+  expect(await (await worker.fetch(request('/rooms', 'POST', tokens[1], {}), env)).json()).toMatchObject({ code: 'username_required' });
+  sqlite.close();
 });

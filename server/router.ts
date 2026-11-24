@@ -55,7 +55,7 @@ export default {
     if (url.pathname.startsWith('/admin/')) return adminRoute(request, env, cors);
     const settings = await readSettings(env);
     if (request.method === 'GET' && ['/config', '/auth/config'].includes(url.pathname)) return Response.json({ ...settings, resetAt: resetAt(Date.now()), serverNow: Date.now() }, { headers: { ...cors, 'Cache-Control': 'no-store' } });
-    if (url.pathname.startsWith('/auth/') || url.pathname === '/me') {
+    if (url.pathname.startsWith('/auth/') || (url.pathname === '/me' || url.pathname === '/me/username')) {
       const limiter = env.AUTH_LIMITER ?? env.ROOM_CREATION_LIMITER;
       if (!(await limiter.limit({ key: request.headers.get('CF-Connecting-IP') ?? 'local' })).success) return Response.json({ code: 'rate_limited', message: 'Tunggu bentar, lalu coba lagi.' }, { status: 429, headers: cors });
       if (request.method === 'DELETE' && url.pathname === '/me') {
@@ -70,6 +70,7 @@ export default {
       if (!success) return Response.json({ code: 'rate_limited', message: 'Terlalu banyak room dibuat. Coba lagi bentar lagi.' }, { status: 429, headers: { ...cors, 'Retry-After': '60' } });
       const user = await resolveUser(request, env);
       if (!user && settings.loginRequired) return Response.json({ code: 'login_required', message: 'Masuk pakai Google dulu buat bikin room.' }, { status: 401, headers: cors });
+      if (user && !user.username) return Response.json({ code: 'username_required', message: 'Pilih nama dulu sebelum main.' }, { status: 409, headers: cors });
       const live = user && await currentRoom(user.id);
       const body = await request.json().catch(() => null) as { replace?: unknown } | null;
       if (live && body?.replace !== true) return Response.json({ code: 'current_room', currentRoom: live, message: `Kamu masih punya room ${live.code}.` }, { status: 409, headers: cors });
