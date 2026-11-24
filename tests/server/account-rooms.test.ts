@@ -3,9 +3,10 @@ import type { RoomData, RoomIO } from '../../server/room';
 import { DEFAULT_ROOM_CONFIG } from '../../src/net/protocol';
 import type { Env } from '../../server/router';
 
-const captured = vi.hoisted(() => ({ io: undefined as RoomIO | undefined }));
+const captured = vi.hoisted(() => ({ io: undefined as RoomIO | undefined, sockets: new Map<string, { token: string }>() }));
 vi.mock('../../server/settings', () => ({ readSettings: async () => ({ loginRequired: false }) }));
 vi.mock('../../server/room', () => ({ Room: class {
+  sockets = captured.sockets;
   data: RoomData | null;
   constructor(io: RoomIO, data: RoomData | null) { captured.io = io; this.data = data; }
 } }));
@@ -19,7 +20,7 @@ async function fixture() {
     people: { a: { name: 'A', userId: 'a', seat: 'dong' }, b: { name: 'B', userId: 'b', seat: 'nan' } },
     host: 'a', session: null, lastActivity: 1, handEndedAt: null, schedule: null };
   const statement = { bind: vi.fn().mockReturnThis(), run: vi.fn().mockResolvedValue({}) };
-  const db = { prepare: vi.fn(() => statement), batch: vi.fn().mockResolvedValue([]) };
+  const db = { prepare: vi.fn((_sql: string) => statement), batch: vi.fn().mockResolvedValue([]) };
   const storage = { put: vi.fn().mockResolvedValue(undefined), get: async () => data, deleteAll: vi.fn().mockResolvedValue(undefined) };
   let ready: Promise<unknown> | undefined;
   const ctx = { storage, getWebSockets: () => [], blockConcurrencyWhile: (fn: () => Promise<unknown>) => { ready = fn(); } };
@@ -28,6 +29,7 @@ async function fixture() {
   const { RoomDO } = await import(adapterPath);
   new RoomDO(ctx, { DB: db } as unknown as Env);
   await ready;
+  captured.sockets.clear();
   return { io: captured.io!, data, db, storage, statement };
 }
 
@@ -73,4 +75,30 @@ it('rewrites unchanged seats once per 10 minutes, so a row another room overwrot
   await io.put(data);
   vi.setSystemTime(new Date('2026-11-23T00:09:00Z')); await io.put(data); expect(db.batch).toHaveBeenCalledTimes(1);
   vi.setSystemTime(new Date('2026-11-23T00:11:00Z')); await io.put(data); expect(db.batch).toHaveBeenCalledTimes(2);
+});
+
+it('lists on value changes and unlists full, private, started and hostless rooms', async () => {
+  const { io, data, db, statement } = await fixture();
+  data.config = { ...DEFAULT_ROOM_CONFIG, public: true };
+  captured.sockets.set('host', { token: 'a' });
+  const writes = () => db.prepare.mock.calls.filter(([sql]) => sql.includes('public_rooms')).length;
+  await io.put(data); expect(writes()).toBe(1);
+  expect(statement.bind).toHaveBeenCalledWith('ABCDEF', 'A', 2, JSON.stringify(data.config), 1);
+  data.lastActivity++; await io.put(data); await io.put(data, { chatOnly: true }); expect(writes()).toBe(1);
+  data.people.b!.seat = null; await io.put(data); expect(writes()).toBe(2);
+  data.people.b!.seat = 'nan'; await io.put(data); expect(writes()).toBe(3);
+  data.people.c = { name: 'C', seat: 'xi' }; data.people.d = { name: 'D', seat: 'bei' };
+  await io.put(data); expect(writes()).toBe(4);
+  delete data.people.d; await io.put(data); expect(writes()).toBe(5);
+  data.config.public = false; await io.put(data); expect(writes()).toBe(6);
+  data.config.public = true; await io.put(data); expect(writes()).toBe(7);
+  data.seatDice = { groups: [], dice: {}, deadline: 100, botAt: {}, settledAt: null };
+  await io.put(data); expect(writes()).toBe(8);
+  data.seatDice = null; await io.put(data); expect(writes()).toBe(9);
+  captured.sockets.clear(); await io.put(data); expect(writes()).toBe(10);
+  captured.sockets.set('host', { token: 'a' }); await io.put(data); expect(writes()).toBe(11);
+  // A host waiting on handover can't run the room, so it isn't listed even while connected.
+  data.hostTransferPending = true; await io.put(data); expect(writes()).toBe(12);
+  data.hostTransferPending = false; await io.put(data); expect(writes()).toBe(13);
+  await io.deleteAll(); expect(writes()).toBe(14);
 });

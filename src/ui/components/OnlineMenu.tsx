@@ -3,14 +3,16 @@ import { ArrowLeft, HelpCircle } from 'lucide-react';
 import { DEFAULT_ROOM_CONFIG, NAME_MAX_LENGTH, ROOM_CODE_LENGTH, isRoomCode, type RoomConfig } from '../../net/protocol';
 import { cleanName, loadPlayerName, normalizeRoomCode, savePlayerName } from '../../net/room-store';
 import { RoomConfigFields } from './RoomConfigFields';
+import { PublicChoice } from './PublicTables';
 import { InviteHelp } from './InviteHelp';
 
-export type OnlineStep = 'create' | 'join';
+export type OnlineStep = 'create' | 'join' | 'public';
 
 export interface OnlineMenuProps {
   /** From a `?room=CODE` invite: opens the join form with the code filled in. */
   inviteCode: string | null;
   initialStep?: OnlineStep;
+  initialPublic?: boolean;
   busy: boolean;
   error: string | null;
   /** The account row, shown inside the card under the Kembali bar. */
@@ -29,11 +31,11 @@ function NameField({ value, onChange }: { value: string; onChange: (value: strin
   );
 }
 
-export function OnlineMenu({ inviteCode, initialStep = 'create', busy, error, account, onCreate, onJoin, onBack }: OnlineMenuProps) {
+export function OnlineMenu({ inviteCode, initialStep = 'create', initialPublic = false, busy, error, account, onCreate, onJoin, onBack }: OnlineMenuProps) {
   const screen = inviteCode ? 'join' : initialStep;
   const [name, setName] = useState(loadPlayerName);
   const [code, setCode] = useState(inviteCode ?? '');
-  const [config, setConfig] = useState<RoomConfig>(DEFAULT_ROOM_CONFIG);
+  const [config, setConfig] = useState<RoomConfig>({ ...DEFAULT_ROOM_CONFIG, public: initialPublic });
   const [help, setHelp] = useState(false);
   const patch = (next: Partial<RoomConfig>) => setConfig(c => ({ ...c, ...next }));
   const nameOk = cleanName(name).length > 0;
@@ -66,6 +68,7 @@ export function OnlineMenu({ inviteCode, initialStep = 'create', busy, error, ac
           <form onSubmit={submitCreate}>
             <h2>Buat room</h2>
             <NameField value={name} onChange={setName} />
+            <PublicChoice config={config} onChange={patch} />
             <RoomConfigFields config={config} onChange={patch} />
             <div className="menu-choices">
               <button type="submit" className="btn btn-primary menu-choice" disabled={!nameOk || busy}>

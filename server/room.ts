@@ -38,6 +38,8 @@ export interface RoomData {
   matchNames?: Record<Seat, string>;
   config: RoomConfig;
   host: string | null;
+  kickedTokens?: string[];
+  kickedUsers?: string[];
   people: Record<string, { name: string; seat: Seat | null; seatedAt?: number; userId?: string; sessionHash?: string }>;
   hostOfflineAt?: number | null;
   hostTransferPending?: boolean;
@@ -66,7 +68,7 @@ export interface RoomIO {
   deleteAll(): Promise<void>;
   setAlarm(at: number | null): Promise<void>;
   send(socket: Socket, message: ServerMessage): void;
-  close(socket: Socket, reason?: 'replaced' | 'room_closed' | 'reconnected'): void;
+  close(socket: Socket, reason?: 'replaced' | 'room_closed' | 'reconnected' | 'kicked'): void;
   attach(socket: Socket): void;
 }
 const DAY = 86_400_000;
@@ -78,7 +80,8 @@ export function validConfig(value: unknown): value is RoomConfig {
     && [null, 5, 10, 15, 20, 30, 60].includes(c.turnSeconds) && [null, 90].includes(c.timeLimitMinutes)
     && ['easy', 'normal', 'hard'].includes(c.botLevel)
     && ['fillWithBots', 'allowSpectators'].every(k => typeof c[k as keyof RoomConfig] === 'boolean')
-    && Object.keys(c).length === Object.keys(DEFAULT_ROOM_CONFIG).length;
+    && (c.public === undefined || typeof c.public === 'boolean')
+    && Object.keys(c).every(k => Object.hasOwn(DEFAULT_ROOM_CONFIG, k));
 }
 
 /** All authoritative mutations are serialized, including across asynchronous storage calls. */
@@ -93,6 +96,7 @@ export class Room {
   private tail: Promise<unknown> = Promise.resolve();
   constructor(private io: RoomIO, data: RoomData | null = null, sockets: Socket[] = []) {
     this.data = data ? structuredClone(data) : null;
+    if (this.data) this.data.config.public ??= false;
     this.session = data?.session ? TableSession.deserialize(data.session, io.now, io.seed) : null;
     if (this.session && this.data && !this.data.matchNames) this.captureMatchNames();
     for (const socket of sockets) { this.sockets.set(socket.id, socket); const key = rateKey(socket); if (key && socket.lastReaction != null) this.reactionTimes.set(key, socket.lastReaction); }
@@ -121,6 +125,8 @@ export class Room {
     const d = this.data!;
     return { code: d.code, config: structuredClone(d.config), seatDice: structuredClone(d.seatDice ?? null), continueAt: d.handEndedAt !== null && !this.session?.viewFor(null).matchOver ? d.handEndedAt + 120000 : null,
       phase: d.seatDice && !this.session ? 'seating' : !this.session ? 'lobby' : this.session.viewFor(null).matchOver ? 'finished' : 'playing',
+      hostName: d.host ? d.people[d.host]?.name : undefined,
+      spectatorNames: Object.entries(d.people).filter(([token, p]) => p.seat === null && this.connected(token)).map(([, p]) => p.name),
       spectators: [...this.sockets.values()].filter(s => s.token && d.people[s.token]?.seat === null).length,
       seats: SEAT_ORDER.map(seat => {
         const entry = Object.entries(d.people).find(([, p]) => p.seat === seat);
@@ -204,6 +210,9 @@ export class Room {
       const d = this.data;
       if (m.type === 'ping') { if (socket.token) { socket.lastActivity = now; this.io.attach(socket); } this.safeSend(socket, { type: 'pong', serverNow: now }); return; }
       if (m.type === 'hello') {
+        if ((typeof m.token === 'string' && d.kickedTokens?.includes(m.token)) || (socket.userId && d.kickedUsers?.includes(socket.userId))) {
+          this.safeSend(socket, { type: 'kicked', reason: 'kicked' }); this.sockets.delete(socket.id); this.io.close(socket, 'kicked'); return;
+        }
         if (socket.token || typeof m.name !== 'string' || (m.token !== undefined && (typeof m.token !== 'string' || m.token.length > 128))) { this.error(socket, 'bad_message', 'Nama atau token nggak valid. Refresh, lalu coba lagi.'); return; }
         const name = normalizeName(m.name).slice(0, NAME_MAX_LENGTH).trimEnd();
         if (!name) { this.error(socket, 'bad_message', 'Isi nama dulu.'); return; }
@@ -316,6 +325,7 @@ export class Room {
       if (m.type === 'rematch') {
         if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Cuma host yang bisa mulai lagi.'); return; }
         if (!this.session?.viewFor(null).matchOver) { this.error(socket, 'wrong_phase', 'Match belum selesai.'); return; }
+        if (!person.seat) { this.error(socket, 'not_seated', 'Host harus duduk dulu buat mulai.'); return; }
         if (((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired) && !socket.userId) { this.error(socket, 'login_required', 'Masuk pakai Google dulu buat Main lagi.'); return; }
         if (!await this.authorize(socket)) return;
         // Anonymous seats from before login enforcement last only through the old match.
@@ -367,6 +377,18 @@ export class Room {
       }
       if (this.session || d.seatDice) { this.error(socket, 'wrong_phase', 'Ini cuma bisa di lobi, sebelum match mulai.'); return; }
       switch (m.type) {
+        case 'kick': {
+          if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Cuma host yang bisa keluarkan pemain.'); return; }
+          const target = Object.entries(d.people).find(([, p]) => p.name === m.name);
+          if (!target || target[0] === socket.token) { this.error(socket, 'bad_message', 'Pemain nggak valid.'); return; }
+          (d.kickedTokens ??= []).push(target[0]);
+          if (target[1].userId) (d.kickedUsers ??= []).push(target[1].userId);
+          delete d.people[target[0]];
+          for (const peer of this.sockets.values()) if (peer.token === target[0]) {
+            this.safeSend(peer, { type: 'kicked', reason: 'kicked' }); this.sockets.delete(peer.id); try { this.io.close(peer, 'kicked'); } catch { /* already closed */ }
+          }
+          break;
+        }
         case 'sit':
           if (person.userId) {
             const other = await this.io.joinAccount?.(person.userId, d.code, false);
@@ -384,9 +406,10 @@ export class Room {
         case 'config':
           if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Cuma host yang bisa ubah aturan room.'); return; }
           if (!validConfig(m.config)) { this.error(socket, 'bad_message', 'Aturan room nggak valid.'); return; }
-          d.config = structuredClone(m.config); break;
+          d.config = { ...structuredClone(m.config), public: m.config.public ?? false }; break;
         case 'start': {
           if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Cuma host yang bisa mulai.'); return; }
+          if (!person.seat) { this.error(socket, 'not_seated', 'Host harus duduk dulu buat mulai.'); return; }
           const occupied = Object.values(d.people).filter(p => p.seat !== null);
           if (!d.config.fillWithBots && occupied.length !== 4) { this.error(socket, 'room_full', 'Butuh empat pemain buat mulai.'); return; }
           if (!await this.authorize(socket)) return;

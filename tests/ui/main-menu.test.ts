@@ -7,9 +7,12 @@ import { PremiumModal } from '@/ui/components/PremiumModal';
 import { SettingsModal } from '@/ui/components/SettingsModal';
 import { DEFAULT_SETTINGS } from '@/storage';
 import { OnlineMenu } from '@/ui/components/OnlineMenu';
+import { PublicTables } from '@/ui/components/PublicTables';
+import { DEFAULT_ROOM_CONFIG } from '@/net/protocol';
 
 vi.mock('react', async original => ({
   ...await original<typeof import('react')>(),
+  useEffect: () => {},
   useState: (initial: unknown) => [typeof initial === 'function' ? initial() : initial, () => {}],
 }));
 
@@ -20,6 +23,28 @@ function buttons(node: any): ReactElement<any>[] {
   return [...(node.type === 'button' ? [node] : []), ...buttons(node.props?.children)];
 }
 describe('room menu', () => {
+  it('renders public list rows, joins the selected room, and offers public creation when empty', () => {
+    const onJoin = vi.fn(), onCreate = vi.fn();
+    const props = { server: 'https://example.com', onJoin, onCreate, onBack: noop,
+      initialRooms: [{ code: 'ABC234', hostName: 'Jason', humans: 2, config: { ...DEFAULT_ROOM_CONFIG, public: true }, updatedAt: 1 }] };
+    const html = renderToStaticMarkup(createElement(PublicTables, props));
+    for (const text of ['Jason', '2/4', 'Kim dari tile', 'Min Tay 5', '15 dtk', 'Bot aktif', 'Gabung', 'Muat ulang']) expect(html).toContain(text);
+    buttons(PublicTables(props)).find(b => b.props.children === 'Gabung')!.props.onClick();
+    expect(onJoin).toHaveBeenCalledWith('ABC234');
+    const emptyProps = { ...props, initialRooms: [] };
+    expect(renderToStaticMarkup(createElement(PublicTables, emptyProps))).toContain('Belum ada meja publik.');
+    buttons(PublicTables(emptyProps)).find(b => b.props.children === 'Buat meja publik')!.props.onClick();
+    expect(onCreate).toHaveBeenCalledOnce();
+  });
+  it('defaults the visibility radio to private and can preselect public creation', () => {
+    const props = { inviteCode: null, busy: false, error: null, onCreate: noop, onJoin: noop, onBack: noop };
+    const html = renderToStaticMarkup(createElement(OnlineMenu, props));
+    expect(html).toContain('SIAPA YANG BISA GABUNG');
+    expect(html).toMatch(/aria-checked="true"[^>]*>Lewat kode\/link/);
+    const publicHtml = renderToStaticMarkup(createElement(OnlineMenu, { ...props, initialPublic: true }));
+    expect(publicHtml).toMatch(/aria-checked="true"[^>]*>Meja publik/);
+    expect(publicHtml).toContain('Meja publik muncul di daftar, siapa aja yang login bisa duduk.');
+  });
   it('offers create and join directly, with no solo or developer entry', () => {
     const html = renderToStaticMarkup(createElement(MainMenu, { onOnline: noop }));
     for (const text of ['Buat room', 'Gabung room', 'Atur aturan, undang lewat link', 'Isi kode dari teman', 'Premium']) expect(html).toContain(text);
@@ -29,7 +54,8 @@ describe('room menu', () => {
     const choices = buttons(tree);
     choices[0]!.props.onClick();
     choices[1]!.props.onClick();
-    expect(open.mock.calls).toEqual([['create'], ['join']]);
+    choices[2]!.props.onClick();
+    expect(open.mock.calls).toEqual([['public'], ['create'], ['join']]);
   });
   it('keeps room resume and Premium, and explains an unavailable server', () => {
     const html = renderToStaticMarkup(createElement(MainMenu, { resumeRoomCode: 'ABC234', onResumeRoom: noop }));

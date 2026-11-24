@@ -80,8 +80,8 @@ export function FinishedMatchActions({ table, state, onLeave }: { table: RemoteT
   return <>
         {state.host
           ? <div className="online-daily-limit">
-              <button type="button" className="btn btn-primary" disabled={remaining === 0 || loginBlocked} onClick={() => table.rematch()}>Main lagi</button>
-              <div role="status"><p>{Number.isFinite(remaining) ? `Jatah host hari ini: sisa ${remaining} dari ${dailyMatchLimit} match` : account ? 'Jatah host: tanpa batas' : 'Host perlu masuk dulu.'}</p>
+              <button type="button" className="btn btn-primary" disabled={remaining === 0 || loginBlocked || !state.seat} onClick={() => table.rematch()}>Main lagi</button>
+              <div role="status">{!state.seat && <p>Duduk dulu buat mulai.</p>}<p>{Number.isFinite(remaining) ? `Jatah host hari ini: sisa ${remaining} dari ${dailyMatchLimit} match` : account ? 'Jatah host: tanpa batas' : 'Host perlu masuk dulu.'}</p>
                 {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE()}</p>}<AllowanceReset remaining={remaining} /></div>
             </div>
           : <span className="muted" role="status">Nunggu host mulai lagi</span>}

@@ -216,3 +216,10 @@
 .mp-field > * { min-width: 0; max-width: 100%; }
 .mp-field input { box-sizing: border-box; width: 100%; max-width: 100%; }
 .mp-code-input { letter-spacing: .3em; padding-inline: 8px; }
+
+.mp-public-list { list-style: none; padding: 0; display: grid; gap: 12px; }
+.mp-public-list li, .mp-public-spectator { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border, #ccc); }
+.mp-public-list li > div { min-width: 0; overflow-wrap: anywhere; }
+.mp-public-list .mp-pill { margin-left: 8px; }
+.mp-public-list p { margin: 8px 0 0; }
+.mp-public-list button { flex-shrink: 0; }

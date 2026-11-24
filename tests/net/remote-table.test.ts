@@ -3,7 +3,7 @@ import { TableSession } from '../../src/session';
 import { DEFAULT_SETTINGS, MemoryStorage, loadGameHistory } from '../../src/storage';
 import { DEFAULT_ROOM_CONFIG } from '../../src/net/protocol';
 import { loadRoom, loadLastRoom } from '../../src/net/room-store';
-import { RemoteTable } from '../../src/net/remote-table';
+import { RemoteTable, listPublicRooms } from '../../src/net/remote-table';
 import { PLAYER_NAME } from '../../src/ui/labels';
 import { RemoteController, seatNames, spectatorBottomNames } from '../../src/ui/components/remote-adapter';
 import { fakeNetwork, fakeTimers, roomInfo } from './fake-transport';
@@ -19,6 +19,25 @@ function joined(initialConfig?: typeof DEFAULT_ROOM_CONFIG) {
 }
 
 const oneHumanSession = () => new TableSession({ settings: { ...DEFAULT_SETTINGS }, seats: { dong: 'human', nan: 'bot', xi: 'bot', bei: 'bot' }, seed: 5, now: () => 1000 });
+
+it('fetches public tables without requiring account credentials', async () => {
+  const rows = [{ code: 'ABC234', hostName: 'Host', humans: 1, config: DEFAULT_ROOM_CONFIG, updatedAt: 1 }];
+  const fetcher = vi.fn(async () => Response.json({ rooms: rows }));
+  expect(await listPublicRooms('https://mp.example', fetcher)).toEqual(rows);
+  expect(fetcher).toHaveBeenCalledWith('https://mp.example/rooms/public');
+  await expect(listPublicRooms('https://mp.example', async () => new Response(null, { status: 503 }))).rejects.toThrow('Daftar meja');
+});
+it('sends lobby removal and stops reconnecting when removed', () => {
+  const { table, net, clock } = joined();
+  table.kick('Guest'); expect(net.last.ofType('kick')).toEqual([{ type: 'kick', name: 'Guest' }]);
+  const storage = (table as unknown as { options: { storage: MemoryStorage } }).options.storage;
+  expect(loadRoom('ABC234', storage)).not.toBeNull();
+  net.last.receive({ type: 'kicked', reason: 'kicked' });
+  expect(table.getState().ended).toBe('kicked');
+  // A removed player's menu must not offer "Lanjut room" for that room.
+  expect(loadRoom('ABC234', storage)).toBeNull();
+  net.last.drop(); clock.advance(60000); expect(net.sockets).toHaveLength(1);
+});
 
 it('forgets a finished room on explicit leave but keeps it on tab close', () => {
   const storage = new MemoryStorage(), net = fakeNetwork();

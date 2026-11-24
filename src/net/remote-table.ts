@@ -33,7 +33,7 @@ export interface RemoteState {
   /** When (local clock) the current hand finished, for local hand-result presentation. Null while a hand is on. */
   handEndedAt: number | null;
   /** The server ended this session; no reconnect follows. */
-  ended: 'replaced' | 'room_closed' | 'room_not_found' | null;
+  ended: 'replaced' | 'room_closed' | 'kicked' | 'room_not_found' | null;
   /** A welcome has arrived on the current or an earlier socket. */
   joined: boolean;
 }
@@ -133,6 +133,7 @@ export class RemoteTable {
   }
   rename(name: string): void { this.conn.send({ type: 'rename', name }); }
   sit(seat: Seat): void { this.conn.send({ type: 'sit', seat }); }
+  kick(name: string): void { this.conn.send({ type: 'kick', name }); }
   stand(): void { this.conn.send({ type: 'stand' }); }
   setConfig(config: RoomConfig): void { this.conn.send({ type: 'config', config }); }
   ready(): void { this.conn.send({ type: 'ready' }); }
@@ -239,7 +240,7 @@ export class RemoteTable {
       case 'kicked':
         void refreshAccount().catch(() => {});
         // Preserve this device's token on replacement; only explicit reclaim may retake the seat.
-        if (message.reason === 'room_closed') forgetRoom(this.code, this.options.storage);
+        if (message.reason === 'room_closed' || message.reason === 'kicked') forgetRoom(this.code, this.options.storage);
         this.patch({ ended: message.reason });
         break;
       case 'pong':
@@ -283,4 +284,10 @@ export async function createRoom(server: string, fetchImpl: typeof fetch = fetch
   const body = await res.json() as { code?: unknown };
   if (typeof body.code !== 'string') throw new Error('Jawaban server nggak dikenali. Coba lagi.');
   return body.code;
+}
+
+export async function listPublicRooms(server: string, fetchImpl: typeof fetch = fetch): Promise<import('./protocol').PublicRoom[]> {
+  const res = await fetchImpl(`${server}/rooms/public`);
+  if (!res.ok) throw new Error('Daftar meja belum bisa dimuat. Coba lagi.');
+  return (await res.json() as { rooms: import('./protocol').PublicRoom[] }).rooms;
 }

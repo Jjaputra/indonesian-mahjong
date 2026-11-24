@@ -49,6 +49,7 @@ describe('server review regressions', () => {
     expect(h.frames.get(peer.id)![0]).toMatchObject({ type: 'welcome', host: false, seat: 'nan' });
     await h.send(host, { type: 'stand' });
     expect(h.frames.get(host.id)!.at(-1)).toMatchObject({ type: 'room', seat: null, host: true });
+    await h.send(host, { type: 'sit', seat: 'dong' });
     await h.send(host, { type: 'start' }); await finishSeating(h);
     const before = h.room.session!.serialize(), writes = h.writes.mock.calls.length, peerFrames = h.frames.get(peer.id)!.length;
     const hostFrames = h.frames.get(host.id)!.length;
@@ -102,8 +103,10 @@ describe('server review regressions', () => {
   });
   it.each(['bot', 'human'] as const)('backs off failed %s decisions, including after eviction', async mode => {
     const h = harness(); await h.create(); const host = await h.join();
-    if (mode === 'bot') await h.send(host, { type: 'stand' });
-    await h.send(host, { type: 'start' }); await finishSeating(h);
+    await h.send(host, { type: 'start' });
+    // Synthetic bot fixture after the seated host's start is authorized.
+    if (mode === 'bot') h.room.data!.people[h.room.data!.host!]!.seat = null;
+    await finishSeating(h);
     const stall = () => mode === 'bot'
       ? vi.spyOn(h.room.session!, 'stepBots').mockReturnValue(false)
       : vi.spyOn(h.room.session!, 'timeout').mockReturnValue({ ok: false, code: 'illegal_action', message: 'Gagal.' });

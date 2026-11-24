@@ -7,6 +7,7 @@ import type { Seat } from '../../core/types';
 import type { RoomConfig, RoomInfo } from '../../net/protocol';
 import { buildShareText, inviteLink, whatsAppUrl } from '../../net/room-store';
 import { DIFFICULTY_LABEL, SEAT_LABEL } from '../labels';
+import { PublicChoice } from './PublicTables';
 import { InviteHelp } from './InviteHelp';
 import { RoomConfigFields } from './RoomConfigFields';
 import { AllowanceReset } from './AllowanceReset';
@@ -36,6 +37,7 @@ export interface RoomLobbyProps {
   isHost: boolean;
   dailyLimitStorage?: StorageLike;
   onSit: (seat: Seat) => void;
+  onKick?: (name: string) => void;
   onStand: () => void;
   onStart: () => void;
   onConfig: (config: RoomConfig) => void;
@@ -43,14 +45,14 @@ export interface RoomLobbyProps {
   onToast: (text: string) => void;
 }
 
-export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, onSit, onStand, onStart, onConfig, onLeave, onToast }: RoomLobbyProps) {
+export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, onSit, onKick, onStand, onStart, onConfig, onLeave, onToast }: RoomLobbyProps) {
   const [help, setHelp] = useState(false);
   const account = useAccount();
   const loginBlocked = !account && !deviceLimitFallback();
   const { dailyMatchLimit } = useConfig();
   const remaining = useDailyRemaining(dailyLimitStorage);
   const { config } = room;
-  const blocker = startBlocker(room);
+  const blocker = isHost && seat === null ? 'Duduk dulu buat mulai' : startBlocker(room);
   const text = buildShareText(room.code, inviteLink(room.code, window.location));
 
   const share = async () => {
@@ -93,6 +95,7 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
                   {info?.name && !info.bot && !info.connected && <span className="badge mp-offline">Offline</span>}
                 </strong>
                 {!info?.name && seat === null && <button type="button" className="btn" onClick={() => onSit(id)}>Duduk</button>}
+                {room.phase === 'lobby' && isHost && !mine && info?.name && !info.bot && !info.host && onKick && <button type="button" className="btn" onClick={() => onKick(info.name!)}>Keluarkan</button>}
                 {mine && <button type="button" className="btn" onClick={onStand}>Berdiri</button>}
               </li>
             );
@@ -100,7 +103,9 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
         </ul>
         {room.spectators > 0 && <p className="muted mp-note">{room.spectators} penonton</p>}
 
+        {room.spectatorNames?.map(name => <div className="mp-public-spectator" key={name}><span>{name}</span>{room.phase === 'lobby' && isHost && name !== room.hostName && onKick && <button className="btn" onClick={() => onKick(name)}>Keluarkan</button>}</div>)}
         <dl className="mp-rules" aria-label="Ringkasan aturan">
+          <div><dt>Gabung</dt><dd>{config.public ? 'Meja publik' : 'Lewat kode/link'}</dd></div>
           <div><dt>Kim</dt><dd>{KIM_TEXT[config.kimMode]}</dd></div>
           <div><dt>Min Tay</dt><dd>{config.minHuTay}</dd></div>
           <div><dt>Waktu giliran</dt><dd>{config.turnSeconds === null ? 'Tanpa batas' : `${config.turnSeconds} dtk`}</dd></div>
@@ -112,6 +117,7 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
         {isHost && (
           <details className="mp-config">
             <summary>Ubah aturan</summary>
+            <PublicChoice config={config} onChange={patch => onConfig({ ...config, ...patch })} />
             <RoomConfigFields config={config} onChange={patch => onConfig({ ...config, ...patch })} />
           </details>
         )}

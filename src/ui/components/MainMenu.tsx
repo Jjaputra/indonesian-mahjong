@@ -45,6 +45,7 @@ export function MenuFront({ onOnline, resumeRoomCode, onResumeRoom, onPremium }:
       <div className="menu-logo"><img src={logo} alt="maciokYU!" width={1277} height={407} /></div>
       <p className="menu-eyebrow">Mahjong Indonesia di browser</p>
       <div className="menu-choices menu-front">
+        {onOnline && <button type="button" className="btn btn-primary menu-choice" onClick={() => onOnline('public')}><strong>Meja publik</strong><span>Cari meja yang masih ada kursi</span></button>}
         {resumeRoomCode && onResumeRoom && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onResumeRoom}>
           <strong>Lanjut room {resumeRoomCode}</strong>
           <span>Kursi masih disimpan</span>

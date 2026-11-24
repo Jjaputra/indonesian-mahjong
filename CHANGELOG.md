@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.8.5] - 2026-11-24
+### Added
+- Meja publik: a new first card on the main menu lists public tables that still have a free seat (host, seats taken, Kim, Min Tay, turn time, bots), refreshed every 10 seconds, with Gabung to join. Buat room has a new choice, "Lewat kode/link" or "Meja publik", which the host can change in the lobby. A table leaves the list once it starts, fills up or closes.
+- Before a match the host can remove a player or spectator with "Keluarkan"; that person can't come back to the room until it closes.
+
+## [1.8.4] - 2026-11-24
+### Changed
+- The host has to sit at the table to start a match or press Main lagi, so one account's daily allowance covers only a table its owner plays at.
+
 ## [1.8.3] - 2026-11-23
 ### Changed
 - Behind the scenes: the room server writes the "your room" list to the database only when someone sits, stands or leaves (plus a refresh every 10 minutes), not on every move. That cuts daily database writes by about 90% and keeps the free plan far from its limit.
