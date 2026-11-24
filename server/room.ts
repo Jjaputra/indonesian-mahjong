@@ -40,7 +40,7 @@ export interface RoomData {
   host: string | null;
   kickedTokens?: string[];
   kickedUsers?: string[];
-  people: Record<string, { name: string; seat: Seat | null; seatedAt?: number; userId?: string; sessionHash?: string }>;
+  people: Record<string, { name: string; seat: Seat | null; seatedAt?: number; userId?: string; sessionHash?: string; premium?: boolean }>;
   hostOfflineAt?: number | null;
   hostTransferPending?: boolean;
   session: SerializedSession | null;
@@ -55,6 +55,7 @@ export interface RoomData {
   schedule: { version: number; deadline: number | null; botAt: number | null } | null;
 }
 export interface RoomIO {
+  accountPremium?(socket: Socket): Promise<boolean>;
   joinAccount?(userId: string, code: string, confirmed: boolean): Promise<string | null>;
   settings?(): Promise<{ dailyMatchLimit: number; discardRevealMs: number; loginRequired: boolean }>;
   loginRequired?: boolean;
@@ -127,11 +128,13 @@ export class Room {
       phase: d.seatDice && !this.session ? 'seating' : !this.session ? 'lobby' : this.session.viewFor(null).matchOver ? 'finished' : 'playing',
       hostName: d.host ? d.people[d.host]?.name : undefined,
       spectatorNames: Object.entries(d.people).filter(([token, p]) => p.seat === null && this.connected(token)).map(([, p]) => p.name),
+      spectatorDetails: Object.entries(d.people).filter(([token, p]) => p.seat === null && this.connected(token)).map(([, p]) => ({ name: p.name, ...(p.userId && p.premium ? { premium: true } : {}) })),
       spectators: [...this.sockets.values()].filter(s => s.token && d.people[s.token]?.seat === null).length,
       seats: SEAT_ORDER.map(seat => {
         const entry = Object.entries(d.people).find(([, p]) => p.seat === seat);
         return { seat, name: (this.session?.viewFor(null).matchOver ? d.matchNames?.[seat] : null) ?? entry?.[1].name ?? (this.session ? 'Bot' : null), bot: !!this.session && !entry,
           ready: !entry || !this.connected(entry[0]) || !!d.ready?.includes(entry[0]), takeover: !!d.takeovers?.includes(seat),
+          ...(entry?.[1].userId && entry[1].premium ? { premium: true } : {}),
           connected: entry ? this.connected(entry[0]) : false, host: !!entry && this.isHost(entry[0]) };
       }) };
   }
@@ -260,6 +263,7 @@ export class Room {
           token = fresh;
         }
         d.people[token]!.userId ??= socket.userId; d.people[token]!.sessionHash = socket.sessionHash;
+        d.people[token]!.premium = socket.userId && await this.io.accountPremium?.(socket) ? true : undefined;
         if (!d.host && !d.hostTransferPending && d.creatorUserId === socket.userId && socket.userId) {
           if (d.people[token]!.seat) { d.host = token; d.hostTransferPending = false; }
         }

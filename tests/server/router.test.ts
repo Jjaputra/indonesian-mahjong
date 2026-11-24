@@ -10,7 +10,7 @@ it('lists public rooms with one bounded recent query, parsed config and no login
       cutoff = at;
       return { all: async () => {
         reads++;
-        return { results: [{ code: 'ABC234', host_name: 'Host', humans: 2, config: '{"public":true}', updated_at: 123 }] };
+        return { results: [{ code: 'ABC234', host_name: 'Host', host_premium: 1, humans: 2, config: '{"public":true}', updated_at: 123 }] };
       } };
     } };
   } } } as unknown as Env;
@@ -18,7 +18,7 @@ it('lists public rooms with one bounded recent query, parsed config and no login
   expect(reads).toBe(1);
   expect(query).toContain('WHERE updated_at>? ORDER BY updated_at DESC LIMIT 30');
   expect(Math.abs(cutoff - (Date.now() - 7200000))).toBeLessThan(1000);
-  expect(await response.json()).toEqual({ rooms: [{ code: 'ABC234', hostName: 'Host', humans: 2, config: { public: true }, updatedAt: 123 }] });
+  expect(await response.json()).toEqual({ rooms: [{ code: 'ABC234', hostName: 'Host', hostPremium: true, humans: 2, config: { public: true }, updatedAt: 123 }] });
   expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://maciokyu.com');
   expect((await worker.fetch(new Request('https://worker.test/rooms/public', { headers: { Origin: 'https://evil.example' } }), env)).status).toBe(403);
 });

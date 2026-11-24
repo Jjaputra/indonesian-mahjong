@@ -18,7 +18,10 @@ export class RoomDO implements DurableObject {
         if (socket) { sockets.push(socket); this.peers.set(socket.id, ws); }
       }
       const settings = await readSettings(env);
+      const account = async (socket: Socket | undefined): Promise<User | null> => socket?.sessionHash && env.DB
+        ? env.DB.prepare('SELECT u.id,u.name,u.picture,u.premium FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(socket.sessionHash, Date.now()).first<User>() : null;
       this.room = new Room({
+        accountPremium: async socket => { const user = await account(socket); return !!user && user.id === socket.userId && !!user.premium; },
         settings: () => readSettings(env),
         joinAccount: async (userId, code, confirmed) => {
           const row = await env.DB?.prepare('SELECT code FROM account_rooms WHERE user_id=?').bind(userId).first<{ code: string }>();
@@ -36,8 +39,7 @@ export class RoomDO implements DurableObject {
         loginRequired: settings.loginRequired,
         authorize: async (socket, key) => {
           const settings = await readSettings(env);
-          let user: User | null = null;
-          if (socket?.sessionHash && env.DB) user = await env.DB.prepare('SELECT u.id,u.name,u.picture,u.premium FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(socket.sessionHash, Date.now()).first<User>();
+          const user = await account(socket);
           if (!user) return settings.loginRequired || socket?.userId ? 'login_required' : null;
           if (key) return countMatch(env, user.id, key);
           return await remaining(env.DB!, user, Date.now(), settings.dailyMatchLimit) === 0 ? 'daily_limit' : null;
@@ -49,9 +51,9 @@ export class RoomDO implements DurableObject {
             const host = data.host ? data.people[data.host] : null;
             const humans = Object.values(data.people).filter(p => p.seat).length;
             const listed = data.config.public && !data.session && !data.seatDice && humans < 4 && host && !data.hostTransferPending && [...this.room.sockets.values()].some(s => s.token === data.host);
-            const publicSignature = listed ? JSON.stringify([host.name, humans, data.config]) : '';
+            const publicSignature = listed ? JSON.stringify([host.name, !!host.premium, humans, data.config]) : '';
             if (publicSignature !== this.publicRoomsSignature) {
-              if (listed) await env.DB.prepare('INSERT INTO public_rooms (code,host_name,humans,config,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(code) DO UPDATE SET host_name=excluded.host_name,humans=excluded.humans,config=excluded.config,updated_at=excluded.updated_at').bind(data.code, host.name, humans, JSON.stringify(data.config), data.lastActivity).run();
+              if (listed) await env.DB.prepare('INSERT INTO public_rooms (code,host_name,host_premium,humans,config,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(code) DO UPDATE SET host_name=excluded.host_name,host_premium=excluded.host_premium,humans=excluded.humans,config=excluded.config,updated_at=excluded.updated_at').bind(data.code, host.name, host.premium ? 1 : 0, humans, JSON.stringify(data.config), data.lastActivity).run();
               else if (this.publicRoomsSignature !== '') await env.DB.prepare('DELETE FROM public_rooms WHERE code=?').bind(data.code).run();
               this.publicRoomsSignature = publicSignature;
             }

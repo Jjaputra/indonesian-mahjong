@@ -17,6 +17,12 @@ import { MeldView, TileBack, TileRow, TileView } from './TileView';
 /** Display name per seat; single player uses PLAYER_NAME, online tables pass the room's nicknames. */
 export type SeatNames = Record<Seat, string>;
 
+export function PremiumBadge() {
+  return <span className="player-premium" role="img" aria-label="Premium" title="Premium"><span className="premium-star" aria-hidden="true">★</span><span className="premium-text" aria-hidden="true">Premium</span></span>;
+}
+
+const premiumOf = (controller: GameController, seat: Seat) => (controller as { premium?: (seat: Seat) => boolean }).premium?.(seat) ?? false;
+
 /** Screen position of each seat relative to the human at the bottom (turn order runs counter-clockwise). */
 export function seatPositions(human: Seat): Record<'bottom' | 'right' | 'top' | 'left', Seat> {
   const order: Seat[] = ['dong', 'nan', 'xi', 'bei'];
@@ -89,7 +95,7 @@ export function OpponentPanel({ seat, position, controller, reveal, names = PLAY
   return (
     <section className={`seat-panel seat-${position}${active ? ' is-active' : ''}`} aria-label={`${names[seat]} — ${SEAT_LABEL[seatWindOf(s, seat)]}`}>
       <div className="seat-head">
-        <strong>{names[seat]}</strong>
+        <strong className="player-with-premium"><span className="player-name">{names[seat]}</span>{premiumOf(controller, seat) && <PremiumBadge />}</strong>
         <WindBadges seat={seat} controller={controller} />
         {kimInMelds > 0 && <span className="badge badge-kim">KIM ×{kimInMelds}</span>}
       </div>
@@ -425,7 +431,7 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
       {coach && <div className="coach-slot">{coach}</div>}
       <SeatSets seat={seat} controller={controller} size="md" head={
         <div className="seat-head">
-          <strong>{names[seat]}</strong>
+          <strong className="player-with-premium"><span className="player-name">{names[seat]}</span>{premiumOf(controller, seat) && <PremiumBadge />}</strong>
           <WindBadges seat={seat} controller={controller} />
           {!facedown && (
             <button type="button" className={`arrange-toggle${auto ? ' is-on' : ''}`} aria-pressed={auto} onClick={toggleAuto} title="Tile diurutkan otomatis; matikan buat geser tile manual">

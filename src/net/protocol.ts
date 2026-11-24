@@ -67,6 +67,7 @@ export const DEFAULT_ROOM_CONFIG: RoomConfig = {
 export type RoomPhase = 'lobby' | 'seating' | 'playing' | 'finished';
 
 export interface RoomSeat {
+  premium?: boolean;
   seat: Seat;
   /** null when the seat is empty (a bot fills it at start when allowed). */
   name: string | null;
@@ -91,6 +92,7 @@ export interface RoomInfo {
   seats: RoomSeat[];
   spectators: number;
   spectatorNames?: string[];
+  spectatorDetails?: { name: string; premium?: boolean }[];
   hostName?: string;
   phase: RoomPhase;
   seatDice?: SeatDice | null;
@@ -140,6 +142,6 @@ export type ServerMessage =
   | { type: 'kicked'; reason: 'replaced' | 'room_closed' | 'kicked' };
 
 /** HTTP: POST {server}/rooms → CreateRoomResponse. WebSocket: {server}/rooms/{code}/ws. */
-export interface PublicRoom { code: string; hostName: string; humans: number; config: RoomConfig; updatedAt: number }
+export interface PublicRoom { code: string; hostName: string; hostPremium?: boolean; humans: number; config: RoomConfig; updatedAt: number }
 
 export interface CreateRoomResponse { code: string }

@@ -1,3 +1,4 @@
+import { PremiumBadge } from './GameTable';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { PublicRoom, RoomConfig } from '../../net/protocol';
 import { listPublicRooms } from '../../net/remote-table';
@@ -37,7 +38,7 @@ export function PublicTables({ server, onJoin, onCreate, onBack, account, initia
     {busy && <p role="status">Memuat meja…</p>}
     {!rooms.length && !busy && !error && <div><p>Belum ada meja publik.</p><button className="btn btn-primary" onClick={onCreate}>Buat meja publik</button></div>}
     <ul className="mp-public-list">{rooms.map(room => <li key={room.code}>
-      <div><strong>{room.hostName}</strong><span className="mp-pill">{room.humans}/4</span>
+      <div><strong className="player-with-premium"><span className="player-name">{room.hostName}</span>{room.hostPremium && <PremiumBadge />}</strong><span className="mp-pill">{room.humans}/4</span>
       <p>{({ natural: 'Kim dari tile', dedicated: 'Kim tambahan', off: 'Tanpa Kim' })[room.config.kimMode]} · Min Tay {room.config.minHuTay} · {room.config.turnSeconds === null ? 'Tanpa batas' : `${room.config.turnSeconds} dtk`} · Bot {room.config.fillWithBots ? 'aktif' : 'mati'}</p></div>
       <button className="btn btn-gold" onClick={() => onJoin(room.code)}>Gabung</button>
     </li>)}</ul>

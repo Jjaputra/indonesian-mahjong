@@ -19,7 +19,7 @@ async function fixture() {
   const data: RoomData = { code: 'ABCDEF', creatorPending: true, creatorUserId: 'creator', config: DEFAULT_ROOM_CONFIG,
     people: { a: { name: 'A', userId: 'a', seat: 'dong' }, b: { name: 'B', userId: 'b', seat: 'nan' } },
     host: 'a', session: null, lastActivity: 1, handEndedAt: null, schedule: null };
-  const statement = { bind: vi.fn().mockReturnThis(), run: vi.fn().mockResolvedValue({}) };
+  const statement = { bind: vi.fn().mockReturnThis(), run: vi.fn().mockResolvedValue({}), first: vi.fn().mockResolvedValue(null) };
   const db = { prepare: vi.fn((_sql: string) => statement), batch: vi.fn().mockResolvedValue([]) };
   const storage = { put: vi.fn().mockResolvedValue(undefined), get: async () => data, deleteAll: vi.fn().mockResolvedValue(undefined) };
   let ready: Promise<unknown> | undefined;
@@ -83,7 +83,7 @@ it('lists on value changes and unlists full, private, started and hostless rooms
   captured.sockets.set('host', { token: 'a' });
   const writes = () => db.prepare.mock.calls.filter(([sql]) => sql.includes('public_rooms')).length;
   await io.put(data); expect(writes()).toBe(1);
-  expect(statement.bind).toHaveBeenCalledWith('ABCDEF', 'A', 2, JSON.stringify(data.config), 1);
+  expect(statement.bind).toHaveBeenCalledWith('ABCDEF', 'A', 0, 2, JSON.stringify(data.config), 1);
   data.lastActivity++; await io.put(data); await io.put(data, { chatOnly: true }); expect(writes()).toBe(1);
   data.people.b!.seat = null; await io.put(data); expect(writes()).toBe(2);
   data.people.b!.seat = 'nan'; await io.put(data); expect(writes()).toBe(3);
@@ -101,4 +101,30 @@ it('lists on value changes and unlists full, private, started and hostless rooms
   data.hostTransferPending = true; await io.put(data); expect(writes()).toBe(12);
   data.hostTransferPending = false; await io.put(data); expect(writes()).toBe(13);
   await io.deleteAll(); expect(writes()).toBe(14);
+});
+
+it('rewrites the public listing when only host Premium changes', async () => {
+  const { io, data, db, statement } = await fixture();
+  data.config = { ...DEFAULT_ROOM_CONFIG, public: true };
+  captured.sockets.set('host', { token: 'a' });
+  await io.put(data);
+  data.people.a!.premium = true; await io.put(data);
+  expect(statement.bind).toHaveBeenCalledWith('ABCDEF', 'A', 1, 2, JSON.stringify(data.config), 1);
+  expect(db.prepare.mock.calls.filter(([sql]) => sql.includes('INSERT INTO public_rooms'))).toHaveLength(2);
+  await io.put(data);
+  expect(db.prepare.mock.calls.filter(([sql]) => sql.includes('INSERT INTO public_rooms'))).toHaveLength(2);
+});
+
+it('resolves Premium from the session account and fails closed for absent or mismatched accounts', async () => {
+  const { io, db, statement } = await fixture();
+  statement.first.mockResolvedValue({ id: 'u', premium: 1 } as never);
+  expect(await io.accountPremium!({ id: 's', userId: 'u', sessionHash: 'hash' })).toBe(true);
+  expect(db.prepare).toHaveBeenCalledWith(expect.stringContaining('u.picture,u.premium FROM sessions'));
+  statement.first.mockResolvedValue({ id: 'u', premium: 0 } as never);
+  expect(await io.accountPremium!({ id: 's', userId: 'u', sessionHash: 'hash' })).toBe(false);
+  statement.first.mockResolvedValue({ id: 'other', premium: 1 } as never);
+  expect(await io.accountPremium!({ id: 's', userId: 'u', sessionHash: 'hash' })).toBe(false);
+  statement.first.mockResolvedValue(null);
+  expect(await io.accountPremium!({ id: 's', userId: 'u', sessionHash: 'hash' })).toBe(false);
+  expect(await io.accountPremium!({ id: 's' })).toBe(false);
 });

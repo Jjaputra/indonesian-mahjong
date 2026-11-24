@@ -18,7 +18,7 @@ import { KongToast } from './CallToast';
 import { modeLabel } from '../tay-calculator';
 import { Modal } from './Modal';
 import { MeldView, TileRow } from './TileView';
-import { RemoteController, asGameController, seatName, seatNames, spectatorBottomNames } from './remote-adapter';
+import { RemoteController, asGameController, seatName, seatNames, seatPremium, spectatorBottomNames } from './remote-adapter';
 import { AllowanceReset } from './AllowanceReset';
 import { useConfig } from '../../net/config';
 import { DAILY_LIMIT_MESSAGE, useDailyRemaining } from '../../net/daily-limit';
@@ -92,7 +92,7 @@ export function FinishedMatchActions({ table, state, onLeave }: { table: RemoteT
 export function OnlineStandings({ table, state, onClose, onLeave, onLastHand }: {
   table: RemoteTable; state: RemoteState; onClose: () => void; onLeave: () => void; onLastHand: () => void;
 }) {
-  return <MatchStandingsModal match={state.view!.match} names={seatNames(table)} human={state.seat}
+  return <MatchStandingsModal match={state.view!.match} names={seatNames(table)} premium={seatPremium(table)} human={state.seat}
     onMenu={onClose} onLastHand={onLastHand} footer={<>
       <FinishedMatchActions table={table} state={state} onLeave={onLeave} />
       <button type="button" className="btn" onClick={onClose}>Lihat meja</button>

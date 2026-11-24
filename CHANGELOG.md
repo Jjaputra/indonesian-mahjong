@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.6] - 2026-11-24
+### Added
+- Premium players get a gold "Premium" label beside their name in the room lobby, the public table list and the final standings, and a gold star beside their name at the table. Everyone at the table can see it.
+
 ## [1.8.5] - 2026-11-24
 ### Added
 - Meja publik: a new first card on the main menu lists public tables that still have a free seat (host, seats taken, Kim, Min Tay, turn time, bots), refreshed every 10 seconds, with Gabung to join. Buat room has a new choice, "Lewat kode/link" or "Meja publik", which the host can change in the lobby. A table leaves the list once it starts, fills up or closes.

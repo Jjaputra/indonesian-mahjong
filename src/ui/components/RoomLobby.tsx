@@ -1,3 +1,4 @@
+import { PremiumBadge } from './GameTable';
 import { deviceLimitFallback, useAccount } from '../../net/auth';
 import { useState } from 'react';
 import { connectionIndicator, type ConnectionStatus } from '../../net/connection';
@@ -89,7 +90,8 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
                 <span className="mp-seat-wind">{SEAT_LABEL[id]}</span>
                 <strong className="mp-seat-name">
                   {info?.host && <Crown size={14} aria-label="Host" />}
-                  {info?.name ?? (config.fillWithBots ? 'Kosong · nanti diisi bot' : 'Kosong · perlu 4 pemain')}
+                  <span className="player-name">{info?.name ?? (config.fillWithBots ? 'Kosong · nanti diisi bot' : 'Kosong · perlu 4 pemain')}</span>
+                  {info?.premium && !info.bot && <PremiumBadge />}
                   {mine && <small> (kamu)</small>}
                   {info?.bot && <span className="badge">Bot</span>}
                   {info?.name && !info.bot && !info.connected && <span className="badge mp-offline">Offline</span>}
@@ -103,7 +105,7 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
         </ul>
         {room.spectators > 0 && <p className="muted mp-note">{room.spectators} penonton</p>}
 
-        {room.spectatorNames?.map(name => <div className="mp-public-spectator" key={name}><span>{name}</span>{room.phase === 'lobby' && isHost && name !== room.hostName && onKick && <button className="btn" onClick={() => onKick(name)}>Keluarkan</button>}</div>)}
+        {(room.spectatorDetails ?? room.spectatorNames?.map(name => ({ name, premium: false })))?.map(({ name, premium }) => <div className="mp-public-spectator" key={name}><span className="player-with-premium"><span className="player-name">{name}</span>{premium && <PremiumBadge />}</span>{room.phase === 'lobby' && isHost && name !== room.hostName && onKick && <button className="btn" onClick={() => onKick(name)}>Keluarkan</button>}</div>)}
         <dl className="mp-rules" aria-label="Ringkasan aturan">
           <div><dt>Gabung</dt><dd>{config.public ? 'Meja publik' : 'Lewat kode/link'}</dd></div>
           <div><dt>Kim</dt><dd>{KIM_TEXT[config.kimMode]}</dd></div>

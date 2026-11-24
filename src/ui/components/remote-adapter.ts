@@ -37,6 +37,11 @@ export class RemoteController {
   /** A spectator (no seat) watches from Dong's side with every hand face-down. */
   get spectator(): boolean { return this.table.getState().seat === null; }
   get humanSeat(): Seat { return this.table.getState().seat ?? 'dong'; }
+  premium(seat: Seat): boolean {
+    const state = this.table.getState();
+    if (this.spectator && seat === this.humanSeat) return !!state.room?.spectatorDetails?.find(p => p.name === this.table.playerName)?.premium;
+    return !!seatPremium(this.table)[seat];
+  }
   get match() { return this.table.getState().view?.match ?? null; }
   private get view() { return this.table.getState().view!; }
 
@@ -149,6 +154,10 @@ export function seatNames(table: RemoteTable): Record<Seat, string> {
   const names = Object.fromEntries(SEAT_ORDER.map(id => [id, seatName(table, id)])) as Record<Seat, string>;
   if (seat !== null) names[seat] = `${names[seat]} (kamu)`;
   return names;
+}
+
+export function seatPremium(table: RemoteTable): Partial<Record<Seat, boolean>> {
+  return Object.fromEntries((table.getState().room?.seats ?? []).map(s => [s.seat, !s.bot && !!s.premium]));
 }
 
 /** A spectator watches from Dong's side; the bottom label is the spectator's own name. */
