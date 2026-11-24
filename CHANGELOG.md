@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.4] - 2026-11-24
+### Changed
+- The host has to sit at the table to start a match or press Main lagi, so one account's daily allowance covers only a table its owner plays at.
+
 ## [1.8.3] - 2026-11-23
 ### Changed
 - Behind the scenes: the room server writes the "your room" list to the database only when someone sits, stands or leaves (plus a refresh every 10 minutes), not on every move. That cuts daily database writes by about 90% and keeps the free plan far from its limit.

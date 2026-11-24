@@ -59,7 +59,10 @@ it('keeps an empty finished match for 24 hours but expires a never-started room 
 });
 async function botRoom() {
   const h = harness(); await h.create(); const host = await h.join();
-  await h.send(host, { type: 'stand' }); await h.send(host, { type: 'start' }); await finishSeating(h); return { h, host };
+  await h.send(host, { type: 'start' });
+  // Synthetic four-bot fixture: real hosts must stay seated to start.
+  h.room.data!.people[host.token!]!.seat = null; host.seat = null;
+  await finishSeating(h); return { h, host };
 }
 
 async function finishSeating(h: ReturnType<typeof harness>) {
@@ -89,6 +92,31 @@ it.each([false, true])('finished-match leave removes the player before rematch (
 });
 
 describe('room', () => {
+  it.each([false, true])('requires the host to sit before starting (fillWithBots=%s)', async fillWithBots => {
+    let authorizations = 0;
+    const h = harness(async () => { authorizations++; return null; });
+    await h.create(); const host = await h.join('Host');
+    await h.send(host, { type: 'stand' });
+    expect(h.blob.people[host.token!]!.seat).toBeNull();
+    expect(errors(h, host)).toEqual([]);
+    for (let i = 0; i < 4; i++) await h.join(`Friend ${i}`);
+    await h.send(host, { type: 'config', config: { ...DEFAULT_ROOM_CONFIG, fillWithBots } });
+    await h.send(host, { type: 'start' });
+    expect(errors(h, host).at(-1)).toMatchObject({ code: 'not_seated', message: 'Host harus duduk dulu buat mulai.' });
+    expect(h.room.info().phase).toBe('lobby');
+    expect(h.room.data!.seatDice).toBeUndefined();
+    expect(h.room.session).toBeNull();
+    expect(authorizations).toBe(0);
+    const friend = [...h.room.sockets.values()].find(s => s !== host && s.seat === 'dong')!;
+    await h.send(friend, { type: 'stand' });
+    await h.send(host, { type: 'sit', seat: 'dong' });
+    await h.send(host, { type: 'start' });
+    expect(h.room.info().phase).toBe('seating');
+    expect(authorizations).toBe(1);
+    await finishSeating(h);
+    expect(h.room.session).not.toBeNull();
+    expect(authorizations).toBe(2);
+  });
   it('creates, rejects collisions, joins and restores a trimmed name and token seat', async () => {
     const h = harness(); expect(await h.create()).toBe(true); expect(await h.create()).toBe(false);
     const s = await h.join('  Jason  '); const token = s.token!;
@@ -126,6 +154,10 @@ describe('room', () => {
     const snapshot = h.room.session!.serialize(); snapshot.match.endedBy = 'hands'; snapshot.match.finishedAt = h.now;
     h.room.session = TableSession.deserialize(snapshot, () => h.now);
     await h.send(peer, { type: 'rematch' }); expect(errors(h, peer).at(-1)).toMatchObject({ code: 'not_host' });
+    expect(h.room.info().phase).toBe('finished');
+    // A host who stood up after the match can't start the next one from the spectator seats.
+    h.room.data!.people[host.token!]!.seat = null;
+    await h.send(host, { type: 'rematch' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'not_seated' });
     expect(h.room.info().phase).toBe('finished');
   });
   it('persists a clean rematch with the same room, people and settings, then runs seat dice after reload', async () => {

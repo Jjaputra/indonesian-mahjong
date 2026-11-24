@@ -50,7 +50,7 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
   const { dailyMatchLimit } = useConfig();
   const remaining = useDailyRemaining(dailyLimitStorage);
   const { config } = room;
-  const blocker = startBlocker(room);
+  const blocker = isHost && seat === null ? 'Duduk dulu buat mulai' : startBlocker(room);
   const text = buildShareText(room.code, inviteLink(room.code, window.location));
 
   const share = async () => {

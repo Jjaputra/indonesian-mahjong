@@ -316,6 +316,7 @@ export class Room {
       if (m.type === 'rematch') {
         if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Cuma host yang bisa mulai lagi.'); return; }
         if (!this.session?.viewFor(null).matchOver) { this.error(socket, 'wrong_phase', 'Match belum selesai.'); return; }
+        if (!person.seat) { this.error(socket, 'not_seated', 'Host harus duduk dulu buat mulai.'); return; }
         if (((await this.io.settings?.())?.loginRequired ?? this.io.loginRequired) && !socket.userId) { this.error(socket, 'login_required', 'Masuk pakai Google dulu buat Main lagi.'); return; }
         if (!await this.authorize(socket)) return;
         // Anonymous seats from before login enforcement last only through the old match.
@@ -387,6 +388,7 @@ export class Room {
           d.config = structuredClone(m.config); break;
         case 'start': {
           if (!this.isHost(socket.token)) { this.error(socket, 'not_host', 'Cuma host yang bisa mulai.'); return; }
+          if (!person.seat) { this.error(socket, 'not_seated', 'Host harus duduk dulu buat mulai.'); return; }
           const occupied = Object.values(d.people).filter(p => p.seat !== null);
           if (!d.config.fillWithBots && occupied.length !== 4) { this.error(socket, 'room_full', 'Butuh empat pemain buat mulai.'); return; }
           if (!await this.authorize(socket)) return;

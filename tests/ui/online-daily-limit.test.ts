@@ -10,6 +10,7 @@ import { MemoryStorage, DEFAULT_SETTINGS } from '../../src/storage';
 import { countHostedMatch, DAILY_LIMIT_MESSAGE } from '../../src/net/daily-limit';
 import { TableSession } from '../../src/session';
 import { fakeNetwork, roomInfo } from '../net/fake-transport';
+import type { Seat } from '../../src/core/types';
 
 afterEach(() => vi.unstubAllGlobals());
 function fixture(used: number, host = true) {
@@ -23,11 +24,11 @@ function fixture(used: number, host = true) {
   net.last.receive({ type: 'view', view: { ...session.viewFor('dong'), matchOver: true, phase: 'DRAW_SERI' }, serverNow: Date.now() });
   return { table, storage };
 }
-function lobby(used: number, isHost = true) {
+function lobby(used: number, isHost = true, seat: Seat | null = 'dong') {
   vi.stubGlobal('window', { location: { origin: 'https://example.com', pathname: '/' } });
   const { table, storage } = fixture(used, isHost);
   const noop = () => {};
-  const html = renderToStaticMarkup(createElement(RoomLobby, { room: roomInfo(), seat: 'dong', isHost, dailyLimitStorage: storage,
+  const html = renderToStaticMarkup(createElement(RoomLobby, { room: roomInfo(), seat, isHost, dailyLimitStorage: storage,
     onSit: noop, onStand: noop, onStart: noop, onConfig: noop, onLeave: noop, onToast: noop }));
   table.disconnect(); return html;
 }
@@ -37,6 +38,13 @@ function result(used: number, host = true) {
   table.disconnect(); return html;
 }
 describe('host daily limit UI', () => {
+  it('disables Mulai with a seating hint until the host sits', () => {
+    expect(lobby(0, true, null)).toMatch(/<button[^>]*disabled=""[^>]*><strong>Mulai<\/strong><span>Duduk dulu buat mulai<\/span>/);
+    const seated = lobby(0);
+    expect(seated).toMatch(/<button[^>]*><strong>Mulai<\/strong>/);
+    expect(seated).not.toMatch(/<button[^>]*disabled=""[^>]*><strong>Mulai/);
+    expect(seated).toContain('Berdiri');
+  });
   it('shows the host remaining count in lobby and result', () => {
     expect(lobby(2)).toContain('Jatah host hari ini: sisa 1 dari 3 match');
     expect(result(2)).toContain('Jatah host hari ini: sisa 1 dari 3 match');
