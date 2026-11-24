@@ -2,8 +2,9 @@
 
 ## [Unreleased]
 
+## [1.8.6] - 2026-11-24
 ### Added
-- Premium status is visible beside player names in the room lobby, table seats, public host list and final standings.
+- Premium players get a gold "Premium" label beside their name in the room lobby, the public table list and the final standings, and a gold star beside their name at the table. Everyone at the table can see it.
 
 ## [1.8.5] - 2026-11-24
 ### Added

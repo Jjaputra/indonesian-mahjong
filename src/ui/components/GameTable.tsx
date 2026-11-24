@@ -18,7 +18,7 @@ import { MeldView, TileBack, TileRow, TileView } from './TileView';
 export type SeatNames = Record<Seat, string>;
 
 export function PremiumBadge() {
-  return <span className="premium-badge" aria-label="Premium" title="Premium"><span className="premium-star" aria-hidden="true">★</span><span className="premium-text" aria-hidden="true">Premium</span></span>;
+  return <span className="player-premium" role="img" aria-label="Premium" title="Premium"><span className="premium-star" aria-hidden="true">★</span><span className="premium-text" aria-hidden="true">Premium</span></span>;
 }
 
 const premiumOf = (controller: GameController, seat: Seat) => (controller as { premium?: (seat: Seat) => boolean }).premium?.(seat) ?? false;
