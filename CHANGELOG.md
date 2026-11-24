@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.7] - 2026-11-25
+### Added
+- Each signed-in account picks a unique username once ("Pilih nama"). That name is what everyone sees in rooms, chat and the public table list; two accounts can no longer both play as "Tomok". Only an admin can change it, from Pengguna, with an audit log entry.
+
 ## [1.8.6] - 2026-11-24
 ### Added
 - Premium players get a gold "Premium" label beside their name in the room lobby, the public table list and the final standings, and a gold star beside their name at the table. Everyone at the table can see it.

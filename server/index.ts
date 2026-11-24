@@ -19,8 +19,9 @@ export class RoomDO implements DurableObject {
       }
       const settings = await readSettings(env);
       const account = async (socket: Socket | undefined): Promise<User | null> => socket?.sessionHash && env.DB
-        ? env.DB.prepare('SELECT u.id,u.name,u.picture,u.premium FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(socket.sessionHash, Date.now()).first<User>() : null;
+        ? env.DB.prepare('SELECT u.id,u.username,u.name,u.picture,u.premium FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(socket.sessionHash, Date.now()).first<User>() : null;
       this.room = new Room({
+        accountUsername: async socket => { const user = await account(socket); return user && user.id === socket.userId ? user.username ?? null : undefined; },
         accountPremium: async socket => { const user = await account(socket); return !!user && user.id === socket.userId && !!user.premium; },
         settings: () => readSettings(env),
         joinAccount: async (userId, code, confirmed) => {
@@ -41,6 +42,7 @@ export class RoomDO implements DurableObject {
           const settings = await readSettings(env);
           const user = await account(socket);
           if (!user) return settings.loginRequired || socket?.userId ? 'login_required' : null;
+          if (!user.username) return 'username_required';
           if (key) return countMatch(env, user.id, key);
           return await remaining(env.DB!, user, Date.now(), settings.dailyMatchLimit) === 0 ? 'daily_limit' : null;
         }, now: () => Date.now(), token: () => crypto.randomUUID(),

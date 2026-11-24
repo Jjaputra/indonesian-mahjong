@@ -1,3 +1,4 @@
+import { reservedUsername, validUsername, usernameKey } from '../src/net/protocol';
 import { readSettings, resetAt } from './settings';
 export const GOOGLE_CLIENT_ID = '493683615084-apa5g3v01866pb8b9qfrgc75ii4pqtqk.apps.googleusercontent.com';
 export const FACEBOOK_APP_ID = '1670170614568233';
@@ -8,7 +9,7 @@ export interface Statement {
 }
 export interface Database { prepare(sql: string): Statement; batch(statements: Statement[]): Promise<unknown> }
 export interface AuthEnv { currentRoom?(userId: string): Promise<{ code: string; phase: string } | null>; DB?: Database; ADMIN_USER_IDS?: string; LOGIN_REQUIRED?: string; FACEBOOK_ENABLED?: string }
-export interface User { id: string; name: string; picture: string | null; premium: number; news_opt_in?: number; news_opt_in_at?: number | null }
+export interface User { id: string; username?: string | null; name: string; picture: string | null; premium: number; news_opt_in?: number; news_opt_in_at?: number | null }
 interface Identity { sub: string; name: string; email?: string; picture?: string }
 const COOKIE = '__Host-maciokyu_session';
 const LIFETIME = 60 * 86400000;
@@ -65,7 +66,7 @@ export function sessionToken(request: Request): string | null {
 export async function resolveUser(request: Request, env: AuthEnv): Promise<User | null> {
   const token = sessionToken(request);
   if (!token || !env.DB) return null;
-  return env.DB.prepare('SELECT u.id, u.name, u.picture, u.premium, u.news_opt_in, u.news_opt_in_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await tokenHash(token), Date.now()).first<User>();
+  return env.DB.prepare('SELECT u.id, u.username, u.name, u.picture, u.premium, u.news_opt_in, u.news_opt_in_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await tokenHash(token), Date.now()).first<User>();
 }
 export async function remaining(db: Database, user: User, now = Date.now(), limit = 3): Promise<number | null> {
   if (user.premium) return null;
@@ -114,11 +115,11 @@ export async function authRoute(request: Request, env: AuthEnv, cors: Record<str
     } catch { return respond({ code: 'invalid_credential', message: 'Gagal masuk. Coba lagi.' }, 401); }
     const now = Date.now(), provider = path.endsWith('google') ? 'google' : 'facebook';
     await env.DB.prepare('INSERT INTO users (id,provider,provider_sub,name,email,picture,premium,created_at,last_seen_at) VALUES (?,?,?,?,?,?,0,?,?) ON CONFLICT(provider,provider_sub) DO UPDATE SET name=excluded.name,email=excluded.email,picture=excluded.picture,last_seen_at=excluded.last_seen_at').bind(crypto.randomUUID(), provider, identity.sub, identity.name, identity.email ?? null, identity.picture ?? null, now, now).run();
-    const user = (await env.DB.prepare('SELECT id,name,picture,premium,news_opt_in,news_opt_in_at FROM users WHERE provider=? AND provider_sub=?').bind(provider, identity.sub).first<User>())!;
+    const user = (await env.DB.prepare('SELECT id,username,name,picture,premium,news_opt_in,news_opt_in_at FROM users WHERE provider=? AND provider_sub=?').bind(provider, identity.sub).first<User>())!;
     const token = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     await env.DB.prepare('INSERT INTO sessions (token_hash,user_id,created_at,expires_at) VALUES (?,?,?,?)').bind(await tokenHash(token), user.id, now, now + LIFETIME).run();
     const local = new URL(request.headers.get('Origin') ?? request.url).hostname === 'localhost';
-    return respond({ ...user, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, ...await allowance(user), ...(local ? { token } : {}) }, 200, { 'Set-Cookie': cookie(token) });
+    return respond({ ...user, name: user.username ?? '', username: user.username ?? null, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, ...await allowance(user), ...(local ? { token } : {}) }, 200, { 'Set-Cookie': cookie(token) });
   }
   const user = await resolveUser(request, env);
   if (request.method === 'POST' && path === '/auth/logout') {
@@ -127,7 +128,21 @@ export async function authRoute(request: Request, env: AuthEnv, cors: Record<str
     return respond({ ok: true }, 200, { 'Set-Cookie': cookie('', 0) });
   }
   if (!user) return respond({ code: 'login_required', message: 'Masuk dulu.' }, 401);
-  if (request.method === 'GET' && path === '/me') return respond({ ...user, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, ...await allowance(user) });
+  if (request.method === 'POST' && path === '/me/username') {
+    if (user.username) return respond({ code: 'username_locked', message: 'Nama ini permanen dan nggak bisa diganti sendiri.' }, 409);
+    const body = await request.json().catch(() => null) as { username?: unknown } | null;
+    if (!validUsername(body?.username)) return respond({ code: 'invalid_username', message: typeof body?.username === 'string' && reservedUsername(body.username) ? 'Nama itu nggak boleh dipakai, coba yang lain.' : 'Nama 3–12 karakter: huruf, angka, spasi tunggal, titik, _ atau - di antara huruf/angka.' }, 400);
+    const username = body.username.trim().normalize('NFC');
+    try {
+      const result = await env.DB.prepare('UPDATE users SET username=?,username_key=? WHERE id=? AND username IS NULL').bind(username, usernameKey(username), user.id).run();
+      if (!result.meta.changes) return respond({ code: 'username_locked', message: 'Nama ini permanen dan nggak bisa diganti sendiri.' }, 409);
+    } catch (error) {
+      if (!String(error).includes('UNIQUE')) throw error;
+      return respond({ code: 'username_taken', message: 'Nama itu udah dipakai, coba yang lain.' }, 409);
+    }
+    return respond({ username });
+  }
+  if (request.method === 'GET' && path === '/me') return respond({ ...user, name: user.username ?? '', username: user.username ?? null, newsOptIn: !!user.news_opt_in, currentRoom: await env.currentRoom?.(user.id) ?? null, premium: !!user.premium, ...await allowance(user) });
   if (request.method === 'POST' && path === '/me') {
     let body: { newsOptIn?: unknown };
     try { body = await request.json(); } catch { return respond({ message: 'Data nggak valid. Refresh, lalu coba lagi.' }, 400); }

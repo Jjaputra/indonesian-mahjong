@@ -38,3 +38,13 @@ How maciokYU! talks to players. Every agent follows it for player-facing text (U
 
 ## Legal pages
 Plain and true to the code (see 1.3.2). Same voice with "kamu", short sentences, no legal filler. Precision still wins over style there.
+
+## Username akun
+
+Pilih nama · Simpan nama · Main sebagai <username>
+
+Nama ini permanen dan nggak bisa diganti sendiri.
+
+3–12 karakter: huruf, angka; spasi tunggal, titik, _ atau - di antaranya.
+
+Nama itu udah dipakai, coba yang lain.

@@ -10,7 +10,7 @@ afterEach(() => { vi.restoreAllMocks(); opened.splice(0).forEach(sql => sql.clos
 async function fixture() {
   vi.spyOn(Date, 'now').mockReturnValue(now);
   const sql = new DatabaseSync(':memory:'); opened.push(sql);
-  for (const name of ['0001_accounts', '0002_account_rooms', '0003_settings', '0004_admin_overhaul']) sql.exec(readFileSync(`server/migrations/${name}.sql`, 'utf8'));
+  for (const name of ['0001_accounts', '0002_account_rooms', '0003_settings', '0004_admin_overhaul', '0007_usernames']) sql.exec(readFileSync(`server/migrations/${name}.sql`, 'utf8'));
   const db: Database = {
     prepare(query) {
       let values: unknown[] = [];
@@ -211,4 +211,18 @@ it('migrates existing settings history without changing the snapshot or user dat
     const plan = sql.prepare(`EXPLAIN QUERY PLAN SELECT ${column} FROM ${table} WHERE ${condition}`).all();
     expect(plan.some(row => String(row.detail).includes(`INDEX ${table}_${column}`))).toBe(true);
   }
+});
+
+it('renames usernames as admin atomically with audit and rejects collisions without a new audit entry', async () => {
+  const { request, add, sql } = await fixture();
+  add('u'); add('v');
+  expect((await request('users/u/username', 'PUT', { username: 'Tomok' }, 'nobody')).status).toBe(403);
+  expect((await request('users/u/username', 'PUT', { username: 'Tomok' })).status).toBe(200);
+  expect((await request('users/v/username', 'PUT', { username: 'TOMOK' })).status).toBe(409);
+  expect((await request('users/u/username', 'PUT', { username: 'Renamed' })).status).toBe(200);
+  expect(sql.prepare('SELECT username,username_key FROM users WHERE id=?').get('u')).toMatchObject({ username: 'Renamed', username_key: 'renamed' });
+  const audit = await (await request('audit')).json();
+  expect(audit.entries).toHaveLength(2);
+  expect(audit.entries.some((e: { key: string; value: string }) => e.key === 'username:u' && e.value === 'Tomok → Renamed')).toBe(true);
+  expect((await request('users?q=Renamed')).status).toBe(200);
 });

@@ -31,6 +31,18 @@ export interface ChatLine {
   reaction?: ReactionId;
 }
 export const NAME_MAX_LENGTH = 20;
+export const usernameKey = (name: string): string => name.normalize('NFC').toLowerCase().replace(/ +/g, ' ').trim();
+export const reservedUsername = (name: string): boolean => {
+  const key = usernameKey(name);
+  return ['bot', 'admin', 'host', 'pemain', 'maciokyu', 'penonton', 'moderator'].includes(key) || key.startsWith('bot ');
+};
+export function validUsername(value: unknown): value is string {
+  if (typeof value !== 'string' || /\p{C}/u.test(value)) return false;
+  const name = value.trim().normalize('NFC');
+  return [...name].length >= 3 && [...name].length <= 12
+    && /^[\p{L}\p{Nd}]+(?:[ ._-][\p{L}\p{Nd}]+)*$/u.test(name)
+    && !reservedUsername(name);
+}
 
 /** Canonical room names: no invisible format characters or lookalike whitespace. */
 export const normalizeName = (name: string): string =>
@@ -121,7 +133,7 @@ export type ClientMessage =
   | { type: 'ping' };
 
 export type ErrorCode =
-  | 'login_required' | 'daily_limit' | 'bad_message' | 'room_not_found' | 'room_full' | 'seat_taken' | 'not_host'
+  | 'username_required' | 'username_locked' | 'login_required' | 'daily_limit' | 'bad_message' | 'room_not_found' | 'room_full' | 'seat_taken' | 'not_host'
   | 'not_seated' | 'wrong_phase' | 'stale_version' | 'illegal_action' | 'rate_limited' | 'server_busy' | 'current_room';
 
 /** Server → client. */

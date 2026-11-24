@@ -17,6 +17,7 @@ export interface OnlineMenuProps {
   error: string | null;
   /** The account row, shown inside the card under the Kembali bar. */
   account?: ReactNode;
+  username?: string | null;
   onCreate: (config: RoomConfig, name: string) => void;
   onJoin: (code: string, name: string) => void;
   onBack: () => void;
@@ -31,26 +32,28 @@ function NameField({ value, onChange }: { value: string; onChange: (value: strin
   );
 }
 
-export function OnlineMenu({ inviteCode, initialStep = 'create', initialPublic = false, busy, error, account, onCreate, onJoin, onBack }: OnlineMenuProps) {
+export function OnlineMenu({ inviteCode, initialStep = 'create', initialPublic = false, busy, error, account, username, onCreate, onJoin, onBack }: OnlineMenuProps) {
+  const signedIn = username !== undefined;
   const screen = inviteCode ? 'join' : initialStep;
   const [name, setName] = useState(loadPlayerName);
   const [code, setCode] = useState(inviteCode ?? '');
   const [config, setConfig] = useState<RoomConfig>({ ...DEFAULT_ROOM_CONFIG, public: initialPublic });
   const [help, setHelp] = useState(false);
   const patch = (next: Partial<RoomConfig>) => setConfig(c => ({ ...c, ...next }));
-  const nameOk = cleanName(name).length > 0;
+  const playerName = username ?? name;
+  const nameOk = cleanName(playerName).length > 0;
 
   const submitCreate = (e: FormEvent) => {
     e.preventDefault();
     if (!nameOk || busy) return;
-    savePlayerName(cleanName(name));
-    onCreate(config, cleanName(name));
+    savePlayerName(cleanName(playerName));
+    onCreate(config, cleanName(playerName));
   };
   const submitJoin = (e: FormEvent) => {
     e.preventDefault();
     if (!nameOk || !isRoomCode(code) || busy) return;
-    savePlayerName(cleanName(name));
-    onJoin(code, cleanName(name));
+    savePlayerName(cleanName(playerName));
+    onJoin(code, cleanName(playerName));
   };
 
   return (
@@ -67,7 +70,7 @@ export function OnlineMenu({ inviteCode, initialStep = 'create', initialPublic =
         {screen === 'create' && (
           <form onSubmit={submitCreate}>
             <h2>Buat room</h2>
-            <NameField value={name} onChange={setName} />
+            {signedIn ? <p className="mp-playing-as">Main sebagai <strong>{username}</strong></p> : <NameField value={name} onChange={setName} />}
             <PublicChoice config={config} onChange={patch} />
             <RoomConfigFields config={config} onChange={patch} />
             <div className="menu-choices">
@@ -86,7 +89,7 @@ export function OnlineMenu({ inviteCode, initialStep = 'create', initialPublic =
               <input className="mp-code-input" type="text" value={code} inputMode="text" autoCapitalize="characters" autoComplete="off" spellCheck={false}
                 maxLength={ROOM_CODE_LENGTH} placeholder="ABC234" aria-label="Kode room" onChange={e => setCode(normalizeRoomCode(e.target.value))} />
             </label>
-            <NameField value={name} onChange={setName} />
+            {signedIn ? <p className="mp-playing-as">Main sebagai <strong>{username}</strong></p> : <NameField value={name} onChange={setName} />}
             <div className="menu-choices">
               <button type="submit" className="btn btn-primary menu-choice" disabled={!nameOk || !isRoomCode(code) || busy}>
                 <strong>{busy ? 'Menyambung…' : 'Gabung'}</strong>

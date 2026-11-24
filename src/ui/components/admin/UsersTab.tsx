@@ -1,3 +1,4 @@
+import { authHeaders } from '../../../net/auth';
 import { useEffect, useState } from 'react';
 import { adminNewsEmails, adminUsers, downloadUsersCsv, setUserPremium, USER_PAGE_SIZE, type AdminUser, type UserFilter, type UsersPage, type UsersQuery, type UserSort } from '../../../net/admin-api';
 import { Empty, ErrorBox, Skeleton, Toast, useLoad, useToast } from './shared';
@@ -28,11 +29,11 @@ export function UserAvatar({ user }: { user: Pick<AdminUser, 'name' | 'picture'>
   </span>;
 }
 
-export function UsersTable({ users, now = Date.now(), onPremium }: { users: AdminUser[]; now?: number; onPremium: (user: AdminUser, premium: boolean) => void }) {
+export function UsersTable({ users, now = Date.now(), onPremium, onRename }: { onRename?: (user: AdminUser) => void; users: AdminUser[]; now?: number; onPremium: (user: AdminUser, premium: boolean) => void }) {
   return <table className="admin-table">
     <thead><tr><th>Pemain</th><th>Email</th><th>Daftar</th><th>Terakhir aktif</th><th className="num">Host total / hari ini</th><th>Room</th><th>Premium</th></tr></thead>
     <tbody>{users.map(user => <tr key={user.id}>
-      <td data-label="Pemain" className="admin-user"><div className="admin-user-box"><UserAvatar user={user} /><span className="admin-user-name">{user.name}</span>{!!user.newsOptIn && <span className="admin-badge" title="Setuju dikabari lewat email">Dikabari</span>}</div></td>
+      <td data-label="Pemain" className="admin-user"><div className="admin-user-box"><UserAvatar user={user} /><span className="admin-user-name">{user.username ?? 'Belum pilih nama'} <small>({user.name})</small></span>{onRename && <button type="button" className="mp-link" onClick={() => onRename(user)}>Ganti username</button>}{!!user.newsOptIn && <span className="admin-badge" title="Setuju dikabari lewat email">Dikabari</span>}</div></td>
       <td data-label="Email" className="admin-email">{user.email ?? '—'}</td>
       <td data-label="Daftar">{formatDate(user.createdAt)}</td>
       <td data-label="Terakhir aktif">{relativeTime(user.lastSeenAt, now)}</td>
@@ -81,7 +82,16 @@ export function UsersTab({ server, optInCount }: { server: string; optInCount: n
     {load.status === 'error' && <ErrorBox onRetry={load.reload} />}
     {!load.data && load.status === 'loading' && <Skeleton rows={6} />}
     {load.data && <div className={load.status === 'loading' ? 'is-stale' : undefined}>
-      {load.data.users.length ? <UsersTable users={shown} onPremium={togglePremium} /> : <Empty>{q || filter !== 'all' ? 'Nggak ada pemain yang cocok.' : 'Belum ada pemain.'}</Empty>}
+      {load.data.users.length ? <UsersTable users={shown} onPremium={togglePremium} onRename={user => {
+        const username = window.prompt('Ganti username (3–12 karakter)', user.username ?? '');
+        if (username === null) return;
+        void run(async () => {
+          const response = await fetch(`${server}/admin/users/${encodeURIComponent(user.id)}/username`, { method: 'PUT', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) });
+          const body = await response.json();
+          if (!response.ok) throw new Error(body.message ?? 'Nama belum tersimpan.');
+          load.reload(); return 'Username udah diganti. Pemain perlu menyambung ulang.';
+        });
+      }} /> : <Empty>{q || filter !== 'all' ? 'Nggak ada pemain yang cocok.' : 'Belum ada pemain.'}</Empty>}
       <Pager total={load.data.total} page={load.data.page} size={load.data.size} onPage={setPage} />
     </div>}
     <div className="admin-export">

@@ -223,3 +223,6 @@
 .mp-public-list .mp-pill { margin-left: 8px; }
 .mp-public-list p { margin: 8px 0 0; }
 .mp-public-list button { flex-shrink: 0; }
+
+.mp-username-picker form { display: grid; gap: 12px; }
+.mp-playing-as { overflow-wrap: anywhere; }

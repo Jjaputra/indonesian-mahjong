@@ -33,11 +33,11 @@ it('refreshes account Premium on hello and exposes only public flags for seats a
   expect(h.room.info().seats[0]!.premium).toBeUndefined();
 });
 
-function harness(authorize?: RoomIO['authorize'], loginRequired = false, joinAccount?: RoomIO['joinAccount'], accountPremium?: RoomIO['accountPremium']) {
+function harness(authorize?: RoomIO['authorize'], loginRequired = false, joinAccount?: RoomIO['joinAccount'], accountPremium?: RoomIO['accountPremium'], accountUsername?: RoomIO['accountUsername']) {
   let now = 1000, counter = 0, alarm: number | null = null, blob: RoomData | null = null, writes = 0, alarmWrites = 0, seeds = 0;
   const frames = new Map<string, ServerMessage[]>(), closed: string[] = [];
   const seedQueue: HandSeed[] = [];
-  const io: RoomIO = { authorize, loginRequired, joinAccount, accountPremium, seed: () => seedQueue.shift() ?? 1000 + seeds++, log: () => {}, now: () => now, token: () => `token-${++counter}`,
+  const io: RoomIO = { authorize, loginRequired, joinAccount, accountPremium, accountUsername, seed: () => seedQueue.shift() ?? 1000 + seeds++, log: () => {}, now: () => now, token: () => `token-${++counter}`,
     put: async d => { blob = structuredClone(d); writes++; }, deleteAll: async () => { blob = null; },
     setAlarm: async at => { alarm = at; alarmWrites++; },
     send: (s, m) => { frames.get(s.id)!.push(structuredClone(m)); }, close: s => { closed.push(s.id); }, attach: () => {},
@@ -948,4 +948,93 @@ it('new room matches and rematches use practice scoring while restored matches k
   h.room.session = TableSession.deserialize(frozen, () => h.now);
   await h.send(host, { type: 'rematch' }); await finishSeating(h);
   expect(h.room.session!.viewFor(null).settings.scoringBasis).toBe('match_table');
+});
+
+it('uses verified usernames, locks rename, refreshes on reconnect and gates missing usernames', async () => {
+  let username: string | null = null;
+  const h = harness(undefined, false, undefined, undefined, async () => username);
+  await h.create();
+  const socket = h.connect(); socket.userId = 'u';
+  await h.send(socket, { type: 'hello', name: 'Spoof' });
+  expect(errors(h, socket).at(-1)).toMatchObject({ code: 'username_required' });
+  username = 'Tomok';
+  await h.send(socket, { type: 'hello', name: 'Spoof' });
+  expect(h.room.info().seats[0]!.name).toBe('Tomok');
+  await h.send(socket, { type: 'rename', name: 'Spoof' });
+  expect(errors(h, socket).at(-1)).toMatchObject({ code: 'username_locked' });
+  await h.send(socket, { type: 'chat', text: 'Halo' });
+  expect(h.room.data!.chat!.at(-1)!.name).toBe('Tomok');
+  username = null;
+  for (const message of [{ type: 'sit', seat: 'nan' }, { type: 'start' }] as ClientMessage[]) {
+    await h.send(socket, message);
+    expect(errors(h, socket).at(-1)).toMatchObject({ code: 'username_required' });
+  }
+  username = 'Renamed';
+  const again = h.connect(); again.userId = 'u';
+  await h.send(again, { type: 'hello', name: 'Spoof', token: socket.token });
+  expect(h.room.info().seats[0]!.name).toBe('Renamed');
+  expect(JSON.stringify(h.room.info())).not.toContain('Spoof');
+});
+
+it.each([false, true])('grandfathers a stored account through its current match without a username (spectator=%s)', async spectator => {
+  let username: string | null = 'Stored Name';
+  const h = harness(undefined, false, undefined, undefined, async () => username);
+  await h.create();
+  const host = await h.join('Host');
+  const player = h.connect(); player.userId = 'u';
+  await h.send(player, { type: 'hello', name: 'Spoof' });
+  if (spectator) await h.send(player, { type: 'stand' });
+  await h.send(host, { type: 'start' }); await finishSeating(h);
+  username = null; // Release arrives while this account is already in a match.
+  const again = h.connect(); again.userId = 'u';
+  // An old client may send an empty name on rejoin; the stored seat name still applies.
+  await h.send(again, { type: 'hello', name: '', token: player.token });
+  expect(h.frames.get(again.id)!.find(m => m.type === 'welcome')).toMatchObject({ name: 'Stored Name' });
+  await h.send(again, { type: 'chat', text: 'Still playing' });
+  expect(h.room.data!.chat!.at(-1)).toMatchObject({ name: 'Stored Name', text: 'Still playing' });
+  const fresh = h.connect(); fresh.userId = 'new-user';
+  await h.send(fresh, { type: 'hello', name: 'New player' });
+  expect(errors(h, fresh).at(-1)).toMatchObject({ code: 'username_required' });
+  const snapshot = h.room.session!.serialize(); snapshot.match.endedBy = 'hands'; snapshot.match.finishedAt = h.now;
+  h.room.session = TableSession.deserialize(snapshot, () => h.now);
+  for (const message of [{ type: 'sit', seat: 'nan' }, { type: 'rematch' }] as ClientMessage[]) {
+    await h.send(again, message);
+    expect(errors(h, again).at(-1)).toMatchObject({ code: 'username_required' });
+  }
+});
+
+it('removes a grandfathered account without a username when the host starts the next match', async () => {
+  const names: Record<string, string | null> = { host: 'Host', u: 'Stored Name' };
+  const h = harness(undefined, false, undefined, undefined, async socket => names[socket.userId!]);
+  await h.create();
+  const host = h.connect(); host.userId = 'host';
+  await h.send(host, { type: 'hello', name: '' });
+  const player = h.connect(); player.userId = 'u';
+  await h.send(player, { type: 'hello', name: '' });
+  await h.send(host, { type: 'start' }); await finishSeating(h);
+  names.u = null;
+  const snapshot = h.room.session!.serialize(); snapshot.match.endedBy = 'hands'; snapshot.match.finishedAt = h.now;
+  h.room.session = TableSession.deserialize(snapshot, () => h.now);
+  await h.send(host, { type: 'rematch' });
+  expect(errors(h, player).at(-1)).toMatchObject({ code: 'username_required' });
+  expect(h.frames.get(player.id)!.at(-1)).toMatchObject({ type: 'kicked', reason: 'room_closed' });
+  expect(Object.values(h.room.data!.people).map(p => p.name)).toEqual(['Host']);
+  const again = h.connect(); again.userId = 'u';
+  await h.send(again, { type: 'hello', name: 'Stored Name', token: player.token });
+  expect(errors(h, again).at(-1)).toMatchObject({ code: 'username_required' });
+});
+
+it('answers login_required, not username_required, when the session behind a socket no longer verifies', async () => {
+  let username: string | null | undefined = 'Tomok';
+  const h = harness(undefined, false, undefined, undefined, async () => username);
+  await h.create();
+  const socket = h.connect(); socket.userId = 'u';
+  await h.send(socket, { type: 'hello', name: '' });
+  expect(h.room.info().seats[0]!.name).toBe('Tomok');
+  username = undefined; // Session expired or account deleted after the socket opened.
+  await h.send(socket, { type: 'sit', seat: 'nan' });
+  expect(errors(h, socket).at(-1)).toMatchObject({ code: 'login_required' });
+  const again = h.connect(); again.userId = 'u';
+  await h.send(again, { type: 'hello', name: 'Spoof' });
+  expect(errors(h, again).at(-1)).toMatchObject({ code: 'login_required' });
 });
