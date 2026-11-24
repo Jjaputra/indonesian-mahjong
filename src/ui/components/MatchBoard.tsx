@@ -1,3 +1,4 @@
+import { PremiumBadge } from './GameTable';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Crown, Home, RotateCcw } from 'lucide-react';
 import { SEAT_ORDER, keyToTile } from '../../core/tiles';
@@ -89,11 +90,12 @@ export function MatchScoreboard({ match, hand, prevailingWind, dealer, human = '
  * Compact ranking table for result dialogs, in match-ranking order. `gained` adds this game's koin
  * column; `highlight` marks the winner's row; `dealer` gets the crown.
  */
-export function StandingsTable({ match, gained, highlight, dealer, dealerLabel = 'Dealer', human = 'dong', showReached, names = PLAYER_NAME }: {
+export function StandingsTable({ match, gained, highlight, dealer, dealerLabel = 'Dealer', human = 'dong', showReached, premium, names = PLAYER_NAME }: {
   match: MatchState; gained?: Partial<Record<Seat, number>>; highlight?: Seat | null; dealer?: Seat | null; dealerLabel?: string; human?: Seat | null;
   /** Final standings: name the game where each Hu winner reached their final total (the last tie-break). */
   showReached?: boolean;
   names?: Record<Seat, string>;
+  premium?: Partial<Record<Seat, boolean>>;
 }) {
   return (
     <table className={`standings-table${gained ? ' has-gained' : ''}`}>
@@ -111,7 +113,7 @@ export function StandingsTable({ match, gained, highlight, dealer, dealerLabel =
         {standings(match).map((row, _i, rows) => { const { seat, rank, hu, tay, koin, reachedAt } = row; const g = gained?.[seat] ?? 0; const tied = rows.some((r) => r.seat !== seat && r.koin === koin && r.hu === hu); return (
           <tr key={seat} className={`${seat === highlight ? 'is-winner' : ''}${seat === human ? ' is-human' : ''}`.trim() || undefined}>
             <td className="rank">{rank}</td>
-            <th scope="row">{names[seat]}{seat === dealer && <Crown size={13} aria-label={dealerLabel} className="dealer-mark" />}
+            <th scope="row">{premium?.[seat] ? <span className="player-with-premium"><span className="player-name">{names[seat]}</span><PremiumBadge /></span> : names[seat]}{seat === dealer && <Crown size={13} aria-label={dealerLabel} className="dealer-mark" />}
               {showReached && tied && hu > 0 && reachedAt > 0 &&<small className="muted reached">Total dicapai di game {reachedAt}</small>}</th>
             {gained && <td className={`num gained ${koinTone(g)}`}>{g ? signedKoin(g) : '–'}</td>}
             <td className={`num total koin ${koinTone(koin)}`}>{signedKoin(koin)}</td>
@@ -147,9 +149,9 @@ export function MatchResultNote({ match }: { match: MatchState }) {
 }
 
 /** Final standings when the match ends: total koin, then valid Hu, then first to reach the final total. */
-export function MatchStandingsModal({ match, onPlayAgain, onMenu, names = PLAYER_NAME, human = 'dong', footer, onLastHand }: {
+export function MatchStandingsModal({ match, onPlayAgain, onMenu, names = PLAYER_NAME, premium, human = 'dong', footer, onLastHand }: {
   match: MatchState; onPlayAgain?: () => void; onMenu: () => void; names?: Record<Seat, string>; human?: Seat | null;
-  footer?: ReactNode; onLastHand?: () => void;
+  premium?: Partial<Record<Seat, boolean>>; footer?: ReactNode; onLastHand?: () => void;
 }) {
   const rows = standings(match);
   const champion = rows[0] && rows[0].hu > 0 && rows.filter((r) => r.rank === 1).length === 1 ? rows[0] : null;
@@ -171,7 +173,7 @@ export function MatchStandingsModal({ match, onPlayAgain, onMenu, names = PLAYER
       <MatchMinimumNote match={match} />
       {match.endedBy === 'time' && <p>Match berakhir karena batas waktu 90 menit. Game terakhir udah diselesaikan.</p>}
       <p>{champion ? `Pemenang meja: ${names[champion.seat]} dengan ${signedKoin(champion.koin)} koin · ${champion.hu} Hu.` : 'Nggak ada pemenang tunggal.'}</p>
-      <StandingsTable match={match} names={names} human={human} highlight={champion?.seat ?? null} dealer={champion?.seat} dealerLabel="Juara" showReached />
+      <StandingsTable match={match} names={names} premium={premium} human={human} highlight={champion?.seat ?? null} dealer={champion?.seat} dealerLabel="Juara" showReached />
       {onLastHand && <button type="button" className="btn" onClick={onLastHand}>Lihat hasil game terakhir</button>}
       <ol className="match-history" aria-label="Riwayat game">
         {match.hands.map((h) => (

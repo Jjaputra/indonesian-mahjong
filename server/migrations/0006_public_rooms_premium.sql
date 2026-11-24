@@ -1,0 +1,1 @@
+ALTER TABLE public_rooms ADD COLUMN host_premium INTEGER NOT NULL DEFAULT 0;

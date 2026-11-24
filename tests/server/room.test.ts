@@ -5,11 +5,39 @@ import { TableSession } from '../../src/session';
 import type { HandSeed } from '../../src/session';
 import { SEAT_ORDER, parseTileHand } from '../../src/core/tiles';
 
-function harness(authorize?: RoomIO['authorize'], loginRequired = false, joinAccount?: RoomIO['joinAccount']) {
+it('refreshes account Premium on hello and exposes only public flags for seats and spectators', async () => {
+  let premium = false, reads = 0;
+  const h = harness(undefined, false, undefined, async () => { reads++; return premium; });
+  await h.create();
+  const host = h.connect(); host.userId = 'account';
+  await h.send(host, { type: 'hello', name: 'Host' });
+  expect(h.room.info().seats[0]!.premium).toBeUndefined();
+  premium = true;
+  const again = h.connect(); again.userId = 'account';
+  await h.send(again, { type: 'hello', name: 'Host', token: host.token });
+  expect(h.room.info().seats[0]!.premium).toBe(true);
+  const anon = await h.join('Anonymous');
+  expect(h.room.info().seats[1]!.premium).toBeUndefined();
+  expect(reads).toBe(2);
+  await h.send(anon, { type: 'stand' });
+  await h.send(again, { type: 'start' });
+  expect(h.room.info().seats.filter(s => s.bot).every(s => s.premium === undefined)).toBe(true);
+  const watcher = h.connect(); watcher.userId = 'watcher-account';
+  await h.send(watcher, { type: 'hello', name: 'Watcher' });
+  expect(h.room.info().spectatorDetails).toContainEqual({ name: 'Watcher', premium: true });
+  const wire = JSON.stringify(h.room.info());
+  expect(wire).not.toContain('userId'); expect(wire).not.toContain('sessionHash'); expect(wire).not.toContain('email');
+  premium = false;
+  const third = h.connect(); third.userId = 'account';
+  await h.send(third, { type: 'hello', name: 'Host', token: again.token });
+  expect(h.room.info().seats[0]!.premium).toBeUndefined();
+});
+
+function harness(authorize?: RoomIO['authorize'], loginRequired = false, joinAccount?: RoomIO['joinAccount'], accountPremium?: RoomIO['accountPremium']) {
   let now = 1000, counter = 0, alarm: number | null = null, blob: RoomData | null = null, writes = 0, alarmWrites = 0, seeds = 0;
   const frames = new Map<string, ServerMessage[]>(), closed: string[] = [];
   const seedQueue: HandSeed[] = [];
-  const io: RoomIO = { authorize, loginRequired, joinAccount, seed: () => seedQueue.shift() ?? 1000 + seeds++, log: () => {}, now: () => now, token: () => `token-${++counter}`,
+  const io: RoomIO = { authorize, loginRequired, joinAccount, accountPremium, seed: () => seedQueue.shift() ?? 1000 + seeds++, log: () => {}, now: () => now, token: () => `token-${++counter}`,
     put: async d => { blob = structuredClone(d); writes++; }, deleteAll: async () => { blob = null; },
     setAlarm: async at => { alarm = at; alarmWrites++; },
     send: (s, m) => { frames.get(s.id)!.push(structuredClone(m)); }, close: s => { closed.push(s.id); }, attach: () => {},

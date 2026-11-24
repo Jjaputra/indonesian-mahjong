@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Premium status is visible beside player names in the room lobby, table seats, public host list and final standings.
+
 ## [1.8.5] - 2026-11-24
 ### Added
 - Meja publik: a new first card on the main menu lists public tables that still have a free seat (host, seats taken, Kim, Min Tay, turn time, bots), refreshed every 10 seconds, with Gabung to join. Buat room has a new choice, "Lewat kode/link" or "Meja publik", which the host can change in the lobby. A table leaves the list once it starts, fills up or closes.

@@ -10,6 +10,7 @@ function database() {
   sqlite.exec(readFileSync('server/migrations/0001_accounts.sql', 'utf8'));
   sqlite.exec(readFileSync('server/migrations/0002_account_rooms.sql', 'utf8'));
   sqlite.exec(readFileSync('server/migrations/0005_public_rooms.sql', 'utf8'));
+  sqlite.exec(readFileSync('server/migrations/0006_public_rooms_premium.sql', 'utf8'));
   const db: Database = {
     prepare(sql) {
       let values: unknown[] = [];
