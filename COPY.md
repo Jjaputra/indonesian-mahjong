@@ -3,6 +3,7 @@
 How maciokYU! talks to players. Every agent follows it for player-facing text (UI, toasts, errors, legal pages, release notes for the group). Jason chose this voice on 2026-11-22: "santai tanpa sapaan".
 
 ## Voice
+- Public tables: "Meja publik", "Cari meja yang masih ada kursi", "Belum ada meja publik.", "Buat meja publik". Visibility: "SIAPA YANG BISA GABUNG", "Lewat kode/link" / "Meja publik"; help: "Meja publik muncul di daftar, siapa aja yang login bisa duduk." Host removal: "Keluarkan"; removed player: "Kamu dikeluarkan dari room ini."
 - **Like a relaxed admin of a mahjong WhatsApp group.** Short and clear, and it knows the table.
 - **Hardly any pronoun.** Write "Jatah host hari ini abis", not "Jatah host Anda hari ini sudah habis". If one is really needed, use **kamu**. Never "Anda", never "lu/gw", never "kalian".
 - **Everyday Indonesian, not translated English.** Use words like "udah", "abis", "lagi", "nggak", "nunggu" and "bentar". Not "sedang", "telah", "silakan", "harap" or "mohon".

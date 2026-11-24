@@ -9,6 +9,7 @@ function database() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(readFileSync('server/migrations/0001_accounts.sql', 'utf8'));
   sqlite.exec(readFileSync('server/migrations/0002_account_rooms.sql', 'utf8'));
+  sqlite.exec(readFileSync('server/migrations/0005_public_rooms.sql', 'utf8'));
   const db: Database = {
     prepare(sql) {
       let values: unknown[] = [];
@@ -243,11 +244,14 @@ it('keeps the account room index consistent through DO persistence, leave and id
     room.connect(socket); await room.message(socket, JSON.stringify({ type: 'hello', name: 'Name', switchRoom }));
     return socket;
   };
-  await sit();
+  const hostSocket = await sit();
+  await room.message(hostSocket, JSON.stringify({ type: 'config', config: { ...room.data!.config, public: true } }));
+  expect(sqlite.prepare('SELECT host_name,humans FROM public_rooms').get()).toMatchObject({ host_name: 'Name', humans: 1 });
   expect(sqlite.prepare('SELECT code,seat FROM account_rooms').get()).toMatchObject({ code: 'ABCDEF', seat: 'dong' });
   const accountRequest = () => new Request('https://room/account', { headers: { 'X-User-Id': 'u' } });
   expect(await (await object.fetch(accountRequest())).json()).toEqual({ code: 'ABCDEF', phase: 'lobby' });
   await room.leaveAccount('u');
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM public_rooms').get()!.n).toBe(0);
   expect(await (await object.fetch(accountRequest())).json()).toBeNull();
   expect(sqlite.prepare('SELECT COUNT(*) n FROM account_rooms').get()!.n).toBe(0);
   sqlite.prepare('INSERT INTO account_rooms VALUES (?,?,?,?)').run('u', 'GHJKLM', 'nan', Date.now());
@@ -264,10 +268,12 @@ it('keeps the account room index consistent through DO persistence, leave and id
   expect((await sit(true)).seat).toBe('dong');
   expect(otherRequests).toEqual(['GET', 'GET', 'DELETE']);
   expect(sqlite.prepare('SELECT code FROM account_rooms').get()!.code).toBe('ABCDEF');
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM public_rooms').get()!.n).toBe(1);
   const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 2 * 86400000);
   try { await object.alarm(); } finally { clock.mockRestore(); }
   expect(sqlite.prepare('SELECT COUNT(*) n FROM account_rooms').get()!.n).toBe(0);
   expect(memory.size).toBe(0);
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM public_rooms').get()!.n).toBe(0);
   sqlite.close();
 });
 

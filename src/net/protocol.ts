@@ -41,6 +41,7 @@ export const isRoomCode = (code: string): boolean =>
 
 /** The "Buat Room" form. Host only, editable in the lobby. */
 export interface RoomConfig {
+  public: boolean;
   kimMode: KimMode;
   minHuTay: 0 | 3 | 5 | 8;
   /** Seconds per decision; null means no limit (practice). */
@@ -53,6 +54,7 @@ export interface RoomConfig {
 }
 
 export const DEFAULT_ROOM_CONFIG: RoomConfig = {
+  public: false,
   kimMode: 'natural',
   minHuTay: 5,
   turnSeconds: 15,
@@ -88,6 +90,8 @@ export interface RoomInfo {
   config: RoomConfig;
   seats: RoomSeat[];
   spectators: number;
+  spectatorNames?: string[];
+  hostName?: string;
   phase: RoomPhase;
   seatDice?: SeatDice | null;
   continueAt?: number | null;
@@ -102,6 +106,7 @@ export type ClientMessage =
   | { type: 'rename'; name: string }
   | { type: 'sit'; seat: Seat }
   | { type: 'stand' }
+  | { type: 'kick'; name: string }
   | { type: 'config'; config: RoomConfig }
   | { type: 'start' }
   | { type: 'rematch' }
@@ -132,7 +137,9 @@ export type ServerMessage =
   | { type: 'error'; code: ErrorCode; message: string }
   | { type: 'pong'; serverNow: number }
   /** The server closes this socket next, e.g. the same seat opened on another device. */
-  | { type: 'kicked'; reason: 'replaced' | 'room_closed' };
+  | { type: 'kicked'; reason: 'replaced' | 'room_closed' | 'kicked' };
 
 /** HTTP: POST {server}/rooms → CreateRoomResponse. WebSocket: {server}/rooms/{code}/ws. */
+export interface PublicRoom { code: string; hostName: string; humans: number; config: RoomConfig; updatedAt: number }
+
 export interface CreateRoomResponse { code: string }

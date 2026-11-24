@@ -38,6 +38,21 @@ function result(used: number, host = true) {
   table.disconnect(); return html;
 }
 describe('host daily limit UI', () => {
+  it('shows visibility and removal only to lobby hosts, excluding their own seat', () => {
+    vi.stubGlobal('window', { location: { origin: 'https://example.com', pathname: '/' } });
+    const room = roomInfo();
+    room.seats = room.seats.map(s => ({ ...s, name: null, bot: false }));
+    room.config = { ...room.config, public: true };
+    room.seats[0] = { ...room.seats[0]!, name: 'Host', host: true };
+    room.seats[1] = { ...room.seats[1]!, name: 'Guest', host: false, bot: false };
+    room.spectatorNames = ['Watcher']; room.hostName = 'Host';
+    const props = { room, seat: 'dong' as const, isHost: true, onSit: () => {}, onStand: () => {}, onStart: () => {}, onConfig: () => {}, onLeave: () => {}, onToast: () => {}, onKick: () => {} };
+    const host = renderToStaticMarkup(createElement(RoomLobby, props));
+    expect(host).toContain('Meja publik');
+    expect(host.match(/>Keluarkan</g)).toHaveLength(2);
+    expect(renderToStaticMarkup(createElement(RoomLobby, { ...props, isHost: false }))).not.toContain('Keluarkan');
+    expect(renderToStaticMarkup(createElement(RoomLobby, { ...props, room: { ...room, phase: 'seating' } }))).not.toContain('Keluarkan');
+  });
   it('disables Mulai with a seating hint until the host sits', () => {
     expect(lobby(0, true, null)).toMatch(/<button[^>]*disabled=""[^>]*><strong>Mulai<\/strong><span>Duduk dulu buat mulai<\/span>/);
     const seated = lobby(0);

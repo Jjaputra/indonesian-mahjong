@@ -30,6 +30,11 @@ export default {
     const cors = { 'Access-Control-Allow-Origin': origin!, 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Credentials': 'true', Vary: 'Origin' };
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const url = new URL(request.url);
+    if (request.method === 'GET' && url.pathname === '/rooms/public') {
+      const statement = env.DB?.prepare('SELECT code,host_name,humans,config,updated_at FROM public_rooms WHERE updated_at>? ORDER BY updated_at DESC LIMIT 30').bind(Date.now() - 2 * 3600000);
+      const rows = statement && await (statement as typeof statement & { all<T>(): Promise<{ results: T[] }> }).all<{ code: string; host_name: string; humans: number; config: string; updated_at: number }>();
+      return Response.json({ rooms: (rows?.results ?? []).map(r => ({ code: r.code, hostName: r.host_name, humans: r.humans, config: JSON.parse(r.config), updatedAt: r.updated_at })) }, { headers: { ...cors, 'Cache-Control': 'no-store' } });
+    }
     const currentRoom = async (userId: string) => {
       const row = await env.DB?.prepare('SELECT code FROM account_rooms WHERE user_id=?').bind(userId).first<{ code: string }>();
       if (!row) return null;

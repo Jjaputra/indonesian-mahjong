@@ -27,6 +27,38 @@ function harness(authorize?: RoomIO['authorize'], loginRequired = false, joinAcc
   };
 }
 const errors = (h: ReturnType<typeof harness>, s: Socket) => h.frames.get(s.id)!.filter(m => m.type === 'error');
+it('accepts old private configs and defaults their visibility', async () => {
+  const h = harness(); await h.create(); const host = await h.join('Host');
+  const { public: _, ...legacy } = DEFAULT_ROOM_CONFIG;
+  expect(validConfig(legacy)).toBe(true);
+  await h.room.message(host, JSON.stringify({ type: 'config', config: legacy }));
+  expect(h.room.data!.config.public).toBe(false);
+});
+it.each([false, true])('kicks players and spectators and persists token/account bans (spectator=%s)', async spectator => {
+  const h = harness(); await h.create(); const host = await h.join('Host');
+  const target = h.connect(); target.userId = 'target-account';
+  await h.send(target, { type: 'hello', name: 'Target' });
+  if (spectator) await h.send(target, { type: 'stand' });
+  await h.send(host, { type: 'kick', name: 'Target' });
+  expect(h.frames.get(target.id)!.at(-1)).toEqual({ type: 'kicked', reason: 'kicked' });
+  expect(h.closed).toContain(target.id);
+  expect(h.room.data!.people[target.token!]).toBeUndefined();
+  h.rebuild();
+  const tokenJoin = await h.join('Again', target.token);
+  expect(h.frames.get(tokenJoin.id)!.at(-1)).toEqual({ type: 'kicked', reason: 'kicked' });
+  const accountJoin = h.connect(); accountJoin.userId = 'target-account';
+  await h.send(accountJoin, { type: 'hello', name: 'Again' });
+  expect(h.frames.get(accountJoin.id)!.at(-1)).toEqual({ type: 'kicked', reason: 'kicked' });
+});
+it('restricts removal to the host, another person, and lobby phase', async () => {
+  const h = harness(); await h.create(); const host = await h.join('Host'), guest = await h.join('Guest');
+  await h.send(guest, { type: 'kick', name: 'Host' }); expect(errors(h, guest).at(-1)).toMatchObject({ code: 'not_host' });
+  await h.send(host, { type: 'kick', name: 'Host' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'bad_message' });
+  await h.send(host, { type: 'start' });
+  await h.send(host, { type: 'kick', name: 'Guest' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'wrong_phase' });
+  await finishSeating(h);
+  await h.send(host, { type: 'kick', name: 'Guest' }); expect(errors(h, host).at(-1)).toMatchObject({ code: 'wrong_phase' });
+});
 it.each([false, true])('uses the 24-hour idle deadline with only a spectator remaining (finished=%s)', async finished => {
   const h = harness(); await h.create();
   const host = h.connect(); host.userId = 'host'; await h.send(host, { type: 'hello', name: 'Host' });

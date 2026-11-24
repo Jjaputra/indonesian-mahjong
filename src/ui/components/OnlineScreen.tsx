@@ -4,7 +4,8 @@ import { openAuth, refreshAccount, renderGoogle, signOut, useAccount, facebookLo
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoom, RemoteTable } from '../../net/remote-table';
 import type { RoomConfig } from '../../net/protocol';
-import { forgetRoom, inviteLink, loadLastRoom, loadRoom } from '../../net/room-store';
+import { forgetRoom, inviteLink, loadLastRoom, loadPlayerName, loadRoom } from '../../net/room-store';
+import { PublicTables } from './PublicTables';
 import { OnlineMenu, type OnlineStep } from './OnlineMenu';
 import { RemoteTableView } from './RemoteTableView';
 import '../online.css';
@@ -120,12 +121,12 @@ function RoomScreen({ table, optionsOpen, onOptionsOpenChange, onLeave, toast }:
     if (state.joined) try { window.history.replaceState(null, '', inviteLink(table.code, window.location)); } catch { /* sandboxed frame */ }
   }, [state.joined, table.code]);
 
-  if (state.ended === 'replaced' || state.ended === 'room_closed') {
+  if (state.ended === 'replaced' || state.ended === 'room_closed' || state.ended === 'kicked') {
     return (
       <main className="main-menu">
         <section className="menu-card mp-card" role="alert">
-          <h2>{state.ended === 'replaced' ? 'Room ini dibuka di tab atau HP lain' : 'Room ditutup'}</h2>
-          <p className="muted">{state.ended === 'replaced' ? 'Kursi kamu sekarang dipakai di sana. Tutup tab ini atau balik ke menu.' : 'Room ini ditutup host.'}</p>
+          <h2>{state.ended === 'replaced' ? 'Room ini dibuka di tab atau HP lain' : state.ended === 'kicked' ? 'Kamu dikeluarkan dari room ini.' : 'Room ditutup'}</h2>
+          <p className="muted">{state.ended === 'replaced' ? 'Kursi kamu sekarang dipakai di sana. Tutup tab ini atau balik ke menu.' : state.ended === 'kicked' ? 'Nggak bisa gabung lagi sampai room ditutup.' : 'Room ini ditutup host.'}</p>
           {state.ended === 'replaced' && <button type="button" className="btn btn-gold" onClick={() => table.reclaim()}>Ambil lagi kursi</button>}
           <div className="menu-choices"><button type="button" className="btn btn-primary menu-choice" onClick={onLeave}><strong>Ke menu</strong></button></div>
         </section>
@@ -147,13 +148,15 @@ function RoomScreen({ table, optionsOpen, onOptionsOpenChange, onLeave, toast }:
     <>
       {state.room.phase === 'seating' && state.room.seatDice ? <SeatRolls table={table} /> : state.view && state.room.phase !== 'lobby'
         ? <RemoteTableView table={table} state={state} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} onLeave={onLeave} />
-        : <RoomLobby connection={state} room={state.room} seat={state.seat} isHost={table.isHost} dailyLimitStorage={table.dailyLimitStorage} onSit={seat => table.sit(seat)} onStand={() => table.stand()} onStart={() => table.start()} onConfig={config => table.setConfig(config)} onLeave={onLeave} onToast={toast} />}
+        : <RoomLobby connection={state} room={state.room} seat={state.seat} isHost={table.isHost} dailyLimitStorage={table.dailyLimitStorage} onSit={seat => table.sit(seat)} onKick={name => table.kick(name)} onStand={() => table.stand()} onStart={() => table.start()} onConfig={config => table.setConfig(config)} onLeave={onLeave} onToast={toast} />}
     </>
   );
 }
 
 export function OnlineScreen({ server, inviteCode, resume, initialStep, onTableChange, optionsOpen, onOptionsOpenChange, onExit }: OnlineScreenProps) {
   const account = useAccount();
+  const [step, setStep] = useState(initialStep);
+  const [createPublic, setCreatePublic] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [pendingCreate, setPendingCreate] = useState<{ config: RoomConfig; name: string } | null>(null);
   const [pendingJoin, setPendingJoin] = useState<Join | null>(null);
@@ -211,7 +214,8 @@ export function OnlineScreen({ server, inviteCode, resume, initialStep, onTableC
     const stored = loadRoom(code);
     if (!account && !stored && !pendingJoin) return;
     autoJoined.current = true;
-    join({ code, name: pendingJoin?.name ?? stored?.name ?? account?.name ?? 'Pemain', token: stored?.token });
+    // A logged-out Gabung from the public list leaves the name empty, so the account name wins after sign-in.
+    join({ code, name: pendingJoin?.name || stored?.name || account?.name || 'Pemain', token: stored?.token });
     if (account || !onlineLoginRequired()) setPendingJoin(null);
   }, [inviteCode, resume, join, account, authReady, pendingJoin, table]);
 
@@ -271,7 +275,8 @@ export function OnlineScreen({ server, inviteCode, resume, initialStep, onTableC
       {table && error && <p className="mp-error" role="alert">{error}</p>}
       {table
         ? <RoomScreen table={table} optionsOpen={optionsOpen} onOptionsOpenChange={onOptionsOpenChange} onLeave={leave} toast={toast} />
-        : <OnlineMenu inviteCode={inviteCode} initialStep={initialStep} busy={busy} error={error}
+        : step === 'public' && !inviteCode ? <PublicTables server={server} onBack={onExit} onCreate={() => { setCreatePublic(true); setStep('create'); }} onJoin={code => join({ code, name: account?.name ?? (onlineLoginRequired() ? '' : loadPlayerName() || 'Pemain'), token: loadRoom(code)?.token })} account={<>{pendingJoin && <p>Masuk pakai Google dulu buat gabung ke room {pendingJoin.code}</p>}<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></>} />
+        : <OnlineMenu inviteCode={inviteCode} initialStep={step} initialPublic={createPublic} busy={busy} error={error}
             account={<>{!account && (inviteCode || pendingJoin) && <p>Masuk pakai Google dulu buat gabung ke room {inviteCode ?? pendingJoin?.code}</p>}<AccountPanel onError={setAuthError} onClear={clearAuthError} error={authError} /></>}
             onCreate={create} onJoin={(code, name) => join({ code, name, token: loadRoom(code)?.token })}
             onBack={onExit} />}

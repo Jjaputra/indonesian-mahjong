@@ -8,6 +8,7 @@ export { default } from './router';
 export class RoomDO implements DurableObject {
   private room!: Room;
   private accountRoomsSignature?: string;
+  private publicRoomsSignature?: string;
   private peers = new Map<string, WebSocket>();
   constructor(private ctx: DurableObjectState, env: Env) {
     ctx.blockConcurrencyWhile(async () => {
@@ -45,6 +46,15 @@ export class RoomDO implements DurableObject {
         put: async (data, opts) => {
           await ctx.storage.put('room', data);
           if (env.DB && !opts?.chatOnly) {
+            const host = data.host ? data.people[data.host] : null;
+            const humans = Object.values(data.people).filter(p => p.seat).length;
+            const listed = data.config.public && !data.session && !data.seatDice && humans < 4 && host && !data.hostTransferPending && [...this.room.sockets.values()].some(s => s.token === data.host);
+            const publicSignature = listed ? JSON.stringify([host.name, humans, data.config]) : '';
+            if (publicSignature !== this.publicRoomsSignature) {
+              if (listed) await env.DB.prepare('INSERT INTO public_rooms (code,host_name,humans,config,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(code) DO UPDATE SET host_name=excluded.host_name,humans=excluded.humans,config=excluded.config,updated_at=excluded.updated_at').bind(data.code, host.name, humans, JSON.stringify(data.config), data.lastActivity).run();
+              else if (this.publicRoomsSignature !== '') await env.DB.prepare('DELETE FROM public_rooms WHERE code=?').bind(data.code).run();
+              this.publicRoomsSignature = publicSignature;
+            }
             // Unchanged seats skip the D1 rewrite; the 10-minute bucket still rewrites now and then, so a row another room overwrote heals.
             const signature = JSON.stringify([Math.floor(Date.now() / 600_000), data.code, data.creatorPending ? data.creatorUserId ?? null : null,
               Object.values(data.people).filter(p => p.userId && p.seat).map(p => [p.userId, p.seat]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))]);
@@ -60,12 +70,14 @@ export class RoomDO implements DurableObject {
         },
         deleteAll: async () => {
           this.accountRoomsSignature = undefined;
+          this.publicRoomsSignature = undefined;
+          if (env.DB && this.room.data) await env.DB.prepare('DELETE FROM public_rooms WHERE code=?').bind(this.room.data.code).run();
           if (env.DB && this.room.data) await env.DB.prepare('DELETE FROM account_rooms WHERE code=?').bind(this.room.data.code).run();
           await ctx.storage.deleteAll();
         },
         setAlarm: async at => { if (at === null) await ctx.storage.deleteAlarm(); else await ctx.storage.setAlarm(at); },
         send: (s, m) => this.peers.get(s.id)?.send(JSON.stringify(m)),
-        close: (s, reason) => { this.peers.get(s.id)?.close(reason === 'replaced' ? 4001 : reason === 'reconnected' ? 4003 : 4002, reason === 'replaced' ? 'Room ini dibuka di tab atau HP lain.' : reason === 'reconnected' ? 'Koneksi diperbarui.' : 'Room ditutup.'); this.peers.delete(s.id); },
+        close: (s, reason) => { this.peers.get(s.id)?.close(reason === 'replaced' ? 4001 : reason === 'reconnected' ? 4003 : 4002, reason === 'replaced' ? 'Room ini dibuka di tab atau HP lain.' : reason === 'reconnected' ? 'Koneksi diperbarui.' : reason === 'kicked' ? 'Kamu dikeluarkan dari room ini.' : 'Room ditutup.'); this.peers.delete(s.id); },
         attach: s => this.peers.get(s.id)?.serializeAttachment(s),
       }, await ctx.storage.get<RoomData>('room') ?? null, sockets);
     });

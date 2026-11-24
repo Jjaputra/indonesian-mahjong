@@ -8,6 +8,7 @@ import { openAuth } from '../net/auth';
 import { RemoteTableView } from './components/RemoteTableView';
 import { RoomLobby } from './components/RoomLobby';
 import { AccountPanel } from './components/OnlineScreen';
+import { PublicTables } from './components/PublicTables';
 import { OnlineMenu } from './components/OnlineMenu';
 import { MainMenu } from './components/MainMenu';
 import { SettingsModal } from './components/SettingsModal';
@@ -19,7 +20,7 @@ import { recordHand } from './match';
 import { kongPayment } from '../core/round-score';
 import { KongToast } from './components/CallToast';
 
-export const ONLINE_AUDIT_STATES = ['early', 'mid', 'late', 'melds-0', 'melds-2', 'melds-4', 'flowers', 'spectator', 'pung', 'claims', 'kong', 'warning', 'turn', 'hu', 'seri', 'final', ...[0, 50].flatMap(n => ['open', 'closed'].flatMap(c => ['open', 'closed'].map(o => `chat-${n}-${c}-options-${o}`))), 'lobby', 'menu', 'create', 'join', 'settings', 'history', 'premium', 'admin', 'admin-users', 'admin-settings', 'admin-audit'] as const;
+export const ONLINE_AUDIT_STATES = ['early', 'mid', 'late', 'melds-0', 'melds-2', 'melds-4', 'flowers', 'spectator', 'pung', 'claims', 'kong', 'warning', 'turn', 'hu', 'seri', 'final', ...[0, 50].flatMap(n => ['open', 'closed'].flatMap(c => ['open', 'closed'].map(o => `chat-${n}-${c}-options-${o}`))), 'public-list', 'public-list-empty', 'lobby', 'menu', 'create', 'join', 'settings', 'history', 'premium', 'admin', 'admin-users', 'admin-settings', 'admin-audit'] as const;
 const noop = () => {};
 const base = 'http://localhost/__layout_fixture__';
 
@@ -123,6 +124,7 @@ export function OnlineAuditPreview({ search }: { search: string }) {
   const account = h(AccountPanel, { onError: noop });
   let content;
   if (mode.startsWith('admin')) content = h(AdminPage, { server: base, initialTab: mode === 'admin-users' ? 'users' : mode === 'admin-settings' ? 'settings' : mode === 'admin-audit' ? 'audit' : 'stats' });
+  else if (mode.startsWith('public-list')) content = h(PublicTables, { server: base, onJoin: noop, onCreate: noop, onBack: noop, initialRooms: Array.from({ length: mode.endsWith('empty') ? 0 : 8 }, (_, i) => ({ code: `ABC23${i}`, hostName: 'ABCDEFGHIJKL', humans: 2, config: { ...DEFAULT_ROOM_CONFIG, public: true }, updatedAt: 1000 })) });
   else if (mode === 'lobby') content = h(Fragment, null, h("div", { className: "mp-account-standalone" }, account), h(RoomLobby, { connection: state, room: { ...state.room!, phase: 'lobby' }, seat: 'dong', isHost: true, onSit: noop, onStand: noop, onStart: noop, onConfig: noop, onLeave: noop, onToast: noop }));
   else if (mode === 'create' || mode === 'join') content = h(OnlineMenu, { initialStep: mode, inviteCode: mode === 'join' ? 'ABC234' : null, busy: false, error: null, account, onCreate: noop, onJoin: noop, onBack: noop });
   else if (['menu', 'settings', 'history', 'premium'].includes(mode)) content = h(Fragment, null, h(MainMenu, { onOnline: noop }), mode === 'settings' ? h(SettingsModal, { settings: DEFAULT_SETTINGS, onSave: noop, onClose: noop }) : mode === 'history' ? h(HistoryModal, { history, onDelete: noop, onClear: noop, onClose: noop }) : mode === 'premium' ? h(PremiumModal, { onClose: noop }) : null);
