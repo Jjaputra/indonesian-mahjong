@@ -76,6 +76,7 @@ it('shows the share button and note to Premium accounts without the match bonus'
   await signIn('google', 'credential');
   const share = renderToStaticMarkup(createElement(ReferralShare, { onError() {} }));
   expect(share).toContain('Bagikan ke WA'); expect(share).not.toContain('+1 match');
+  expect(share).toContain('class="mp-share-wa"'); expect(share).toContain('<svg');
   const panel = renderToStaticMarkup(createElement(AccountPanel, { onError() {} }));
   expect(panel).toContain('Jatah host: tanpa batas');
   expect(panel).toContain('Ajak temen: bagikan link kamu'); expect(panel).not.toContain('+3 match');

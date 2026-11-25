@@ -46,7 +46,7 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
   const account = useAccount();
   const config = useConfig();
   const button = useRef<HTMLDivElement>(null);
-  // A new attempt (login, Keluar, Hapus akun) wipes the last error; so does a successful login.
+  // A new attempt (login, Keluar) wipes the last error; so does a successful login.
   const attempt = <A extends unknown[]>(run: (...args: A) => void) => (...args: A) => { onClear?.(); run(...args); };
   useEffect(() => { if (account) onClear?.(); }, [account?.id]);
   // A click inside the GIS iframe never reaches the page; the window blur with the iframe focused is the only hint.
@@ -73,9 +73,6 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
       <label className="mp-account-optin"><input type="checkbox" checked={account.newsOptIn === true} onChange={e => { void setNewsOptIn(e.target.checked).catch(error => onError(error.message)); }} /> Kabari lewat email soal Premium dan update maciokYU!</label>
       <span className="mp-account-actions">
         <button type="button" className="mp-link" onClick={attempt(() => { void signOut().catch(error => onError(error.message)); })}>Keluar</button>
-        <button type="button" className="mp-link mp-link-quiet" onClick={attempt(() => {
-          if (window.confirm('Hapus akun, semua sesi, dan hitungan match?')) void signOut(true).catch(error => onError(error.message));
-        })}>Hapus akun</button>
       </span>
     </> : <>
       <p className="mp-account-note">Masuk pakai Google dulu buat main.</p>
