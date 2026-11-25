@@ -359,7 +359,6 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
     dragRef.current = d0;
     const start = { x: e.clientX, y: e.clientY };
     const row = rowRef.current;
-    try { row?.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     const move = (ev: globalThis.PointerEvent) => {
       const d = dragRef.current;
       if (!d || ev.pointerId !== d.pointer) return;
@@ -367,6 +366,8 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
       if (!d.moving) {
         if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 6) return;
         d.moving = true;
+        // Capture only once it is a drag: capturing on pointerdown retargets a plain tap's click to the row.
+        try { row?.setPointerCapture(d.pointer); } catch { /* pointer already gone */ }
         setDragId(id);
       }
       const others = [...(rowRef.current?.querySelectorAll<HTMLElement>('.tile:not(.is-drawn)') ?? [])].filter((el) => el.dataset.tileId !== id);
@@ -380,6 +381,8 @@ export function HumanArea({ controller, actions, selectedId, onSelect, coach, hu
     };
     const end = (ev?: globalThis.PointerEvent) => {
       if (ev && dragRef.current && ev.pointerId !== dragRef.current.pointer) return;
+      // A touch tile losing its implicit capture to the row bubbles here; only the row's own loss ends the drag.
+      if (ev?.type === 'lostpointercapture' && ev.target !== row) return;
       const moved = dragRef.current?.moving;
       const el = rowRef.current?.querySelector<HTMLElement>(`[data-tile-id="${id}"]`);
       if (el) el.style.transform = '';

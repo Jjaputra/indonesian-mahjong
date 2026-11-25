@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.8] - 2026-11-25
+### Fixed
+- With "Susun otomatis" OFF, tapping a tile in your hand selects and discards it again; only an actual drag moves it.
+
 ## [1.8.7] - 2026-11-25
 ### Added
 - Each signed-in account picks a unique username once ("Pilih nama"). That name is what everyone sees in rooms, chat and the public table list; two accounts can no longer both play as "Tomok". Only an admin can change it, from Pengguna, with an audit log entry.
