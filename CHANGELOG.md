@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.11] - 2026-11-25
+### Changed
+- The feedback address in Settings, at the end of a match and on the Privacy, Terms and Delete-account pages is now maciokyu@gmail.com.
+
 ## [1.8.10] - 2026-11-25
 ### Fixed
 - "Kamu masih duduk di room…" and "Kamu masih punya room…" now open as a proper dialog with readable buttons and one line explaining what happens to your old seat, instead of grey buttons with unreadable text above the form.
