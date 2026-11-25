@@ -137,7 +137,7 @@ export function App() {
   const showDemo = typeof window !== 'undefined' && demoPreviewEnabled(window.location.search);
   const onlineAudit = import.meta.env.DEV && showDemo && new URLSearchParams(window.location.search).get('demo') === 'online';
   const auditState = onlineAudit ? new URLSearchParams(window.location.search).get('state') ?? 'early' : '';
-  const auditMenu = onlineAudit && /^(public-list|lobby|menu|create|join|settings|history|premium|admin)/.test(auditState);
+  const auditMenu = onlineAudit && /^(public-list|lobby|menu|create|join|settings|history|premium|match-help|admin)/.test(auditState);
   if (mpServer && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === '1') return <AdminPage server={mpServer} />;
   return (
     <div className={appClass(onlineTable || (showDemo && !auditMenu) ? 'table' : 'menu', onlineAudit ? auditState.endsWith('options-open') : optionsOpen)}>
