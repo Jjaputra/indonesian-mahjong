@@ -74,4 +74,6 @@ All three must pass before you report done. For scoring changes, add tests that 
    - **Old addresses:** deploy the same build to Pages `indomahjong` (from an empty directory: `npx wrangler pages deploy <dist> --project-name indomahjong --branch main`). GitHub Pages (`pages.yml`) also still publishes. Both only move players to maciokyu.com (`src/storage/domain-move.ts`).
    - **Check:** `node scripts/smoke.mjs`.
 
+Admins: user IDs in `ADMIN_USER_IDS` (`server/wrangler.jsonc`); changing it needs a room server deploy. Since 2026-11-25: Jason plus the two Premium friends (Aswin, Timothy), all with full admin.
+
 Usage: set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then run `node scripts/usage.mjs` for today/yesterday UTC free-plan usage; it exits nonzero at 70% or on query errors and runs daily in GitHub Actions.
