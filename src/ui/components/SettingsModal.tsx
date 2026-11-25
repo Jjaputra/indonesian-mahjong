@@ -7,6 +7,7 @@ import {
 } from '../../storage';
 import { soundEffects } from '../../audio';
 import { usePwaInstall } from '../pwa-install';
+import { signOut, useAccount } from '../../net/auth';
 import { ContactLine } from './ContactLine';
 import { Modal } from './Modal';
 import '../qol.css';
@@ -111,8 +112,27 @@ export function SettingsModal({ settings, onSave, onClose, onAudioChange }: Sett
           </label>
           <p className="field-note">Audio langsung berlaku dan tersimpan.</p>
         </section>
+        <DeleteAccount />
         <ContactLine />
       </div>
     </Modal>
+  );
+}
+
+/** Kept out of the account panel so it is not tapped by accident; the privacy policy promises an in-game delete. */
+function DeleteAccount() {
+  const account = useAccount();
+  const [error, setError] = useState<string | null>(null);
+  if (!account) return null;
+  return (
+    <section>
+      <h3>Akun</h3>
+      <button type="button" className="btn btn-danger" onClick={() => {
+        setError(null);
+        if (window.confirm('Hapus akun, semua sesi, dan hitungan match?')) void signOut(true).catch(e => setError(e.message));
+      }}>Hapus akun</button>
+      <p className="field-note">Menghapus akun, semua sesi masuk, dan hitungan match dari server.</p>
+      {error && <p className="settings-error" role="alert">{error}</p>}
+    </section>
   );
 }

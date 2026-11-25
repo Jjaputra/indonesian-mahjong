@@ -3,6 +3,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { authHeaders, authStore, deviceLimitFallback, leaveCurrentRoom, openAuth, refreshAccount, setUsername, signIn, signOut } from '../../src/net/auth';
 import { AccountPanel } from '../../src/ui/components/OnlineScreen';
+import { SettingsModal } from '../../src/ui/components/SettingsModal';
+import { DEFAULT_SETTINGS } from '../../src/storage';
 
 afterEach(() => vi.unstubAllGlobals());
 it.each(['leave', 'refresh'])('hides a left room after %s failure and retries leave once on the next /me', async failure => {
@@ -42,10 +44,14 @@ it('loads server policy, signs in with credentials, shows account UI and clears 
   expect(authHeaders()).toEqual({ Authorization: 'Bearer test-bearer' });
   expect(fetcher.mock.calls.find(([url]) => url.endsWith('/auth/google'))).toBeDefined();
   const html = renderToStaticMarkup(createElement(AccountPanel, { onError: () => {} }));
-  for (const text of ['Jason', 'Jatah host hari ini: sisa 3', 'Keluar', 'Hapus akun', 'mp-avatar', 'mp-pill']) expect(html).toContain(text);
+  for (const text of ['Jason', 'Jatah host hari ini: sisa 3', 'Keluar', 'mp-avatar', 'mp-pill']) expect(html).toContain(text);
+  expect(html).not.toContain('Hapus akun');
+  const settings = () => renderToStaticMarkup(createElement(SettingsModal, { settings: DEFAULT_SETTINGS, onSave() {}, onClose() {} }));
+  expect(settings()).toContain('<button type="button" class="btn btn-danger">Hapus akun</button>');
   expect(html).not.toContain('<section'); expect(html).not.toContain('role="alert"');
   expect(renderToStaticMarkup(createElement(AccountPanel, { onError: () => {}, error: 'Gagal masuk, coba lagi.' }))).toContain('<p class="mp-account-error" role="alert">Gagal masuk, coba lagi.</p>');
   await signOut(true); expect(authStore.get()).toBeNull(); expect(authHeaders()).toEqual({});
+  expect(settings()).not.toContain('Hapus akun');
   const loggedOut = renderToStaticMarkup(createElement(AccountPanel, { onError: () => {} }));
   expect(loggedOut).toContain('Masuk pakai Google dulu buat main.'); expect(loggedOut).toContain('class="mp-google"'); expect(loggedOut).not.toContain('Facebook');
   unsubscribe();

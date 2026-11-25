@@ -87,8 +87,6 @@
 }
 .mp-account-actions { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
 .mp-account .mp-link { min-height: 32px; padding: 2px 8px; }
-.mp-account .mp-link-quiet { font-size: 11px; font-weight: 600; text-decoration: underline; opacity: 0.65; }
-.mp-account .mp-link-quiet:hover { opacity: 1; }
 .mp-account-error { grid-column: 1 / -1; padding: 4px 10px; border: 1px solid #d3a59f; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-weight: 600; text-align: center; }
 .mp-account-standalone { width: min(100% - 16px, 600px); margin: 10px auto 0; }
 .mp-account-standalone .mp-account { margin: 0; }
@@ -230,6 +228,16 @@
 .mp-referral-note { grid-area: referral; font-size: 11px; line-height: 1.35; }
 .mp-referral-share { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 .mp-referral-toast { font-size: 12px; color: var(--good); }
+/* WhatsApp green so the share reads as a button on both the felt and cream panels. */
+.mp-share-wa {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 14px;
+  border: 2px solid #064e3b; border-radius: 999px; background: #25d366; color: #052e16;
+  font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.mp-share-wa:hover:not(:disabled) { background: #3ee07a; }
+.mp-share-wa:disabled { opacity: 0.6; cursor: default; }
+/* Dark ring plus cream halo, so focus shows on the felt and on cream panels. */
+.mp-share-wa:focus-visible { outline: 3px solid #052e16; outline-offset: 2px; box-shadow: 0 0 0 7px var(--hl); }
 
 /* "Still seated elsewhere" confirmations: a small dialog over the menu, not a card above it. */
 .panel.mp-confirm { width: min(420px, 100%); }

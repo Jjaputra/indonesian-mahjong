@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.8.13] - 2026-11-25
+### Changed
+- "Bagikan ke WA" is now a solid WhatsApp-green button with a share icon, so it stands out in the account panel and on the daily-limit notice.
+- "Hapus akun" moved from the account panel to Pengaturan (gear icon), in a new Akun section, so it is not tapped by accident. The Hapus Akun help page lists the new steps.
+
 ## [1.8.12] - 2026-11-25
 ### Changed
 - Premium accounts (admins included) now see the "Bagikan ke WA" button and a short invite line in the account panel. They still get no extra matches, since their hosting is already unlimited.

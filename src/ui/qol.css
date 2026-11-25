@@ -1,3 +1,4 @@
 /* Install-as-app line in Settings. */
 .install-app .btn { align-self: flex-start; }
 .install-app .field-note { margin: 0; }
+.settings-error { margin: 0; padding: 4px 10px; border: 1px solid #d3a59f; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-weight: 600; }
