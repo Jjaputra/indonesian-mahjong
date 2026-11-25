@@ -230,3 +230,7 @@
 .mp-referral-note { grid-area: referral; font-size: 11px; line-height: 1.35; }
 .mp-referral-share { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 .mp-referral-toast { font-size: 12px; color: var(--good); }
+
+/* "Still seated elsewhere" confirmations: a small dialog over the menu, not a card above it. */
+.panel.mp-confirm { width: min(420px, 100%); }
+.mp-confirm .panel-body p { margin: 0 0 6px; line-height: 1.45; }
