@@ -12,7 +12,7 @@ import { PublicChoice } from './PublicTables';
 import { InviteHelp } from './InviteHelp';
 import { RoomConfigFields } from './RoomConfigFields';
 import { AllowanceReset } from './AllowanceReset';
-import { useConfig } from '../../net/config';
+import { ReferralShare } from './ReferralShare';
 import { DAILY_LIMIT_MESSAGE, useDailyRemaining } from '../../net/daily-limit';
 import type { StorageLike } from '../../storage';
 
@@ -50,7 +50,6 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
   const [help, setHelp] = useState(false);
   const account = useAccount();
   const loginBlocked = !account && !deviceLimitFallback();
-  const { dailyMatchLimit } = useConfig();
   const remaining = useDailyRemaining(dailyLimitStorage);
   const { config } = room;
   const blocker = isHost && seat === null ? 'Duduk dulu buat mulai' : startBlocker(room);
@@ -134,8 +133,8 @@ export function RoomLobby({ room, connection, seat, isHost, dailyLimitStorage, o
           )}
         </div>
         {isHost && <div className="online-daily-limit" role="status">
-          <p>{Number.isFinite(remaining) ? `Jatah host hari ini: sisa ${remaining} dari ${dailyMatchLimit} match` : account ? 'Jatah host: tanpa batas' : 'Host perlu masuk dulu.'}</p>
-          {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE()}</p>}<AllowanceReset remaining={remaining} />
+          <p>{Number.isFinite(remaining) ? `Jatah host hari ini: sisa ${Math.max(0, remaining - (account?.bonusMatches ?? 0))}${account?.bonusMatches ? ` +${account.bonusMatches} tabungan` : ''}` : account ? 'Jatah host: tanpa batas' : 'Host perlu masuk dulu.'}</p>
+          {remaining === 0 && <><p>{DAILY_LIMIT_MESSAGE()}</p><ReferralShare onError={onToast} onToast={onToast} /></>}<AllowanceReset remaining={remaining} />
         </div>}
       </section>
       {help && <InviteHelp onClose={() => setHelp(false)} />}

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.8.9] - 2026-11-25
+### Added
+- "Bagikan ke WA" shares your personal maciokyu.com link on WhatsApp. The first share each day (WIB) adds one extra hosted match for that day. Each new friend who signs in through your link adds three banked matches that don't expire (up to ten friends). The account panel shows today's remaining matches and the banked ones separately, and admins see each player's banked matches and referral count.
+### Fixed
+- On tablets up to 900px wide the admin Pengguna list shows cards instead of a table that scrolled sideways, and the "Kabari lewat email" checkbox is easier to tap.
+
 ## [1.8.8] - 2026-11-25
 ### Fixed
 - With "Susun otomatis" OFF, tapping a tile in your hand selects and discards it again; only an actual drag moves it.

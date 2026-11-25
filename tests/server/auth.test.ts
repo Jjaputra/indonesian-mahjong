@@ -1,7 +1,7 @@
 import { beforeAll, afterEach, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import { authRoute, countMatch, GOOGLE_CLIENT_ID, remaining, resolveUser, tokenHash, verifyGoogle, wibDay, type Database, type Statement } from '../../server/auth';
+import { authRoute, countMatch, GOOGLE_CLIENT_ID, referralCode, remaining, resolveUser, tokenHash, verifyGoogle, wibDay, type Database, type Statement } from '../../server/auth';
 import type { Room, Socket } from '../../server/room';
 import worker, { type Env } from '../../server/router';
 
@@ -9,9 +9,12 @@ function database() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(readFileSync('server/migrations/0001_accounts.sql', 'utf8'));
   sqlite.exec(readFileSync('server/migrations/0002_account_rooms.sql', 'utf8'));
+  sqlite.exec(readFileSync('server/migrations/0003_settings.sql', 'utf8'));
+  sqlite.exec(readFileSync('server/migrations/0004_admin_overhaul.sql', 'utf8'));
   sqlite.exec(readFileSync('server/migrations/0005_public_rooms.sql', 'utf8'));
   sqlite.exec(readFileSync('server/migrations/0006_public_rooms_premium.sql', 'utf8'));
   sqlite.exec(readFileSync('server/migrations/0007_usernames.sql', 'utf8'));
+  sqlite.exec(readFileSync('server/migrations/0008_referrals.sql', 'utf8'));
   const db: Database = {
     prepare(sql) {
       let values: unknown[] = [];
@@ -88,6 +91,111 @@ it('permits only 60 seconds of exp/iat skew and rejects algorithm confusion', as
   }
 });
 const request = (path: string, method = 'GET', token?: string, body?: unknown) => new Request(`https://api.maciokyu.com${path}`, { method, headers: { Origin: 'http://localhost:5199', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+it('lazily assigns stable unique referral codes, retries collisions and handles racing reads', async () => {
+  const { db, sqlite } = database();
+  for (const id of ['a', 'b']) sqlite.prepare("INSERT INTO users(id,provider,provider_sub,name,created_at,last_seen_at) VALUES(?,'google',?,'Name',0,0)").run(id, id);
+  expect(sqlite.prepare('SELECT referral_code FROM users WHERE id=?').get('a')!.referral_code).toBeNull();
+  const original = db.prepare.bind(db);
+  let collision = true;
+  vi.spyOn(db, 'prepare').mockImplementation(sql => {
+    if (sql.startsWith('UPDATE users SET referral_code') && collision) { collision = false; throw new Error('UNIQUE constraint failed'); }
+    return original(sql);
+  });
+  const a = await referralCode(db, 'a');
+  expect(a).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
+  expect(await Promise.all([referralCode(db, 'a'), referralCode(db, 'a')])).toEqual([a, a]);
+  expect(await referralCode(db, 'b')).not.toBe(a);
+  sqlite.close();
+});
+it('shares once per WIB day, spends daily then share then banked, and never spends on denied/retried starts', async () => {
+  const { db, sqlite } = database(), token = 'r'.repeat(43);
+  sqlite.exec("INSERT INTO users(id,provider,provider_sub,name,bonus_matches,created_at,last_seen_at) VALUES('r','google','r','Name',2,0,0)");
+  const day = Date.parse('2026-11-25T16:59:59Z');
+  sqlite.prepare('INSERT INTO sessions VALUES(?,?,?,?)').run(await tokenHash(token), 'r', 0, day + 86400000);
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(day);
+  try {
+    expect((await authRoute(request('/me/share', 'POST'), { DB: db }, {})).status).toBe(401);
+    expect((await worker.fetch(request('/me/share', 'POST', token), { DB: db, AUTH_LIMITER: { limit: async () => ({ success: false }) } } as unknown as Env)).status).toBe(429);
+    const share = () => authRoute(request('/me/share', 'POST', token), { DB: db }, {}).then(r => r.json());
+    expect(await share()).toEqual({ granted: true }); expect(await share()).toEqual({ granted: false });
+    const me = await (await authRoute(request('/me', 'GET', token), { DB: db }, {})).json();
+    expect(me).toMatchObject({ sharedToday: true, bonusMatches: 2, referrals: 0, remainingMatches: 6 });
+    expect(me.referralCode).toHaveLength(6);
+    for (let i = 0; i < 4; i++) expect(await countMatch({ DB: db }, 'r', `daily${i}`, day)).toBeNull();
+    expect(sqlite.prepare('SELECT bonus_matches n FROM users').get()!.n).toBe(2);
+    const concurrent = await Promise.all(Array.from({ length: 5 }, (_, i) => countMatch({ DB: db }, 'r', `bank${i}`, day)));
+    expect(concurrent.filter(v => v === null)).toHaveLength(2);
+    expect(await countMatch({ DB: db }, 'r', 'bank0', day)).toBeNull();
+    expect(await countMatch({ DB: db }, 'r', 'denied', day)).toBe('daily_limit');
+    expect(sqlite.prepare('SELECT bonus_matches n FROM users').get()!.n).toBe(0);
+    clock.mockReturnValue(day + 1000);
+    expect((await (await authRoute(request('/me', 'GET', token), { DB: db }, {})).json()).sharedToday).toBe(false);
+    expect(await countMatch({ DB: db }, 'r', 'bank0', day + 1000)).toBeNull();
+    expect(sqlite.prepare('SELECT COUNT(*) n FROM daily_matches WHERE match_key=?').get('bank0')!.n).toBe(1);
+    expect(await share()).toEqual({ granted: true });
+    expect((await (await authRoute(request('/me', 'GET', token), { DB: db }, {})).json()).remainingMatches).toBe(4);
+    sqlite.exec('UPDATE users SET premium=1,bonus_matches=2');
+    for (let i = 0; i < 8; i++) expect(await countMatch({ DB: db }, 'r', `premium${i}`, day)).toBeNull();
+    expect(sqlite.prepare('SELECT bonus_matches n FROM users').get()!.n).toBe(2);
+  } finally { clock.mockRestore(); sqlite.close(); }
+});
+it('keeps referral identities after account deletion and never rewards the same identity twice', async () => {
+  const { db, sqlite } = database();
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ keys: [{ ...jwk, kid: 'test' }] })));
+  const login = async (sub: string, ref?: string) => (await authRoute(request('/auth/google', 'POST', undefined, { credential: await credential({ sub }), ref }), { DB: db }, {})).json();
+  const owner = await login('owner'), other = await login('other');
+  const code = await referralCode(db, owner.id), otherCode = await referralCode(db, other.id);
+  const friend = await login('repeat-friend', code);
+  expect(sqlite.prepare('SELECT bonus_matches n FROM users WHERE id=?').get(owner.id)!.n).toBe(3);
+  const hash = await tokenHash('google:repeat-friend');
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM referred_identities WHERE identity_hash=?').get(hash)!.n).toBe(1);
+  expect((await authRoute(request('/me', 'DELETE', friend.token), { DB: db }, {})).status).toBe(200);
+  const recreated = await login('repeat-friend', code);
+  expect(recreated.id).not.toBe(friend.id);
+  expect(sqlite.prepare('SELECT referred_by FROM users WHERE id=?').get(recreated.id)!.referred_by).toBeNull();
+  expect(sqlite.prepare('SELECT bonus_matches n FROM users WHERE id=?').get(owner.id)!.n).toBe(3);
+  await authRoute(request('/me', 'DELETE', recreated.token), { DB: db }, {});
+  const redirected = await login('repeat-friend', otherCode);
+  expect(sqlite.prepare('SELECT referred_by FROM users WHERE id=?').get(redirected.id)!.referred_by).toBeNull();
+  expect(sqlite.prepare('SELECT bonus_matches n FROM users WHERE id=?').get(other.id)!.n).toBe(0);
+  // Every identity is marked on sign-in, so an unreferred account deleted and re-created through a link earns nothing.
+  const loner = await login('loner');
+  await authRoute(request('/me', 'DELETE', loner.token), { DB: db }, {});
+  const returning = await login('loner', code);
+  expect(sqlite.prepare('SELECT referred_by FROM users WHERE id=?').get(returning.id)!.referred_by).toBeNull();
+  expect(sqlite.prepare('SELECT bonus_matches n FROM users WHERE id=?').get(owner.id)!.n).toBe(3);
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM referred_identities').get()!.n).toBe(4);
+  sqlite.close();
+});
+it('rewards only new referred signups, caps rewards at ten, ignores invalid/unknown/self referrals and supports Facebook', async () => {
+  const { db, sqlite } = database();
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ keys: [{ ...jwk, kid: 'test' }] })));
+  const login = async (sub: string, ref?: string) => (await authRoute(request('/auth/google', 'POST', undefined, { credential: await credential({ sub }), ref }), { DB: db }, {})).json();
+  const owner = await login('owner');
+  const code = await referralCode(db, owner.id);
+  for (let i = 0; i < 12; i++) await login(`friend${i}`, code);
+  expect(sqlite.prepare('SELECT bonus_matches n FROM users WHERE id=?').get(owner.id)!.n).toBe(30);
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM users WHERE referred_by=?').get(owner.id)!.n).toBe(12);
+  sqlite.prepare("DELETE FROM users WHERE provider_sub='friend11'").run();
+  await login('replacement', code);
+  expect(sqlite.prepare('SELECT bonus_matches n FROM users WHERE id=?').get(owner.id)!.n).toBe(30);
+  await login('owner', code); await login('friend0', 'ZZZZZZ');
+  expect(sqlite.prepare("SELECT referred_by FROM users WHERE provider_sub='friend0'").get()!.referred_by).toBe(owner.id);
+  for (const ref of ['bad', 'ZZZZZZ', 'ABCDEF?']) await login(`invalid-${ref}`, ref);
+  expect(sqlite.prepare('SELECT referred_by FROM users WHERE id=?').get(owner.id)!.referred_by).toBeNull();
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM users WHERE referred_by=?').get(owner.id)!.n).toBe(12);
+  const other = await login('other'), otherCode = await referralCode(db, other.id);
+  const graph = vi.fn(async (url: string) => url.endsWith('/app') ? Response.json({ id: '1670170614568233' }) : Response.json({ id: 'fb-referral', name: 'Friend' }));
+  vi.stubGlobal('fetch', graph);
+  const fb = () => authRoute(request('/auth/facebook', 'POST', undefined, { accessToken: 'token', ref: otherCode }), { DB: db, FACEBOOK_ENABLED: 'true' }, {});
+  expect((await fb()).status).toBe(200); expect((await fb()).status).toBe(200);
+  expect(sqlite.prepare('SELECT bonus_matches n FROM users WHERE id=?').get(other.id)!.n).toBe(3);
+  sqlite.prepare('DELETE FROM users WHERE referred_by=?').run(owner.id);
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ keys: [{ ...jwk, kid: 'test' }] })));
+  await login('after-deletion', code);
+  expect(sqlite.prepare('SELECT bonus_matches n FROM users WHERE id=?').get(owner.id)!.n).toBe(30);
+  sqlite.close();
+});
 it('creates hashed sessions, upserts users, logs out, expires sessions and deletes the account and counts', async () => {
   const { db, sqlite } = database();
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ keys: [{ ...jwk, kid: 'test' }] })));

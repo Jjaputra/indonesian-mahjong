@@ -61,8 +61,8 @@ describe('host daily limit UI', () => {
     expect(seated).toContain('Berdiri');
   });
   it('shows the host remaining count in lobby and result', () => {
-    expect(lobby(2)).toContain('Jatah host hari ini: sisa 1 dari 3 match');
-    expect(result(2)).toContain('Jatah host hari ini: sisa 1 dari 3 match');
+    expect(lobby(2)).toContain('Jatah host hari ini: sisa 1');
+    expect(result(2)).toContain('Jatah host hari ini: sisa 1');
   });
   it('disables Mulai at zero and explains the limit', () => {
     const html = lobby(5);

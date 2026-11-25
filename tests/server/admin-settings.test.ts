@@ -11,7 +11,7 @@ import { MemoryStorage } from '../../src/storage';
 
 function fixture() {
   const sql = new DatabaseSync(':memory:');
-  for (const name of ['0001_accounts', '0002_account_rooms', '0003_settings', '0004_admin_overhaul', '0007_usernames']) sql.exec(readFileSync(`server/migrations/${name}.sql`, 'utf8'));
+  for (const name of ['0001_accounts', '0002_account_rooms', '0003_settings', '0004_admin_overhaul', '0007_usernames', '0008_referrals']) sql.exec(readFileSync(`server/migrations/${name}.sql`, 'utf8'));
   const db: Database = {
     prepare(query) {
       let values: unknown[] = [];

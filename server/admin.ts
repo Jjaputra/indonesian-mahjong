@@ -14,9 +14,9 @@ async function rows<T>(db: Database, query: string, fields: string[], values: un
 }
 interface AdminUser {
   id: string; username: string | null; name: string; email: string | null; picture: string | null; premium: boolean; newsOptIn: boolean;
-  createdAt: number; lastSeenAt: number; matchesHosted: number; matchesToday: number; currentRoom: string | null;
+  createdAt: number; lastSeenAt: number; matchesHosted: number; matchesToday: number; bonusMatches: number; referrals: number; currentRoom: string | null;
 }
-const userFields = ['id', 'username', 'name', 'email', 'picture', 'premium', 'newsOptIn', 'createdAt', 'lastSeenAt', 'matchesHosted', 'matchesToday', 'currentRoom'];
+const userFields = ['id', 'username', 'name', 'email', 'picture', 'premium', 'newsOptIn', 'createdAt', 'lastSeenAt', 'matchesHosted', 'matchesToday', 'bonusMatches', 'referrals', 'currentRoom'];
 function userQuery(url: URL) {
   const q = (url.searchParams.get('q') ?? '').slice(0, 200);
   const filter = url.searchParams.get('filter');
@@ -28,7 +28,8 @@ function userQuery(url: URL) {
 async function listUsers(db: Database, url: URL, day: string, page: number, size: number) {
   const { where, order, values } = userQuery(url);
   const users = await rows<AdminUser>(db, `SELECT u.id,u.username,u.name,u.email,u.picture,u.premium,u.news_opt_in AS newsOptIn,
-    u.created_at AS createdAt,u.last_seen_at AS lastSeenAt,
+    u.created_at AS createdAt,u.last_seen_at AS lastSeenAt,u.bonus_matches AS bonusMatches,
+    (SELECT COUNT(*) FROM users r WHERE r.referred_by=u.id) AS referrals,
     (SELECT COUNT(*) FROM daily_matches m WHERE m.user_id=u.id) AS matchesHosted,
     (SELECT COUNT(*) FROM daily_matches m WHERE m.user_id=u.id AND m.wib_day=?) AS matchesToday,
     (SELECT code FROM account_rooms r WHERE r.user_id=u.id) AS currentRoom

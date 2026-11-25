@@ -51,3 +51,17 @@ it('captures the install event before migration settles and renders after blocke
   expect(mocks.createRoot).toHaveBeenCalledWith(root);
   expect(mocks.appLoaded).toHaveBeenCalledTimes(1);
 });
+
+it('waits for the domain-move decision before capturing a referral and leaves redirects untouched', async () => {
+  const capture = vi.fn();
+  vi.doMock('../../src/net/referral', () => ({ captureReferral: capture }));
+  let resolveMove!: (redirected: boolean) => void;
+  const decision = new Promise<boolean>(resolve => { resolveMove = resolve; });
+  vi.doMock('../../src/storage/domain-move', () => ({ runDomainMove: () => decision }));
+  await import('../../src/main');
+  expect(capture).not.toHaveBeenCalled();
+  resolveMove(true);
+  await decision;
+  expect(capture).not.toHaveBeenCalled();
+  expect(mocks.createRoot).not.toHaveBeenCalled();
+});

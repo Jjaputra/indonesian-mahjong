@@ -10,7 +10,7 @@ afterEach(() => { vi.restoreAllMocks(); opened.splice(0).forEach(sql => sql.clos
 async function fixture() {
   vi.spyOn(Date, 'now').mockReturnValue(now);
   const sql = new DatabaseSync(':memory:'); opened.push(sql);
-  for (const name of ['0001_accounts', '0002_account_rooms', '0003_settings', '0004_admin_overhaul', '0007_usernames']) sql.exec(readFileSync(`server/migrations/${name}.sql`, 'utf8'));
+  for (const name of ['0001_accounts', '0002_account_rooms', '0003_settings', '0004_admin_overhaul', '0007_usernames', '0008_referrals']) sql.exec(readFileSync(`server/migrations/${name}.sql`, 'utf8'));
   const db: Database = {
     prepare(query) {
       let values: unknown[] = [];
@@ -38,7 +38,7 @@ async function fixture() {
   const request = (path: string, method = 'GET', body?: unknown, admins = 'admin', auth = true) => adminRoute(new Request(`https://api.test/admin/${path}`, {
     method, headers: auth ? { Authorization: `Bearer ${token}` } : {}, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   }), { ...env, ADMIN_USER_IDS: admins }, { 'Access-Control-Allow-Origin': 'http://localhost:5199' });
-  const matches = (id: string, day: string, n = 1) => { for (let i = 0; i < n; i++) sql.prepare('INSERT INTO daily_matches VALUES(?,?,?)').run(id, day, `${i}`); };
+  const matches = (id: string, day: string, n = 1) => { for (let i = 0; i < n; i++) sql.prepare('INSERT INTO daily_matches(user_id,wib_day,match_key) VALUES(?,?,?)').run(id, day, `${i}`); };
   return { sql, db, add, request, matches };
 }
 it.each(['stats', 'users', 'users.csv', 'audit'])('protects %s for signed-out and non-admin users and disables caching', async path => {
@@ -51,6 +51,14 @@ it.each(['stats', 'users', 'users.csv', 'audit'])('protects %s for signed-out an
   expect(allowed.status).toBe(200);
   expect(allowed.headers.get('Cache-Control')).toBe('no-store');
   expect(allowed.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:5199');
+});
+it('exposes read-only banked match and referral counts to admins', async () => {
+  const { add, request, sql } = await fixture();
+  add('referrer');
+  sql.prepare('UPDATE users SET bonus_matches=2 WHERE id=?').run('referrer');
+  sql.prepare("INSERT INTO users(id,provider,provider_sub,name,created_at,last_seen_at,referred_by) VALUES('invited','google','invited','Invited',0,0,'referrer')").run();
+  const body = await (await request('users?q=referrer')).json();
+  expect(body.users).toMatchObject([{ id: 'referrer', bonusMatches: 5, referrals: 1 }]);
 });
 it('pages, filters and sorts users with room and indexed match counts', async () => {
   const { add, request, sql, matches } = await fixture();

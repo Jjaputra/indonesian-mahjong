@@ -15,7 +15,7 @@ export type UserSort = 'newest' | 'oldest' | 'active' | 'name' | 'matches';
 export interface UsersQuery { q: string; filter: UserFilter; sort: UserSort; page: number; size: number }
 export interface AdminUser {
   id: string; name: string; username?: string | null; email: string | null; picture: string | null; premium: boolean | number; newsOptIn: boolean | number;
-  createdAt: Stamp | null; lastSeenAt: Stamp | null; matchesHosted: number; matchesToday: number; currentRoom: string | null;
+  createdAt: Stamp | null; lastSeenAt: Stamp | null; matchesHosted: number; matchesToday: number; bonusMatches?: number; referrals?: number; currentRoom: string | null;
 }
 export interface UsersPage { total: number; page: number; size: number; users: AdminUser[] }
 export interface AuditEntry {

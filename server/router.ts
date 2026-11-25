@@ -55,7 +55,7 @@ export default {
     if (url.pathname.startsWith('/admin/')) return adminRoute(request, env, cors);
     const settings = await readSettings(env);
     if (request.method === 'GET' && ['/config', '/auth/config'].includes(url.pathname)) return Response.json({ ...settings, resetAt: resetAt(Date.now()), serverNow: Date.now() }, { headers: { ...cors, 'Cache-Control': 'no-store' } });
-    if (url.pathname.startsWith('/auth/') || (url.pathname === '/me' || url.pathname === '/me/username')) {
+    if (url.pathname.startsWith('/auth/') || (url.pathname === '/me' || url.pathname === '/me/username' || url.pathname === '/me/share')) {
       const limiter = env.AUTH_LIMITER ?? env.ROOM_CREATION_LIMITER;
       if (!(await limiter.limit({ key: request.headers.get('CF-Connecting-IP') ?? 'local' })).success) return Response.json({ code: 'rate_limited', message: 'Tunggu bentar, lalu coba lagi.' }, { status: 429, headers: cors });
       if (request.method === 'DELETE' && url.pathname === '/me') {

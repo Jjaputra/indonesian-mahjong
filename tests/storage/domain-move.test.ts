@@ -43,10 +43,10 @@ describe('old address detection', () => {
     'https://indomahjong.pages.dev/',
     'https://www.maciokyu.com/',
   ])('redirects %s and keeps invite queries without rendering', async href => {
-    const { fake, window } = browser(href + '?room=ABCDEF&demo=table');
+    const { fake, window } = browser(href + '?room=ABCDEF&demo=table&ref=ABC234');
     expect(shouldRedirect(new URL(window.location.href))).toBe(true);
     expect(await runDomainMove(window)).toBe(true);
-    expect(fake.location.replace).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/maciokyu\.com\/\?room=ABCDEF&demo=table#move=/));
+    expect(fake.location.replace).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/maciokyu\.com\/\?room=ABCDEF&demo=table&ref=ABC234#move=/));
   });
 
   it.each([
