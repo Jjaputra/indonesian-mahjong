@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.12] - 2026-11-25
+### Changed
+- Premium accounts (admins included) now see the "Bagikan ke WA" button and a short invite line in the account panel. They still get no extra matches, since their hosting is already unlimited.
+
 ## [1.8.11] - 2026-11-25
 ### Changed
 - The feedback address in Settings, at the end of a match and on the Privacy, Terms and Delete-account pages is now maciokyu@gmail.com.

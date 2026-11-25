@@ -69,7 +69,7 @@ export function AccountPanel({ onError, onClear, error }: { onError: (message: s
       <span className="mp-account-who"><Avatar name={account.username ?? 'Pemain'} picture={account.picture} /><span className="mp-account-name" title={account.username ?? undefined}>{account.username ?? 'Pilih nama'}</span>{account.premium && <PremiumBadge />}</span>
       <span className="mp-account-allowance"><span className="mp-pill">{account.premium ? 'Jatah host: tanpa batas' : `Jatah host hari ini: sisa ${Math.max(0, (account.remainingMatches ?? 0) - (account.bonusMatches ?? 0))}${account.bonusMatches ? ` +${account.bonusMatches} tabungan` : ''}`}</span>
       <AllowanceReset remaining={account.remainingMatches ?? Infinity} /><ReferralShare onError={onError} /></span>
-      {!account.premium && <p className="mp-referral-note">Ajak temen: tiap temen baru yang login lewat link kamu = +3 match (maks. 10 temen).</p>}
+      <p className="mp-referral-note">{account.premium ? 'Ajak temen: bagikan link kamu biar mereka ikut main.' : 'Ajak temen: tiap temen baru yang login lewat link kamu = +3 match (maks. 10 temen).'}</p>
       <label className="mp-account-optin"><input type="checkbox" checked={account.newsOptIn === true} onChange={e => { void setNewsOptIn(e.target.checked).catch(error => onError(error.message)); }} /> Kabari lewat email soal Premium dan update maciokYU!</label>
       <span className="mp-account-actions">
         <button type="button" className="mp-link" onClick={attempt(() => { void signOut().catch(error => onError(error.message)); })}>Keluar</button>
