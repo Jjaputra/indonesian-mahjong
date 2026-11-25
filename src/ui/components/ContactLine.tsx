@@ -1,5 +1,5 @@
 // Feedback contact shown after a match and in Settings. One place to change the address later.
-export const CONTACT_EMAIL = 'trirtaprawisuda@gmail.com';
+export const CONTACT_EMAIL = 'maciokyu@gmail.com';
 
 export function ContactLine() {
   return (
