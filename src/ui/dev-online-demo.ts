@@ -21,7 +21,7 @@ import { recordHand } from './match';
 import { kongPayment } from '../core/round-score';
 import { KongToast } from './components/CallToast';
 
-export const ONLINE_AUDIT_STATES = ['early', 'mid', 'late', 'melds-0', 'melds-2', 'melds-4', 'flowers', 'spectator', 'pung', 'claims', 'kong', 'warning', 'turn', 'hu', 'seri', 'final', ...[0, 50].flatMap(n => ['open', 'closed'].flatMap(c => ['open', 'closed'].map(o => `chat-${n}-${c}-options-${o}`))), 'pick-name', 'public-list', 'public-list-empty', 'lobby', 'menu', 'create', 'join', 'settings', 'history', 'premium', 'admin', 'admin-users', 'admin-settings', 'admin-audit'] as const;
+export const ONLINE_AUDIT_STATES = ['early', 'mid', 'late', 'melds-0', 'melds-2', 'melds-4', 'flowers', 'spectator', 'pung', 'claims', 'kong', 'warning', 'turn', 'hu', 'seri', 'final', ...[0, 50].flatMap(n => ['open', 'closed'].flatMap(c => ['open', 'closed'].map(o => `chat-${n}-${c}-options-${o}`))), 'referral', 'pick-name', 'public-list', 'public-list-empty', 'lobby', 'menu', 'create', 'join', 'settings', 'history', 'premium', 'admin', 'admin-users', 'admin-settings', 'admin-audit'] as const;
 const noop = () => {};
 const base = 'http://localhost/__layout_fixture__';
 
@@ -32,7 +32,7 @@ export async function prepareOnlineAudit() {
     const url = String(input);
     if (!url.startsWith(base)) return original(input, init);
     const path = url.slice(base.length);
-    const account = { id: 'layout-audit', name: 'Private Google Name', username: 'ABCDEFGHIJKL', picture: null, premium: false, remainingMatches: 2, admin: true, newsOptIn: true };
+    const account = { id: 'layout-audit', name: 'Private Google Name', username: 'ABCDEFGHIJKL', picture: null, premium: false, remainingMatches: 4, bonusMatches: 2, sharedToday: false, referralCode: 'ABC234', referrals: 1, admin: true, newsOptIn: true };
     let value: unknown = { dailyMatchLimit: 3, loginRequired: true, discardRevealMs: 1000, facebookEnabled: false, announcement: '' };
     if (path === '/me') value = account;
     if (path.startsWith('/admin/stats')) value = { users: { total: 1234, newToday: 12, new7d: 72, active7d: 301, premium: 24, newsOptIn: 301 }, matches: { today: 45, last7d: 324 }, daily: Array.from({ length: 30 }, (_, i) => ({ day: `2026-11-${String(i + 1).padStart(2, '0')}`, newUsers: i % 9, matches: i % 12, activeUsers: i + 10 })) };
@@ -124,7 +124,8 @@ export function OnlineAuditPreview({ search }: { search: string }) {
   });
   const account = h(AccountPanel, { onError: noop });
   let content;
-  if (mode === 'pick-name') content = h(UsernamePicker);
+  if (mode === 'referral') content = h('main', { className: 'main-menu' }, h('section', { className: 'menu-card mp-card' }, account));
+  else if (mode === 'pick-name') content = h(UsernamePicker);
   else if (mode.startsWith('admin')) content = h(AdminPage, { server: base, initialTab: mode === 'admin-users' ? 'users' : mode === 'admin-settings' ? 'settings' : mode === 'admin-audit' ? 'audit' : 'stats' });
   else if (mode.startsWith('public-list')) content = h(PublicTables, { server: base, onJoin: noop, onCreate: noop, onBack: noop, initialRooms: Array.from({ length: mode.endsWith('empty') ? 0 : 8 }, (_, i) => ({ code: `ABC23${i}`, hostName: 'ABCDEFGHIJKL', hostPremium: i === 0, humans: 2, config: { ...DEFAULT_ROOM_CONFIG, public: true }, updatedAt: 1000 })) });
   else if (mode === 'lobby') content = h(Fragment, null, h("div", { className: "mp-account-standalone" }, account), h(RoomLobby, { connection: state, room: { ...state.room!, phase: 'lobby' }, seat: 'dong', isHost: true, onSit: noop, onStand: noop, onStart: noop, onConfig: noop, onLeave: noop, onToast: noop }));

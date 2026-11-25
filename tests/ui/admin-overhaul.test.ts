@@ -102,10 +102,15 @@ describe('tabs render their data', () => {
   });
 
   it('Pemain: table cells, opt-in badge, room, and a Premium toggle', () => {
-    const html = renderToStaticMarkup(createElement(UsersTable, { users: [user(), user({ id: 'u2', name: 'Ce Mo', email: null, premium: true, newsOptIn: false, currentRoom: null, lastSeenAt: null })], now: NOW, onPremium: () => {} }));
+    const html = renderToStaticMarkup(createElement(UsersTable, { users: [user({ bonusMatches: 2, referrals: 4 }), user({ id: 'u2', name: 'Ce Mo', email: null, premium: true, newsOptIn: false, currentRoom: null, lastSeenAt: null })], now: NOW, onPremium: () => {} }));
     expect(html).toContain('Disa');
     expect(html).toContain('2 jam lalu');
     expect(html).toContain('7 / 2');
+    expect(html).toContain('Tabungan match');
+    expect(html).toContain('Referral');
+    expect(html).toContain('data-label="Tabungan match" class="num">0');
+    expect(html).toContain('data-label="Tabungan match" class="num">2');
+    expect(html).toContain('data-label="Referral" class="num">4');
     expect(html).toContain('AB12');
     expect(html).toContain('Dikabari');
     expect(html.match(/type="checkbox"/g)).toHaveLength(2);

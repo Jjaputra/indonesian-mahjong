@@ -1,4 +1,5 @@
 import React from 'react';
+import { captureReferral } from './net/referral';
 import ReactDOM from 'react-dom/client';
 import { runDomainMove } from './storage/domain-move';
 import './ui/pwa-install';
@@ -6,6 +7,7 @@ import './index.css';
 
 async function start() {
   if (await runDomainMove()) return;
+  captureReferral();
   const { default: App } = await import('./App');
   const rootElement = document.getElementById('root');
   if (!rootElement) {

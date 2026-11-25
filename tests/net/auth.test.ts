@@ -42,7 +42,7 @@ it('loads server policy, signs in with credentials, shows account UI and clears 
   expect(authHeaders()).toEqual({ Authorization: 'Bearer test-bearer' });
   expect(fetcher.mock.calls.find(([url]) => url.endsWith('/auth/google'))).toBeDefined();
   const html = renderToStaticMarkup(createElement(AccountPanel, { onError: () => {} }));
-  for (const text of ['Jason', 'Jatah host hari ini: sisa 3 dari 3 match', 'Keluar', 'Hapus akun', 'mp-avatar', 'mp-pill']) expect(html).toContain(text);
+  for (const text of ['Jason', 'Jatah host hari ini: sisa 3', 'Keluar', 'Hapus akun', 'mp-avatar', 'mp-pill']) expect(html).toContain(text);
   expect(html).not.toContain('<section'); expect(html).not.toContain('role="alert"');
   expect(renderToStaticMarkup(createElement(AccountPanel, { onError: () => {}, error: 'Gagal masuk, coba lagi.' }))).toContain('<p class="mp-account-error" role="alert">Gagal masuk, coba lagi.</p>');
   await signOut(true); expect(authStore.get()).toBeNull(); expect(authHeaders()).toEqual({});

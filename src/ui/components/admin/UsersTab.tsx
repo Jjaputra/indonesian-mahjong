@@ -31,13 +31,15 @@ export function UserAvatar({ user }: { user: Pick<AdminUser, 'name' | 'picture'>
 
 export function UsersTable({ users, now = Date.now(), onPremium, onRename }: { onRename?: (user: AdminUser) => void; users: AdminUser[]; now?: number; onPremium: (user: AdminUser, premium: boolean) => void }) {
   return <table className="admin-table">
-    <thead><tr><th>Pemain</th><th>Email</th><th>Daftar</th><th>Terakhir aktif</th><th className="num">Host total / hari ini</th><th>Room</th><th>Premium</th></tr></thead>
+    <thead><tr><th>Pemain</th><th>Email</th><th>Daftar</th><th>Terakhir aktif</th><th className="num">Host total / hari ini</th><th className="num">Tabungan match</th><th className="num">Referral</th><th>Room</th><th>Premium</th></tr></thead>
     <tbody>{users.map(user => <tr key={user.id}>
       <td data-label="Pemain" className="admin-user"><div className="admin-user-box"><UserAvatar user={user} /><span className="admin-user-name">{user.username ?? 'Belum pilih nama'} <small>({user.name})</small></span>{onRename && <button type="button" className="mp-link" onClick={() => onRename(user)}>Ganti username</button>}{!!user.newsOptIn && <span className="admin-badge" title="Setuju dikabari lewat email">Dikabari</span>}</div></td>
       <td data-label="Email" className="admin-email">{user.email ?? '—'}</td>
       <td data-label="Daftar">{formatDate(user.createdAt)}</td>
       <td data-label="Terakhir aktif">{relativeTime(user.lastSeenAt, now)}</td>
       <td data-label="Host total / hari ini" className="num">{user.matchesHosted} / {user.matchesToday}</td>
+      <td data-label="Tabungan match" className="num">{user.bonusMatches ?? 0}</td>
+      <td data-label="Referral" className="num">{user.referrals ?? 0}</td>
       <td data-label="Room">{user.currentRoom ? <code className="admin-room">{user.currentRoom}</code> : '—'}</td>
       <td data-label="Premium"><label className="admin-toggle"><input type="checkbox" checked={!!user.premium} onChange={e => onPremium(user, e.target.checked)} aria-label={`Premium untuk ${user.name}`} /><span>{user.premium ? 'Premium' : 'Gratis'}</span></label></td>
     </tr>)}</tbody>

@@ -1,8 +1,9 @@
+import { clearReferral, pendingReferral } from './referral';
 import { acceptConfig, fetchConfig, getConfig } from './config';
 import { useSyncExternalStore } from 'react';
 
 export const GOOGLE_CLIENT_ID = '493683615084-apa5g3v01866pb8b9qfrgc75ii4pqtqk.apps.googleusercontent.com';
-export interface Account { admin?: boolean; dailyMatchLimit?: number; resetAt?: number; serverNow?: number; id: string; username?: string | null; name: string; picture: string | null; premium: boolean; remainingMatches: number | null; currentRoom?: { code: string; phase: string } | null; newsOptIn?: boolean }
+export interface Account { referralCode?: string | null; sharedToday?: boolean; bonusMatches?: number; referrals?: number; admin?: boolean; dailyMatchLimit?: number; resetAt?: number; serverNow?: number; id: string; username?: string | null; name: string; picture: string | null; premium: boolean; remainingMatches: number | null; currentRoom?: { code: string; phase: string } | null; newsOptIn?: boolean }
 interface Google { accounts: { id: { initialize(options: { client_id: string; callback: (result: { credential: string }) => void }): void; renderButton(element: HTMLElement, options: { type: string; text: string; locale: string; theme: string; size: string }): void } } }
 interface Facebook { init(options: { appId: string; version: string }): void; login(callback: (response: { authResponse?: { accessToken: string } }) => void, options: { scope: string }): void }
 let me: Account | null = null;
@@ -42,13 +43,26 @@ export async function openAuth(base: string): Promise<void> {
   await refreshAccount();
 }
 export async function signIn(provider: 'google' | 'facebook', credential: string): Promise<void> {
-  const response = await fetch(`${server}/auth/${provider}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(provider === 'google' ? { credential } : { accessToken: credential }) });
+  const response = await fetch(`${server}/auth/${provider}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...(provider === 'google' ? { credential } : { accessToken: credential }), ref: pendingReferral() }) });
   if (!response.ok) throw new Error('Gagal masuk. Coba lagi.');
   const value = await response.json() as Account & { token?: string };
+  clearReferral();
   bearer = value.token ?? null;
   if (bearer) try { sessionStorage.setItem(`itm.auth:${server}`, bearer); } catch { /* blocked storage */ }
   const { token: _token, ...account } = value;
   update(account);
+  if (account.referralCode === null) try { await refreshAccount(); } catch { /* login succeeded; periodic refresh retries */ }
+}
+export async function shareReferral(): Promise<boolean> {
+  if (!me?.referralCode) throw new Error('Link belum siap. Coba refresh halaman.');
+  const link = 'https://maciokyu.com/?ref=' + me.referralCode;
+  const text = 'Yuk main mahjong Indonesia online bareng di maciokYU! 🀄 Gratis, langsung dari browser: ' + link;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer');
+  const response = await fetch(`${server}/me/share`, { method: 'POST', credentials: 'include', headers: authHeaders() });
+  if (!response.ok) throw new Error('Bonus belum tersimpan. Coba lagi.');
+  const { granted } = await response.json();
+  await refreshAccount();
+  return granted === true;
 }
 export async function setUsername(username: string): Promise<void> {
   const response = await fetch(`${server}/me/username`, { method: 'POST', credentials: 'include', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) });

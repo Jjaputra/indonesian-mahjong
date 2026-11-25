@@ -1,4 +1,5 @@
 import { deviceLimitFallback, useAccount } from '../../net/auth';
+import { ReferralShare } from './ReferralShare';
 import { ConnectionIndicator } from './RoomLobby';
 import '../options-panel.css';
 import '../online.css';
@@ -20,7 +21,6 @@ import { Modal } from './Modal';
 import { MeldView, TileRow } from './TileView';
 import { RemoteController, asGameController, seatName, seatNames, seatPremium, spectatorBottomNames } from './remote-adapter';
 import { AllowanceReset } from './AllowanceReset';
-import { useConfig } from '../../net/config';
 import { DAILY_LIMIT_MESSAGE, useDailyRemaining } from '../../net/daily-limit';
 
 /** Maximum score review window, enforced by the room alarm. */
@@ -74,15 +74,18 @@ export function ReadyStrip({ seats, self, nameOf }: { seats: RoomSeat[]; self: S
 
 export function FinishedMatchActions({ table, state, onLeave }: { table: RemoteTable; state: RemoteState; onLeave: () => void }) {
   const account = useAccount();
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+  useEffect(() => { if (shareToast) { const id = setTimeout(() => setShareToast(null), 5000); return () => clearTimeout(id); } }, [shareToast]);
   const loginBlocked = !account && !deviceLimitFallback();
-  const { dailyMatchLimit } = useConfig();
   const remaining = useDailyRemaining(table.dailyLimitStorage);
   return <>
         {state.host
           ? <div className="online-daily-limit">
               <button type="button" className="btn btn-primary" disabled={remaining === 0 || loginBlocked || !state.seat} onClick={() => table.rematch()}>Main lagi</button>
-              <div role="status">{!state.seat && <p>Duduk dulu buat mulai.</p>}<p>{Number.isFinite(remaining) ? `Jatah host hari ini: sisa ${remaining} dari ${dailyMatchLimit} match` : account ? 'Jatah host: tanpa batas' : 'Host perlu masuk dulu.'}</p>
-                {remaining === 0 && <p>{DAILY_LIMIT_MESSAGE()}</p>}<AllowanceReset remaining={remaining} /></div>
+              <div role="status">{!state.seat && <p>Duduk dulu buat mulai.</p>}<p>{Number.isFinite(remaining) ? `Jatah host hari ini: sisa ${Math.max(0, remaining - (account?.bonusMatches ?? 0))}${account?.bonusMatches ? ` +${account.bonusMatches} tabungan` : ''}` : account ? 'Jatah host: tanpa batas' : 'Host perlu masuk dulu.'}</p>
+                {remaining === 0 && <><p>{DAILY_LIMIT_MESSAGE()}</p><ReferralShare onError={setShareError} onToast={setShareToast} /></>}{shareError && <p role="alert">{shareError}</p>}<AllowanceReset remaining={remaining} /></div>
+              {shareToast && <p className="mp-referral-toast" role="status">{shareToast}</p>}
             </div>
           : <span className="muted" role="status">Nunggu host mulai lagi</span>}
         <button type="button" className="btn" onClick={onLeave}>Keluar room</button>

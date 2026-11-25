@@ -66,8 +66,8 @@
 .admin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .admin-export p { margin: 8px 0 0; }
 
-/* Phones: each table row becomes a card. */
-@media (max-width: 760px) {
+/* Phones and narrow tablets: each table row becomes a card (the users table needs ~890px). */
+@media (max-width: 900px) {
   .admin-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .admin-table, .admin-table tbody, .admin-table tr, .admin-table td { display: block; }
   .admin-table tr { margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
