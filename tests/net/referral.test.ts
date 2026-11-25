@@ -69,3 +69,18 @@ it.each(['google', 'facebook'] as const)('sends ref on %s login, keeps on failur
   const html = renderToStaticMarkup(createElement(ReferralShare, { onError() {} }));
   expect(html).toContain('Bagikan ke WA'); expect(html).not.toContain('(+1 match)');
 });
+it('shows the share button and note to Premium accounts without the match bonus', async () => {
+  const account = { id: 'premium-user', name: 'Admin', premium: true, referralCode: 'XYZ789', sharedToday: false };
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/auth/google') || url.endsWith('/me') ? Response.json(account) : Response.json({})));
+  await openAuth('https://api.maciokyu.com');
+  await signIn('google', 'credential');
+  const share = renderToStaticMarkup(createElement(ReferralShare, { onError() {} }));
+  expect(share).toContain('Bagikan ke WA'); expect(share).not.toContain('+1 match');
+  const panel = renderToStaticMarkup(createElement(AccountPanel, { onError() {} }));
+  expect(panel).toContain('Jatah host: tanpa batas');
+  expect(panel).toContain('Ajak temen: bagikan link kamu'); expect(panel).not.toContain('+3 match');
+  const open = vi.fn();
+  vi.stubGlobal('window', { open });
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/me/share') ? new Response(null, { status: 500 }) : Response.json(account)));
+  await expect(shareReferral()).resolves.toBe(false); expect(open).toHaveBeenCalled();
+});

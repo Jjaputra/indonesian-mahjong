@@ -55,11 +55,13 @@ export async function signIn(provider: 'google' | 'facebook', credential: string
 }
 export async function shareReferral(): Promise<boolean> {
   if (!me?.referralCode) throw new Error('Link belum siap. Coba refresh halaman.');
+  const premium = me.premium;
   const link = 'https://maciokyu.com/?ref=' + me.referralCode;
   const text = 'Yuk main mahjong Indonesia online bareng di maciokYU! 🀄 Gratis, langsung dari browser: ' + link;
   window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer');
   const response = await fetch(`${server}/me/share`, { method: 'POST', credentials: 'include', headers: authHeaders() });
-  if (!response.ok) throw new Error('Bonus belum tersimpan. Coba lagi.');
+  // WA is already open; Premium earns no bonus, so a failed record has nothing to retry.
+  if (!response.ok) { if (premium) return false; throw new Error('Bonus belum tersimpan. Coba lagi.'); }
   const { granted } = await response.json();
   await refreshAccount();
   return granted === true;

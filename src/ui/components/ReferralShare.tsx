@@ -6,11 +6,11 @@ export function ReferralShare({ onError, onToast }: { onError: (message: string)
   const account = useAccount();
   const [busy, setBusy] = useState(false), [toast, setToast] = useState(false);
   useEffect(() => { if (toast) { const id = setTimeout(() => setToast(false), 5000); return () => clearTimeout(id); } }, [toast]);
-  if (!account || account.premium) return null;
+  if (!account) return null;
   return <span className="mp-referral-share"><button type="button" className="mp-link" disabled={busy || !account.referralCode} onClick={() => {
     setBusy(true);
     void shareReferral().then(granted => { if (granted) { if (onToast) onToast(SHARE_THANKS); else setToast(true); } }).catch(error => onError(error.message)).finally(() => setBusy(false));
-  }}>{account.sharedToday ? 'Bagikan ke WA' : 'Bagikan ke WA (+1 match)'}</button>
+  }}>{account.sharedToday || account.premium ? 'Bagikan ke WA' : 'Bagikan ke WA (+1 match)'}</button>
     {toast && <span className="mp-referral-toast" role="status">{SHARE_THANKS}</span>}
   </span>;
 }
