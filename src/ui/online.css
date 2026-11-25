@@ -242,3 +242,32 @@
 /* "Still seated elsewhere" confirmations: a small dialog over the menu, not a card above it. */
 .panel.mp-confirm { width: min(420px, 100%); }
 .mp-confirm .panel-body p { margin: 0 0 6px; line-height: 1.45; }
+
+/* Front-menu energy bar: host matches left today, banked bonus, reset countdown, + opens the how-to. */
+.match-energy { display: grid; justify-items: center; gap: 6px; margin: 0 auto 12px; width: fit-content; max-width: 100%; }
+.match-energy-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; padding: 5px 5px 5px 12px;
+  border: 1px solid rgba(243, 231, 201, 0.35); border-radius: 999px; background: rgba(0, 0, 0, 0.3); color: var(--brand-cream-hi);
+}
+.match-energy-label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 800; }
+.match-energy-label svg { color: #f4d475; }
+.match-energy-pips { display: inline-flex; gap: 4px; }
+.match-energy-pips span { width: 18px; height: 12px; border-radius: 4px; background: rgba(255, 255, 255, 0.18); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.match-energy-pips span.is-full { background: linear-gradient(#ffe08a, #f4b93a); box-shadow: inset 0 0 0 1px #8a5a00; }
+.match-energy-count { font-size: 14px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.match-energy-bank { padding: 1px 8px; border-radius: 999px; background: #f4d475; color: #513600; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.match-energy-plus {
+  display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 2px solid #064e3b; border-radius: 50%;
+  background: #25d366; color: #052e16; cursor: pointer; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.match-energy-plus:hover { background: #3ee07a; }
+.match-energy-plus:focus-visible { outline: 3px solid #052e16; outline-offset: 2px; box-shadow: 0 0 0 7px var(--hl); }
+.match-energy .allowance-reset { margin-top: 0; max-width: 100%; white-space: normal; text-align: center; }
+/* Phones: the bolt, pips and count carry the meaning; + explains it. */
+@media (max-width: 400px) { .match-energy-label-text { display: none; } .match-energy-row { gap: 6px; } }
+.match-help { display: grid; gap: 12px; }
+.match-help p { margin: 0; line-height: 1.5; }
+.match-help-ways { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.match-help-ways li { display: grid; gap: 2px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2, rgba(0, 0, 0, 0.03)); }
+.match-help-ways span { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.match-help .mp-referral-share { justify-self: start; }

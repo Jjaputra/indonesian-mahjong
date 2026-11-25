@@ -4,6 +4,7 @@ import logo from '../../assets/brand/maciokyu-logo.png';
 import { useConfig } from '../../net/config';
 import { useAccount } from '../../net/auth';
 import { PremiumModal } from './PremiumModal';
+import { MatchEnergy } from './MatchEnergy';
 import type { OnlineStep } from './OnlineMenu';
 
 export interface MainMenuProps {
@@ -44,6 +45,7 @@ export function MenuFront({ onOnline, resumeRoomCode, onResumeRoom, onPremium }:
     <section className="menu-card" aria-label="Menu utama">
       <div className="menu-logo"><img src={logo} alt="maciokYU!" width={1277} height={407} /></div>
       <p className="menu-eyebrow">Mahjong Indonesia di browser</p>
+      {onOnline && <MatchEnergy />}
       <div className="menu-choices menu-front">
         {onOnline && <button type="button" className="btn btn-primary menu-choice" onClick={() => onOnline('public')}><strong>Meja publik</strong><span>Cari meja yang masih ada kursi</span></button>}
         {resumeRoomCode && onResumeRoom && <button type="button" className="btn btn-gold menu-choice menu-online" onClick={onResumeRoom}>

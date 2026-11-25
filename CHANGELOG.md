@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.8.14] - 2026-11-25
+### Added
+- The front menu shows a host "energy bar" for signed-in players: today's matches as pips (for example 2/3), banked matches from invites, and the countdown to the 00.00 WIB refill. Premium shows "Tanpa batas".
+- A green + next to the bar opens "Tambah jatah main": how hosting uses matches (joining a friend's room is free), +1 match a day for sharing on WhatsApp, +3 banked matches per new friend (up to 10, with your count), Premium coming soon, and the "Bagikan ke WA" button.
+
 ## [1.8.13] - 2026-11-25
 ### Changed
 - "Bagikan ke WA" is now a solid WhatsApp-green button with a share icon, so it stands out in the account panel and on the daily-limit notice.
