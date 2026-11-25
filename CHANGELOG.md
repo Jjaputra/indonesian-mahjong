@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.10] - 2026-11-25
+### Fixed
+- "Kamu masih duduk di room…" and "Kamu masih punya room…" now open as a proper dialog with readable buttons and one line explaining what happens to your old seat, instead of grey buttons with unreadable text above the form.
+
 ## [1.8.9] - 2026-11-25
 ### Added
 - "Bagikan ke WA" shares your personal maciokyu.com link on WhatsApp. The first share each day (WIB) adds one extra hosted match for that day. Each new friend who signs in through your link adds three banked matches that don't expire (up to ten friends). The account panel shows today's remaining matches and the banked ones separately, and admins see each player's banked matches and referral count.
