@@ -22,9 +22,11 @@ import { recordHand } from './match';
 import { kongPayment } from '../core/round-score';
 import { KongToast } from './components/CallToast';
 
-export const ONLINE_AUDIT_STATES = ['early', 'mid', 'late', 'melds-0', 'melds-2', 'melds-4', 'flowers', 'spectator', 'pung', 'claims', 'kong', 'warning', 'turn', 'hu', 'seri', 'final', ...[0, 50].flatMap(n => ['open', 'closed'].flatMap(c => ['open', 'closed'].map(o => `chat-${n}-${c}-options-${o}`))), 'referral', 'pick-name', 'public-list', 'public-list-empty', 'lobby', 'menu', 'create', 'join', 'settings', 'history', 'premium', 'match-help', 'admin', 'admin-users', 'admin-settings', 'admin-audit'] as const;
+export const ONLINE_AUDIT_STATES = ['early', 'mid', 'late', 'melds-0', 'melds-2', 'melds-4', 'flowers', 'spectator', 'pung', 'claims', 'kong', 'warning', 'turn', 'hu', 'seri', 'final', ...[0, 50].flatMap(n => ['open', 'closed'].flatMap(c => ['open', 'closed'].map(o => `chat-${n}-${c}-options-${o}`))), 'referral', 'pick-name', 'public-list', 'public-list-empty', 'lobby', 'menu', 'menu-announcement', 'create', 'join', 'settings', 'history', 'premium', 'match-help', 'admin', 'admin-users', 'admin-settings', 'admin-audit'] as const;
 const noop = () => {};
 const base = 'http://localhost/__layout_fixture__';
+// Admin-set text can be any length; one unbroken token checks wrapping too.
+const LONG_ANNOUNCEMENT = 'maciokYU! masih baru dan mohon maaf jika masih terjadi banyak bug dan error. Kamu dapat menggunakan tombol report untuk melaporkan masalah ke kami, terima kasih sudah bermain bersama teman-teman. https://maciokyu.com/laporan-bug-dan-saran-sangat-membantu-kami';
 
 /** Only imported by the DEV lazy entry. No socket or remote account. */
 export async function prepareOnlineAudit() {
@@ -34,7 +36,7 @@ export async function prepareOnlineAudit() {
     if (!url.startsWith(base)) return original(input, init);
     const path = url.slice(base.length);
     const account = { id: 'layout-audit', name: 'Private Google Name', username: 'ABCDEFGHIJKL', picture: null, premium: false, remainingMatches: 4, bonusMatches: 2, sharedToday: false, referralCode: 'ABC234', referrals: 1, admin: true, newsOptIn: true };
-    let value: unknown = { dailyMatchLimit: 3, loginRequired: true, discardRevealMs: 1000, facebookEnabled: false, announcement: '', resetAt: Date.now() + 3 * 3600000 + 55 * 60000, serverNow: Date.now() };
+    let value: unknown = { dailyMatchLimit: 3, loginRequired: true, discardRevealMs: 1000, facebookEnabled: false, announcement: new URLSearchParams(window.location.search).get('state') === 'menu-announcement' ? LONG_ANNOUNCEMENT : '', resetAt: Date.now() + 3 * 3600000 + 55 * 60000, serverNow: Date.now() };
     if (path === '/me') value = account;
     if (path.startsWith('/admin/stats')) value = { users: { total: 1234, newToday: 12, new7d: 72, active7d: 301, premium: 24, newsOptIn: 301 }, matches: { today: 45, last7d: 324 }, daily: Array.from({ length: 30 }, (_, i) => ({ day: `2026-11-${String(i + 1).padStart(2, '0')}`, newUsers: i % 9, matches: i % 12, activeUsers: i + 10 })) };
     if (path.startsWith('/admin/audit')) value = { entries: Array.from({ length: 50 }, (_, i) => ({ at: 1795305600000 + i, by: account, kind: 'setting', key: 'dailyMatchLimit', value: 3 })) };
@@ -131,7 +133,7 @@ export function OnlineAuditPreview({ search }: { search: string }) {
   else if (mode.startsWith('public-list')) content = h(PublicTables, { server: base, onJoin: noop, onCreate: noop, onBack: noop, initialRooms: Array.from({ length: mode.endsWith('empty') ? 0 : 8 }, (_, i) => ({ code: `ABC23${i}`, hostName: 'ABCDEFGHIJKL', hostPremium: i === 0, humans: 2, config: { ...DEFAULT_ROOM_CONFIG, public: true }, updatedAt: 1000 })) });
   else if (mode === 'lobby') content = h(Fragment, null, h("div", { className: "mp-account-standalone" }, account), h(RoomLobby, { connection: state, room: { ...state.room!, phase: 'lobby' }, seat: 'dong', isHost: true, onSit: noop, onStand: noop, onStart: noop, onConfig: noop, onLeave: noop, onToast: noop }));
   else if (mode === 'create' || mode === 'join') content = h(OnlineMenu, { username: 'ABCDEFGHIJKL', initialStep: mode, inviteCode: mode === 'join' ? 'ABC234' : null, busy: false, error: null, account, onCreate: noop, onJoin: noop, onBack: noop });
-  else if (['menu', 'settings', 'history', 'premium', 'match-help'].includes(mode)) content = h(Fragment, null, h(MainMenu, { onOnline: noop }), mode === 'match-help' ? h(MatchHelpModal, { onClose: noop }) : mode === 'settings' ? h(SettingsModal, { settings: DEFAULT_SETTINGS, onSave: noop, onClose: noop }) : mode === 'history' ? h(HistoryModal, { history, onDelete: noop, onClear: noop, onClose: noop }) : mode === 'premium' ? h(PremiumModal, { onClose: noop }) : null);
+  else if (['menu', 'menu-announcement', 'settings', 'history', 'premium', 'match-help'].includes(mode)) content = h(Fragment, null, h(MainMenu, { onOnline: noop }), mode === 'match-help' ? h(MatchHelpModal, { onClose: noop }) : mode === 'settings' ? h(SettingsModal, { settings: DEFAULT_SETTINGS, onSave: noop, onClose: noop }) : mode === 'history' ? h(HistoryModal, { history, onDelete: noop, onClear: noop, onClose: noop }) : mode === 'premium' ? h(PremiumModal, { onClose: noop }) : null);
   else content = h(RemoteTableView, { table, state, optionsOpen, onOptionsOpenChange: setOptionsOpen, onLeave: noop });
   return h('div', { 'data-layout-audit': mode, style: { display: 'contents' } }, content,
     mode === 'flowers' ? h(KongToast, { payments: state.view!.liveKong, ms: 3600000 }) : null);
