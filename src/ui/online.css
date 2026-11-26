@@ -85,6 +85,9 @@
   padding: 2px 10px; border-radius: 999px; background: var(--brand-cream); color: var(--brand-black);
   font-size: 12px; font-weight: 800; white-space: nowrap;
 }
+/* Admin announcement above the menu: any length wraps inside the screen. A nowrap line here widened
+   the menu grid past the viewport, pushing the card off-centre and letting the page pan sideways. */
+.main-menu > .mp-pill { min-width: 0; max-width: min(600px, 100%); margin: 0 0 12px; padding: 6px 14px; border-radius: 12px; line-height: 1.4; text-align: center; white-space: normal; overflow-wrap: break-word; overflow-wrap: anywhere; }
 .mp-account-actions { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
 .mp-account .mp-link { min-height: 32px; padding: 2px 8px; }
 .mp-account-error { grid-column: 1 / -1; padding: 4px 10px; border: 1px solid #d3a59f; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-weight: 600; text-align: center; }

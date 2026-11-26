@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.15] - 2026-11-26
+### Fixed
+- A long admin announcement no longer breaks the front menu: it wraps inside the screen instead of running off one side, so the menu card stays centred and the page no longer pans sideways (seen on iPad Safari).
+
 ## [1.8.14] - 2026-11-25
 ### Added
 - The front menu shows a host "energy bar" for signed-in players: today's matches as pips (for example 2/3), banked matches from invites, and the countdown to the 00.00 WIB refill. Premium shows "Tanpa batas".
